@@ -13,7 +13,7 @@
 #include "fdht_global.h"
 
 int g_server_port = FDFS_STORAGE_SERVER_DEF_PORT;
-int g_max_connections = 1024;  //FDFS_DEF_MAX_CONNECTONS;
+int g_max_connections = 10240;  //FDFS_DEF_MAX_CONNECTONS;
 int g_max_threads = 5;
 int g_min_buff_size = 4 * 1024;
 

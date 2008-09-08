@@ -12,6 +12,7 @@
 
 static struct task_queue_info g_send_queue;
 static struct task_queue_info g_recv_queue;
+static struct task_queue_info g_work_queue;
 static struct task_queue_info g_free_queue;
 
 static struct task_info *g_mpool = NULL;
@@ -36,6 +37,13 @@ int task_queue_init()
 	}
 
 	if ((result=init_pthread_lock(&(g_recv_queue.lock))) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"init_pthread_lock fail, program exit!", __LINE__);
+		return result;
+	}
+
+	if ((result=init_pthread_lock(&(g_work_queue.lock))) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_lock fail, program exit!", __LINE__);
@@ -117,6 +125,8 @@ void task_queue_destroy()
 	g_mpool = NULL;
 
 	pthread_mutex_destroy(&(g_send_queue.lock));
+	pthread_mutex_destroy(&(g_recv_queue.lock));
+	pthread_mutex_destroy(&(g_work_queue.lock));
 	pthread_mutex_destroy(&(g_free_queue.lock));
 }
 
@@ -191,6 +201,24 @@ struct task_info *send_queue_pop()
 int send_queue_count()
 {
 	return _task_queue_count(&g_send_queue);
+}
+
+int work_queue_push(struct task_info *pTask)
+{
+	int result;
+	result = _queue_push_task(&g_work_queue, pTask);
+	//recv_notify_write();
+	return result;
+}
+
+struct task_info *work_queue_pop()
+{
+	return _queue_pop_task(&g_work_queue);
+}
+
+int work_queue_count()
+{
+	return _task_queue_count(&g_work_queue);
 }
 
 static int _queue_push_task(struct task_queue_info *pQueue, \
