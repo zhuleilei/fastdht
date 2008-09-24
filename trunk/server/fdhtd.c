@@ -31,6 +31,7 @@
 #include "task_queue.h"
 #include "recv_thread.h"
 #include "send_thread.h"
+#include "service.h"
 
 bool bReloadFlag = false;
 static pthread_attr_t thread_attr;
@@ -50,16 +51,14 @@ static int g_done_count = 0;
 
 int main(int argc, char *argv[])
 {
-	//char *conf_filename;
+	char *conf_filename;
 	char bind_addr[FDFS_IPADDR_SIZE];
 	
 	int result;
 	int sock;
 	struct sigaction act;
 
-	printf("sizeof(task_info)=%d\n", sizeof(struct task_info));
 	memset(bind_addr, 0, sizeof(bind_addr));
-	/*
 	if (argc < 2)
 	{
 		printf("Usage: %s <config_file>\n", argv[0]);
@@ -67,17 +66,17 @@ int main(int argc, char *argv[])
 	}
 
 	conf_filename = argv[1];
-	if ((result=storage_load_from_conf_file(conf_filename, \
+	if ((result=fdht_service_init(conf_filename, \
 			bind_addr, sizeof(bind_addr))) != 0)
 	{
 		return result;
 	}
-	*/
 
 	if ((result=init_pthread_lock(&g_storage_thread_lock)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_lock fail, program exit!", __LINE__);
+		fdht_service_destroy();
 		return result;
 	}
 
@@ -85,6 +84,7 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_lock fail, program exit!", __LINE__);
+		fdht_service_destroy();
 		return result;
 	}
 
@@ -93,11 +93,13 @@ int main(int argc, char *argv[])
 	sock = socketServer(bind_addr, g_server_port, &result);
 	if (sock < 0)
 	{
+		fdht_service_destroy();
 		return result;
 	}
 
 	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
 	{
+		fdht_service_destroy();
 		return result;
 	}
 
@@ -114,6 +116,7 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
+		fdht_service_destroy();
 		return errno;
 	}
 
@@ -123,6 +126,7 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
+		fdht_service_destroy();
 		return errno;
 	}
 	
@@ -132,6 +136,7 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
+		fdht_service_destroy();
 		return errno;
 	}
 
@@ -145,6 +150,7 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
+		fdht_service_destroy();
 		return errno;
 	}
 
@@ -152,16 +158,19 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_attr fail, program exit!", __LINE__);
+		fdht_service_destroy();
 		return result;
 	}
 
 	if ((result=init_pthread_cond()) != 0)
 	{
+		fdht_service_destroy();
 		return result;
 	}
 
 	if ((result=task_queue_init()) != 0)
 	{
+		fdht_service_destroy();
 		return result;
 	}
 
@@ -181,6 +190,8 @@ int main(int argc, char *argv[])
 	printf("queue count3: %d\n", free_queue_count() + recv_queue_count()); 
 	task_queue_destroy();
 	close(sock);
+
+	fdht_service_destroy();
 
 	logInfo("exit nomally.\n");
 	

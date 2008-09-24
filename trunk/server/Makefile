@@ -1,7 +1,7 @@
 .SUFFIXES: .c .o
 
-COMPILE = $(CC) -Wall -O2 -D_FILE_OFFSET_BITS=64 -DOS_LINUX
-#COMPILE = $(CC) -Wall -g -D_FILE_OFFSET_BITS=64 -DOS_LINUX -D__DEBUG__
+#COMPILE = $(CC) -Wall -O2 -D_FILE_OFFSET_BITS=64 -DOS_LINUX
+COMPILE = $(CC) -Wall -g -D_FILE_OFFSET_BITS=64 -DOS_LINUX -D__DEBUG__
 INC_PATH = -I../common -I../../fastdfs/common -I/usr/local/include \
            -I /usr/local/BerkeleyDB.4.7/include
 LIB_PATH = -L/usr/local/lib -lpthread -levent -L /usr/local/BerkeleyDB.4.7/lib -ldb
