@@ -28,11 +28,12 @@
 extern "C" {
 #endif
 
-int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
-		const int addr_size, int **group_ids, int *group_count);
+int load_group_ids(IniItemInfo *items, const int nItemCount, \
+		const char *item_name, int **group_ids, int *group_count);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
+

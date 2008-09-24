@@ -20,11 +20,9 @@
 extern "C" {
 #endif
 
-int fdht_service_init();
+int fdht_service_init(const char *filename, char *bind_addr, \
+		const int addr_size);
 void fdht_service_destroy();
-
-int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
-		const int addr_size, int **group_ids, int *group_count);
 
 #ifdef __cplusplus
 }

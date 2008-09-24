@@ -27,7 +27,7 @@
 #include "ini_file_reader.h"
 #include "fdht_func.h"
 
-int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
+int load_group_ids(IniItemInfo *items, const int nItemCount, \
 		const char *item_name, int **group_ids, int *group_count)
 {
 	char *pGroupIds;
@@ -76,6 +76,8 @@ int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
 			"strdup \"%s\" fail, errno: %d, error info: %s.", \
 			__LINE__, pGroupIds, \
 			errno, strerror(errno));
+		free(*group_ids);
+		*group_ids = NULL;
 		return errno != 0 ? errno : ENOMEM;
 	}
 
@@ -117,8 +119,8 @@ int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
 			{
 				logError("file: "__FILE__", line: %d, " \
 					"invalid group ids \"%s\", which contains " \
-					"invalid char: %c(0x%02X)!", \
-					__LINE__, pGroupIds, *p, *p);
+					"invalid char: %c(0x%02X)! remain string: %s", \
+					__LINE__, pGroupIds, *p, *p, p);
 				result = EINVAL;
 				break;
 			}
@@ -140,8 +142,8 @@ int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"invalid group ids \"%s\", which contains " \
-				"invalid char: %c(0x%02X)!", \
-				__LINE__, pGroupIds, *p, *p);
+				"invalid char: %c(0x%02X)! remain string: %s", \
+				__LINE__, pGroupIds, *p, *p, p);
 			result = EINVAL;
 			break;
 		}
@@ -163,8 +165,9 @@ int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"invalid group ids: %s, " \
-				"empty entry before char %c(0x%02X)", \
-				__LINE__, pGroupIds, *p, *p);
+				"empty entry before char %c(0x%02X), " \
+				"remain string: %s", \
+				__LINE__, pGroupIds, *p, *p, p);
 			result = EINVAL;
 			break;
 		}
@@ -178,8 +181,8 @@ int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"expect \"-\", but char %c(0x%02X) ocurs " \
-				"in group ids: %s",\
-				__LINE__, *p, *p, pGroupIds);
+				"in group ids: %s, remain string: %s",\
+				__LINE__, *p, *p, pGroupIds, p);
 			result = EINVAL;
 			break;
 		}
@@ -260,15 +263,31 @@ int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
 		}
 
 		p++; //skip ]
+		/* trim spaces */
+		while (*p == ' ' || *p == '\t')
+		{
+			p++;
+		}
+		if (*p == ',')
+		{
+			p++; //skip ,
+		}
 	}
 
 	free(pBuff);
 
-	if (*group_count == 0)
+	if (result == 0 && *group_count == 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"invalid group ids count: 0!", __LINE__);
-		return EINVAL;
+		result = EINVAL;
+	}
+
+	if (result != 0)
+	{
+		*group_count = 0;
+		free(*group_ids);
+		*group_ids = NULL;
 	}
 
 	printf("*group_count=%d\n", *group_count);
@@ -277,6 +296,6 @@ int fdht_load_group_ids(IniItemInfo *items, const int nItemCount, \
 		printf("%d\n", (*group_ids)[i]);
 	}
 
-	return 0;
+	return result;
 }
 
