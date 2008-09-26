@@ -76,7 +76,6 @@ int main(int argc, char *argv[])
 	}
 
 	g_log_level = LOG_DEBUG;
-	g_server_port = 12345;
 	sock = socketServer(bind_addr, g_server_port, &result);
 	if (sock < 0)
 	{
