@@ -298,7 +298,7 @@ static int deal_task(struct task_info *pTask)
 }
 
 #define CHECK_GROUP_ID(pTask, group_id) \
-	group_id = buff2int(((ProtoHeader *)pTask)->group_id); \
+	group_id = buff2int(((ProtoHeader *)pTask->data)->group_id); \
 	if (group_id < 0 || group_id >= g_db_count) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
