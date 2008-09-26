@@ -18,47 +18,13 @@
 #include "ini_file_reader.h"
 #include "fdht_global.h"
 #include "global.h"
-#include "db_op.h"
 #include "fdht_func.h"
 #include "service.h"
 
-static DBInfo **db_list = NULL;
-static int db_count = 0;
+DBInfo **g_db_list = NULL;
+int g_db_count = 0;
 
 #define DB_FILE_PREFIX_MAX_SIZE  32
-
-int parse_bytes(char *pStr, int64_t *bytes)
-{
-	char *pReservedEnd;
-
-	pReservedEnd = NULL;
-	*bytes = strtol(pStr, &pReservedEnd, 10);
-	if (*bytes < 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"bytes: %lld < 0", __LINE__, *bytes);
-		return EINVAL;
-	}
-
-	if (pReservedEnd == NULL || *pReservedEnd == '\0')
-	{
-		*bytes *= 1024 * 1024;
-	}
-	else if (*pReservedEnd == 'G' || *pReservedEnd == 'g')
-	{
-		*bytes *= 1024 * 1024 * 1024;
-	}
-	else if (*pReservedEnd == 'M' || *pReservedEnd == 'm')
-	{
-		*bytes *= 1024 * 1024;
-	}
-	else if (*pReservedEnd == 'K' || *pReservedEnd == 'k')
-	{
-		*bytes *= 1024;
-	}
-
-	return 0;
-}
 
 static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		const int addr_size, int **group_ids, int *group_count, \
@@ -316,29 +282,29 @@ int fdht_service_init(const char *filename, char *bind_addr, \
 		}
 	}
 
-	db_count = max_group_id + 1;
-	db_list = (DBInfo **)malloc(sizeof(DBInfo *) * db_count);
-	if (db_list == NULL)
+	g_db_count = max_group_id + 1;
+	g_db_list = (DBInfo **)malloc(sizeof(DBInfo *) * g_db_count);
+	if (g_db_list == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, sizeof(DBInfo *) * db_count, \
+			__LINE__, sizeof(DBInfo *) * g_db_count, \
 			errno, strerror(errno));
 		free(group_ids);
 		return errno != 0 ? errno : ENOMEM;
 	}
 
-	for (i=0; i<db_count; i++)
+	for (i=0; i<g_db_count; i++)
 	{
-		db_list[i] = NULL;
+		g_db_list[i] = NULL;
 	}
 
 	result = 0;
 	for (pGroupId=group_ids; pGroupId<pGroupEnd; pGroupId++)
 	{
-		db_list[*pGroupId] = (DBInfo *)malloc(sizeof(DBInfo));
-		if (db_list[*pGroupId] == NULL)
+		g_db_list[*pGroupId] = (DBInfo *)malloc(sizeof(DBInfo));
+		if (g_db_list[*pGroupId] == NULL)
 		{
 			result = errno != 0 ? errno : ENOMEM;
 			logError("file: "__FILE__", line: %d, " \
@@ -351,7 +317,7 @@ int fdht_service_init(const char *filename, char *bind_addr, \
 
 		snprintf(db_filename, sizeof(db_filename), "%s%03d", \
 			db_file_prefix, *pGroupId);
-		if ((result=db_init(db_list[*pGroupId], db_type, nCacheSize, \
+		if ((result=db_init(g_db_list[*pGroupId], db_type, nCacheSize, \
 				g_base_path, db_filename)) != 0)
 		{
 			break;
@@ -366,13 +332,13 @@ void fdht_service_destroy()
 {
 	int i;
 
-	for (i=0; i<db_count; i++)
+	for (i=0; i<g_db_count; i++)
 	{
-		if (db_list[i] != NULL)
+		if (g_db_list[i] != NULL)
 		{
-			db_destroy(db_list[i]);
-			free(db_list[i]);
-			db_list[i] = NULL;
+			db_destroy(g_db_list[i]);
+			free(g_db_list[i]);
+			g_db_list[i] = NULL;
 		}
 	}
 }

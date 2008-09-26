@@ -15,10 +15,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fdht_define.h"
+#include "db_op.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+extern DBInfo **g_db_list;
+extern int g_db_count;
 
 int fdht_service_init(const char *filename, char *bind_addr, \
 		const int addr_size);

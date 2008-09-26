@@ -9,6 +9,7 @@
 #include "shared_func.h"
 #include "recv_thread.h"
 #include "send_thread.h"
+#include "work_thread.h"
 
 static struct task_queue_info g_send_queue;
 static struct task_queue_info g_recv_queue;
@@ -207,7 +208,7 @@ int work_queue_push(struct task_info *pTask)
 {
 	int result;
 	result = _queue_push_task(&g_work_queue, pTask);
-	//recv_notify_write();
+	work_notify_task();
 	return result;
 }
 

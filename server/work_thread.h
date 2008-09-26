@@ -24,6 +24,7 @@ extern "C" {
 
 int work_thread_init();
 void work_thread_destroy();
+int work_notify_task();
 
 #ifdef __cplusplus
 }

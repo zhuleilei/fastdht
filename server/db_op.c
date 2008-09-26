@@ -189,6 +189,11 @@ int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 				"db_get fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, result, db_strerror(result));
+			return ENOENT;
+		}
+		else
+		{
+			return EFAULT;
 		}
 	}
 	else
