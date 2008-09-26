@@ -34,6 +34,7 @@
 struct task_info
 {
 	char status;
+	char client_ip[IP_ADDRESS_SIZE];
 	struct event ev;
 	char *data;
 	int size;   //alloc size

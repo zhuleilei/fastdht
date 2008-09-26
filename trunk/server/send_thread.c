@@ -175,10 +175,7 @@ static void client_sock_write(int sock, short event, void *arg)
 	pTask->offset += bytes;
 	if (pTask->offset >= pTask->length)
 	{
-		//recv_queue_push(pTask);  //persistent connection
-
-		close(pTask->ev.ev_fd);
-		free_queue_push(pTask);
+		recv_queue_push(pTask);  //persistent connection
 		g_send_count++;
 		return;
 	}

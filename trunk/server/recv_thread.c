@@ -156,6 +156,8 @@ static void server_sock_read(int sock, short event, void *arg)
 	struct sockaddr_in inaddr;
 	unsigned int sockaddr_len;
 	struct task_info *pTask;
+	char szClientIp[IP_ADDRESS_SIZE];
+	in_addr_t client_addr;
 
 	sockaddr_len = sizeof(inaddr);
 	incomesock = accept(sock, (struct sockaddr*)&inaddr, &sockaddr_len);
@@ -169,7 +171,22 @@ static void server_sock_read(int sock, short event, void *arg)
 		return;
 	}
 	
-	//printf("incomesock=%d\n", incomesock);
+	client_addr = getPeerIpaddr(incomesock, \
+				szClientIp, IP_ADDRESS_SIZE);
+	if (g_allow_ip_count >= 0)
+	{
+		if (bsearch(&client_addr, g_allow_ip_addrs, g_allow_ip_count, \
+			sizeof(in_addr_t), cmp_by_ip_addr_t) == NULL)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"ip addr %s is not allowed to access", \
+				__LINE__, szClientIp);
+
+			close(incomesock);
+			return;
+		}
+	}
+
 	if (tcpsetnonblockopt(incomesock, g_network_timeout) != 0)
 	{
 		close(incomesock);
@@ -186,6 +203,7 @@ static void server_sock_read(int sock, short event, void *arg)
 		return;
 	}
 
+	strcpy(pTask->client_ip, szClientIp);
 	event_set(&pTask->ev, incomesock, EV_READ, client_sock_read, pTask);
 	if (event_base_set(recv_event_base, &pTask->ev) != 0)
 	{
@@ -215,16 +233,14 @@ static void client_sock_read(int sock, short event, void *arg)
 	int recv_bytes;
 	//int result;
 	struct task_info *pTask;
-	char client_ip[IP_ADDRESS_SIZE];
 
 	pTask = (struct task_info *)arg;
 
 	if (event == EV_TIMEOUT)
 	{
-		getPeerIpaddr(pTask->ev.ev_fd, client_ip, sizeof(client_ip));
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, recv timeout", \
-			__LINE__, client_ip);
+			__LINE__, pTask->client_ip);
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
@@ -245,7 +261,6 @@ static void client_sock_read(int sock, short event, void *arg)
 	{
 		char *pTemp;
 
-		printf("realloc!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!!!!!!!!!!!!!!!!!!!!\n");
 		pTemp = pTask->data;
 		pTask->size += recv_bytes;
 		pTask->data = realloc(pTask->data, pTask->size);
@@ -269,11 +284,10 @@ static void client_sock_read(int sock, short event, void *arg)
 	g_recv_count++;
 	if (bytes < 0)
 	{
-		getPeerIpaddr(pTask->ev.ev_fd, client_ip, sizeof(client_ip));
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, recv failed, " \
 			"errno: %d, error info: %s", \
-			__LINE__, client_ip, errno, strerror(errno));
+			__LINE__, pTask->client_ip, errno, strerror(errno));
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
@@ -281,11 +295,10 @@ static void client_sock_read(int sock, short event, void *arg)
 	}
 	else if (bytes == 0)
 	{
-		getPeerIpaddr(pTask->ev.ev_fd, client_ip, sizeof(client_ip));
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, recv failed, " \
 			"connection disconnected.", \
-			__LINE__, client_ip);
+			__LINE__, pTask->client_ip);
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
@@ -297,23 +310,21 @@ static void client_sock_read(int sock, short event, void *arg)
 		pTask->length = buff2int(((ProtoHeader *)pTask->data)->pkg_len);
 		if (pTask->length < 0)
 		{
-			getPeerIpaddr(pTask->ev.ev_fd, client_ip, \
-					sizeof(client_ip));
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, pkg length: %d < 0", \
-				__LINE__, client_ip, pTask->length);
+				__LINE__, pTask->client_ip, pTask->length);
 
 			close(pTask->ev.ev_fd);
 			free_queue_push(pTask);
 			return;
 		}
-		else if (pTask->length > g_max_pkg_size)
+
+		pTask->length += sizeof(ProtoHeader);
+		if (pTask->length > g_max_pkg_size)
 		{
-			getPeerIpaddr(pTask->ev.ev_fd, client_ip, \
-					sizeof(client_ip));
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, pkg length: %d > max pkg " \
-				"size: %d", __LINE__, client_ip, \
+				"size: %d", __LINE__, pTask->client_ip, \
 				pTask->length, g_max_pkg_size);
 
 			close(pTask->ev.ev_fd);

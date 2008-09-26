@@ -28,6 +28,7 @@ typedef int fdht_pkg_size_t;
 typedef struct
 {
 	char pkg_len[FDHT_PROTO_PKG_LEN_SIZE];
+	char group_id[FDHT_PROTO_PKG_LEN_SIZE]; //the group id key belong to
 	char cmd;
 	char status;
 } ProtoHeader;
