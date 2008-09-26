@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fdfs_define.h"
+#include "fdht_define.h"
 
 #ifdef __cplusplus
 extern "C" {

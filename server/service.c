@@ -125,7 +125,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		fdfs_load_log_level(items, nItemCount);
+		load_log_level(items, nItemCount);
 		if ((result=log_init("fdhtd")) != 0)
 		{
 			break;
@@ -139,10 +139,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_server_port = iniGetIntValue("port", items, nItemCount, \
-					FDFS_STORAGE_SERVER_DEF_PORT);
+					FDHT_SERVER_DEFAULT_PORT);
 		if (g_server_port <= 0)
 		{
-			g_server_port = FDFS_STORAGE_SERVER_DEF_PORT;
+			g_server_port = FDHT_SERVER_DEFAULT_PORT;
 		}
 
 		pBindAddr = iniGetStrValue("bind_addr", items, nItemCount);
@@ -156,10 +156,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_max_connections = iniGetIntValue("max_connections", \
-				items, nItemCount, FDFS_DEF_MAX_CONNECTONS);
+				items, nItemCount, DEFAULT_MAX_CONNECTONS);
 		if (g_max_connections <= 0)
 		{
-			g_max_connections = FDFS_DEF_MAX_CONNECTONS;
+			g_max_connections = DEFAULT_MAX_CONNECTONS;
 		}
 		if ((result=set_rlimit(RLIMIT_NOFILE, g_max_connections)) != 0)
 		{
@@ -167,10 +167,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_max_threads = iniGetIntValue("max_threads", \
-				items, nItemCount, FDFS_DEF_MAX_CONNECTONS);
+				items, nItemCount, DEFAULT_MAX_CONNECTONS);
 		if (g_max_threads <= 0)
 		{
-			g_max_threads = FDFS_DEF_MAX_CONNECTONS;
+			g_max_threads = DEFAULT_MAX_CONNECTONS;
 		}
 		
 		pRunByGroup = iniGetStrValue("run_by_group", \
@@ -182,7 +182,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		if ((result=fdfs_load_allow_hosts(items, nItemCount, \
+		if ((result=load_allow_hosts(items, nItemCount, \
                 	 &g_allow_ip_addrs, &g_allow_ip_count)) != 0)
 		{
 			break;

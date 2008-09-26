@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <db.h>
-#include "fdfs_define.h"
+#include "fdht_define.h"
 
 typedef DBTYPE DBType;
 

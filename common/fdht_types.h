@@ -14,11 +14,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fdfs_define.h"
+#include "fdht_define.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct
+{
+	int sock;
+	int port;
+	char ip_addr[IP_ADDRESS_SIZE];
+} FDHTServerInfo;
 
 #ifdef __cplusplus
 }
