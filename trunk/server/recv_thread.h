@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <event.h>
-#include "fdfs_define.h"
+#include "fdht_define.h"
 #include "task_queue.h"
 
 #ifdef __cplusplus

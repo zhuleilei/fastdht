@@ -14,8 +14,8 @@
 
 bool g_continue_flag = true;
 
-int g_server_port = FDFS_STORAGE_SERVER_DEF_PORT;
-int g_max_connections = 10240;  //FDFS_DEF_MAX_CONNECTONS;
+int g_server_port = FDHT_SERVER_DEFAULT_PORT;
+int g_max_connections = DEFAULT_MAX_CONNECTONS;
 int g_max_threads = 5;
 int g_min_buff_size = 4 * 1024;
 
