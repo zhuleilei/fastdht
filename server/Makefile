@@ -14,8 +14,8 @@ SHARED_OBJS = ../../fastdfs/common/hash.o  ../../fastdfs/common/chain.o \
               ../../fastdfs/common/fdfs_base64.o \
               ../common/fdht_global.o ../common/fdht_func.o \
               ../common/fdht_proto.o \
-              global.o \
-              task_queue.o recv_thread.o send_thread.o db_op.o service.o
+              global.o task_queue.o recv_thread.o send_thread.o db_op.o \
+              service.o work_thread.o
 
 ALL_OBJS = $(SHARED_OBJS)
 

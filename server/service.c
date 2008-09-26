@@ -72,9 +72,11 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char *pRunByGroup;
 	char *pRunByUser;
 	char *pCacheSize;
+	char *pMaxPkgSize;
 	IniItemInfo *items;
 	int nItemCount;
 	int result;
+	u_int64_t max_pkg_size;
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
 	{
@@ -172,6 +174,22 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		{
 			g_max_threads = DEFAULT_MAX_CONNECTONS;
 		}
+
+		pMaxPkgSize = iniGetStrValue("max_pkg_size", \
+				items, nItemCount);
+		if (pMaxPkgSize == NULL)
+		{
+			g_max_pkg_size = FDHT_MAX_PKG_SIZE;
+		}
+		else 
+		{
+			if ((result=parse_bytes(pMaxPkgSize, \
+					&max_pkg_size)) != 0)
+			{
+				return result;
+			}
+			g_max_pkg_size = (int)max_pkg_size;
+		}
 		
 		pRunByGroup = iniGetStrValue("run_by_group", \
 						items, nItemCount);
@@ -244,6 +262,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"port=%d, bind_addr=%s, " \
 			"max_connections=%d, "    \
 			"max_threads=%d, "    \
+			"max_pkg_size=%d, " \
 			"db_type=%s, " \
 			"db_prefix=%s, " \
 			"cache_size=%lld, "    \
@@ -252,7 +271,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_base_path, *group_count, \
 			g_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
-			g_max_threads, *db_type == DB_BTREE ? "btree" : "hash", \
+			g_max_threads, g_max_pkg_size, \
+			*db_type == DB_BTREE ? "btree" : "hash", \
 			db_file_prefix, *nCacheSize, g_allow_ip_count);
 
 		break;
