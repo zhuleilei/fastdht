@@ -28,6 +28,7 @@
 #include "global.h"
 #include "ini_file_reader.h"
 #include "sockopt.h"
+#include "fdht_proto.h"
 #include "task_queue.h"
 #include "send_thread.h"
 
@@ -210,17 +211,20 @@ static void server_sock_read(int sock, short event, void *arg)
 
 static void client_sock_read(int sock, short event, void *arg)
 {
-#define RECV_BYTES_ONCE  (2 * 1024)
 	int bytes;
+	int recv_bytes;
 	//int result;
 	struct task_info *pTask;
+	char client_ip[IP_ADDRESS_SIZE];
 
 	pTask = (struct task_info *)arg;
 
 	if (event == EV_TIMEOUT)
 	{
+		getPeerIpaddr(pTask->ev.ev_fd, client_ip, sizeof(client_ip));
 		logError("file: "__FILE__", line: %d, " \
-			"recv timeout", __LINE__);
+			"client ip: %s, recv timeout", \
+			__LINE__, client_ip);
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
@@ -228,13 +232,22 @@ static void client_sock_read(int sock, short event, void *arg)
 		return;
 	}
 
-	if (pTask->offset + RECV_BYTES_ONCE > pTask->size)
+	if (pTask->length == 0) //recv header
+	{
+		recv_bytes = sizeof(ProtoHeader);
+	}
+	else
+	{
+		recv_bytes = pTask->length - pTask->offset;
+	}
+
+	if (pTask->offset + recv_bytes > pTask->size)
 	{
 		char *pTemp;
 
 		printf("realloc!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!!!!!!!!!!!!!!!!!!!!\n");
 		pTemp = pTask->data;
-		pTask->size += RECV_BYTES_ONCE;
+		pTask->size += recv_bytes;
 		pTask->data = realloc(pTask->data, pTask->size);
 		if (pTask->data == NULL)
 		{
@@ -252,51 +265,78 @@ static void client_sock_read(int sock, short event, void *arg)
 		}
 	}
 
-	bytes = recv(sock, pTask->data + pTask->offset, \
-			RECV_BYTES_ONCE,  0);
+	bytes = recv(sock, pTask->data + pTask->offset, recv_bytes, 0);
+	g_recv_count++;
 	if (bytes < 0)
 	{
+		getPeerIpaddr(pTask->ev.ev_fd, client_ip, sizeof(client_ip));
 		logError("file: "__FILE__", line: %d, " \
-			"recv failed, " \
+			"client ip: %s, recv failed, " \
 			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, client_ip, errno, strerror(errno));
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
-		g_recv_count++;
 		return;
 	}
 	else if (bytes == 0)
 	{
+		getPeerIpaddr(pTask->ev.ev_fd, client_ip, sizeof(client_ip));
 		logError("file: "__FILE__", line: %d, " \
-			"recv failed, connection disconnected.", \
-			__LINE__);
+			"client ip: %s, recv failed, " \
+			"connection disconnected.", \
+			__LINE__, client_ip);
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
-		g_recv_count++;
 		return;
 	}
 
+	if (pTask->length == 0) //header
+	{
+		pTask->length = buff2int(((ProtoHeader *)pTask->data)->pkg_len);
+		if (pTask->length < 0)
+		{
+			getPeerIpaddr(pTask->ev.ev_fd, client_ip, \
+					sizeof(client_ip));
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, pkg length: %d < 0", \
+				__LINE__, client_ip, pTask->length);
+
+			close(pTask->ev.ev_fd);
+			free_queue_push(pTask);
+			return;
+		}
+		else if (pTask->length > g_max_pkg_size)
+		{
+			getPeerIpaddr(pTask->ev.ev_fd, client_ip, \
+					sizeof(client_ip));
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, pkg length: %d > max pkg " \
+				"size: %d", __LINE__, client_ip, \
+				pTask->length, g_max_pkg_size);
+
+			close(pTask->ev.ev_fd);
+			free_queue_push(pTask);
+			return;
+		}
+	}
+
 	pTask->offset += bytes;
-
-
-	//for test start.........................
-	pTask->length = sprintf(pTask->data, "HTTP/1.1 200 OK\r\n" \
-					"Content-Type: text/html; charset=utf-8\r\n" \
-					"Content-Length: 0\r\n" \
-					"Connection: close\r\n" \
-					"\r\n");
-	pTask->offset = 0;
-
-	send_queue_push(pTask);
-
-	//for test end.........................
-
-	g_recv_count++;
-
+	if (pTask->offset >= pTask->length) //recv done
+	{
+		work_queue_push(pTask);
 	/*
-	if (event_add(&pTask->ev, &g_network_tv) != 0)
+		if ((result=pthread_cond_signal(&thread_cond)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"pthread_cond_signal failed, " \
+				"errno: %d, error info: %s", \
+				__LINE__, result, strerror(result));
+		}
+	*/
+	}
+	else if (event_add(&pTask->ev, &g_network_tv) != 0)
 	{
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
@@ -305,21 +345,8 @@ static void client_sock_read(int sock, short event, void *arg)
 			"event_add fail.", __LINE__);
 		return;
 	}
-	*/
 
 	return;
-
-	//printf("recv total length: %d\n", pTask->offset);
-	/*
-	if ((result=pthread_cond_signal(&thread_cond)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"pthread_cond_signal failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-	}
-	*/
-
 }
 
 static void recv_notify_read(int sock, short event, void *arg)
