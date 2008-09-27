@@ -51,7 +51,7 @@ int fdht_recv_header(FDHTServerInfo *pServer, fdht_pkg_size_t *in_bytes)
 	if (*in_bytes < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"server: %s:%d, recv package size "INT64_PRINTF_FORMAT" " \
+			"server: %s:%d, recv package size %d " \
 			"is not correct", \
 			__LINE__, pServer->ip_addr, \
 			pServer->port, *in_bytes);
@@ -88,7 +88,7 @@ int fdht_recv_response(FDHTServerInfo *pServer, \
 			*in_bytes = 0;
 
 			logError("file: "__FILE__", line: %d, " \
-				"malloc "INT64_PRINTF_FORMAT" bytes fail", \
+				"malloc %d bytes fail", \
 				__LINE__, (*in_bytes) + 1);
 			return errno != 0 ? errno : ENOMEM;
 		}
@@ -100,7 +100,7 @@ int fdht_recv_response(FDHTServerInfo *pServer, \
 		if (*in_bytes > buff_size)
 		{
 			logError("file: "__FILE__", line: %d, " \
-				"server: %s:%d, recv body bytes: "INT64_PRINTF_FORMAT"" \
+				"server: %s:%d, recv body bytes: %d" \
 				" exceed max: %d", \
 				__LINE__, pServer->ip_addr, \
 				pServer->port, *in_bytes, buff_size);
