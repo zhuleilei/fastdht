@@ -11,6 +11,13 @@
 #include "shared_func.h"
 #include "db_op.h"
 
+static void db_errcall(const DB_ENV *dbenv, const char *errpfx, const char *msg)
+{
+	logError("file: "__FILE__", line: %d, " \
+		"db error, error info: %s", \
+		__LINE__, msg);
+}
+
 int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	const char *base_path, const char *filename)
 {
@@ -52,9 +59,19 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
+	if ((result=pDBInfo->env->set_alloc(pDBInfo->env, \
+			malloc, realloc, free)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"env->set_alloc fail, errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+		return result;
+	}
+
 	pDBInfo->env->set_tmp_dir(pDBInfo->env, "tmp");
 	pDBInfo->env->set_lg_dir(pDBInfo->env, "logs");
 	pDBInfo->env->set_data_dir(pDBInfo->env, "data");
+	pDBInfo->env->set_errcall(pDBInfo->env, db_errcall);
 
 	gb = (u_int32_t)(nCacheSize / (1024 * 1024 * 1024));
 	bytes = (u_int32_t)(nCacheSize - (u_int64_t)gb  * (1024 * 1024 * 1024));
@@ -73,7 +90,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	if ((result=pDBInfo->env->open(pDBInfo->env, base_path, \
-		DB_CREATE | DB_INIT_MPOOL | DB_THREAD, 0644)) != 0)
+		DB_CREATE | DB_INIT_MPOOL | DB_INIT_LOG | DB_THREAD, 0644)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"env->open fail, errno: %d, error info: %s", \
@@ -155,6 +172,7 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 			"db_put fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, result, db_strerror(result));
+		return EFAULT;
 	}
 
 	return result;
@@ -170,7 +188,6 @@ int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	memset(&key, 0, sizeof(key));
 	memset(&value, 0, sizeof(value));
 
-	//key.flags = DB_DBT_USERMEM;
 	key.data = (char *)pKey;
 	key.size = key_len;
 
@@ -180,19 +197,23 @@ int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		value.data = *ppValue;
 		value.ulen = *size;
 	}
+	else
+	{
+		value.flags = DB_DBT_MALLOC;
+	}
 
 	if ((result=pDBInfo->db->get(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
 	{
-		if (result != DB_NOTFOUND)
+		if (result == DB_NOTFOUND)
+		{
+			return ENOENT;
+		}
+		else
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"db_get fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, result, db_strerror(result));
-			return ENOENT;
-		}
-		else
-		{
 			return EFAULT;
 		}
 	}

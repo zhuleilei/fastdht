@@ -140,7 +140,6 @@ int free_queue_push(struct task_info *pTask)
 {
 	char *new_buff;
 
-	pTask->status = TASK_STATUS_NONE;
 	pTask->length = 0;
 	pTask->offset = 0;
 	if (pTask->size > g_min_buff_size) //need thrink
@@ -171,6 +170,9 @@ int free_queue_count()
 int recv_queue_push(struct task_info *pTask)
 {
 	int result;
+
+	pTask->length = 0;
+	pTask->offset = 0;
 	result = _queue_push_task(&g_recv_queue, pTask);
 	recv_notify_write();
 	return result;
@@ -189,6 +191,8 @@ int recv_queue_count()
 int send_queue_push(struct task_info *pTask)
 {
 	int result;
+
+	pTask->offset = 0;
 	result = _queue_push_task(&g_send_queue, pTask);
 	send_notify_write();
 	return result;

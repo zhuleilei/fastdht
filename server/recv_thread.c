@@ -231,7 +231,6 @@ static void client_sock_read(int sock, short event, void *arg)
 {
 	int bytes;
 	int recv_bytes;
-	//int result;
 	struct task_info *pTask;
 
 	pTask = (struct task_info *)arg;
@@ -331,21 +330,14 @@ static void client_sock_read(int sock, short event, void *arg)
 			free_queue_push(pTask);
 			return;
 		}
+
+		//printf("pkg length: %d\n", pTask->length);
 	}
 
 	pTask->offset += bytes;
 	if (pTask->offset >= pTask->length) //recv done
 	{
 		work_queue_push(pTask);
-	/*
-		if ((result=pthread_cond_signal(&thread_cond)) != 0)
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"pthread_cond_signal failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
-		}
-	*/
 	}
 	else if (event_add(&pTask->ev, &g_network_tv) != 0)
 	{

@@ -44,6 +44,22 @@ int fdht_recv_response(FDHTServerInfo *pServer, \
 		fdht_pkg_size_t *in_bytes);
 int fdht_quit(FDHTServerInfo *pServer);
 
+/**
+* connect to the server
+* params:
+*	pServer: server
+* return: 0 success, !=0 fail, return the error code
+**/
+int fdht_connect_server(FDHTServerInfo *pServer);
+
+/**
+* close connection to the server
+* params:
+*	pServer: server
+* return:
+**/
+void fdht_disconnect_server(FDHTServerInfo *pServer);
+
 #ifdef __cplusplus
 }
 #endif
