@@ -49,7 +49,7 @@ FDHTServerInfo *get_writable_connection(ServerArray *pServerArray, \
 	return NULL;
 }
 
-FDHTServerInfo *get_readabl_connection(ServerArray *pServerArray, \
+FDHTServerInfo *get_readable_connection(ServerArray *pServerArray, \
 		bool *new_connection, int *err_no)
 {
 	FDHTServerInfo *pServer;
@@ -114,109 +114,409 @@ int fdht_get(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	bool new_connection;
 
 	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
-	pServer = get_readabl_connection(pGroupArray->groups + group_id, \
+	pServer = get_readable_connection(pGroupArray->groups + group_id, \
                 	&new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
 	}
 
+	printf("group_id=%d\n", group_id);
+
 	memset(&header, 0, sizeof(header));
 	header.cmd = FDHT_PROTO_CMD_GET;
 	int2buff(group_id, header.group_id);
 	int2buff(4 + key_len, header.pkg_len);
 
-	if ((result=tcpsenddata(pServer->sock, &header, \
-			sizeof(header), g_network_timeout)) != 0)
-	{
-		logError("send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, \
-			pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	int2buff(key_len, buff);
-	if ((result=tcpsenddata(pServer->sock, buff, 4, \
-		g_network_timeout)) != 0)
-	{
-		logError("send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, \
-			pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
-		g_network_timeout)) != 0)
-	{
-		logError("send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
 	in_buff = NULL;
-	if ((result=fdht_recv_response(pServer, &in_buff, \
-		0, &in_bytes)) != 0)
+	while (1)
 	{
-		logError("recv data from server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	if (in_bytes < 4)
-	{
-		logError("server %s:%d reponse bytes: %d < 4", \
-			pServer->ip_addr, pServer->port, in_bytes);
-		return EINVAL;
-	}
-
-	if (*ppValue != NULL)
-	{
-		if (in_bytes - 4 >= *value_len)
+		if ((result=tcpsenddata(pServer->sock, &header, \
+			sizeof(header), g_network_timeout)) != 0)
 		{
-			*value_len = 0;
-			free(in_buff);
-			return ENOSPC;
-		}
-
-		*value_len = in_bytes - 4;
-	}
-	else
-	{
-		*value_len = in_bytes - 4;
-		*ppValue = (char *)malloc(*value_len + 1);
-		if (*ppValue == NULL)
-		{
-			*value_len = 0;
-			free(in_buff);
-			logError("malloc %d bytes fail, " \
+			logError("send data to server %s:%d fail, " \
 				"errno: %d, error info: %s", \
-				*value_len + 1, errno, strerror(errno));
-			return errno != 0 ? errno : ENOMEM;
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
 		}
+
+		int2buff(key_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_response(pServer, &in_buff, \
+			0, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if (in_bytes < 4)
+		{
+			logError("server %s:%d reponse bytes: %d < 4", \
+				pServer->ip_addr, pServer->port, in_bytes);
+			result = EINVAL;
+			break;
+		}
+
+		if (*ppValue != NULL)
+		{
+			if (in_bytes - 4 >= *value_len)
+			{
+				*value_len = 0;
+				result = ENOSPC;
+				break;
+			}
+
+			*value_len = in_bytes - 4;
+		}
+		else
+		{
+			*value_len = in_bytes - 4;
+			*ppValue = (char *)malloc(*value_len + 1);
+			if (*ppValue == NULL)
+			{
+				*value_len = 0;
+				logError("malloc %d bytes fail, " \
+					"errno: %d, error info: %s", \
+					*value_len + 1, errno, strerror(errno));
+				result = errno != 0 ? errno : ENOMEM;
+				break;
+			}
+		}
+
+		memcpy(*ppValue, in_buff + 4, *value_len);
+		*(*ppValue + *value_len) = '\0';
+		break;
 	}
 
-	memcpy(*ppValue, in_buff + 4, *value_len);
-	*(*ppValue + *value_len) = '\0';
+	if (new_connection)
+	{
+		fdht_quit(pServer);
+		fdht_disconnect_server(pServer);
+	}
 
-	return 0;
+	if (in_buff != NULL)
+	{
+		free(in_buff);
+	}
+
+	return result;
 }
 
 int fdht_set(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	const char *pValue, const int value_len)
 {
-	return 0;
+	int result;
+	ProtoHeader header;
+	char buff[16];
+	int in_bytes;
+	int group_id;
+	FDHTServerInfo *pServer;
+	bool new_connection;
+
+	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
+	pServer = get_writable_connection(pGroupArray->groups + group_id, \
+                	&new_connection, &result);
+	if (pServer == NULL)
+	{
+		return result;
+	}
+
+	printf("group_id=%d\n", group_id);
+
+	memset(&header, 0, sizeof(header));
+	header.cmd = FDHT_PROTO_CMD_SET;
+	int2buff(group_id, header.group_id);
+	int2buff(8 + key_len + value_len, header.pkg_len);
+
+	while (1)
+	{
+		if ((result=tcpsenddata(pServer->sock, &header, \
+			sizeof(header), g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(key_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(value_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pValue, value_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if (in_bytes != 0)
+		{
+			logError("server %s:%d reponse bytes: %d != 0", \
+				pServer->ip_addr, pServer->port, in_bytes);
+			result = EINVAL;
+			break;
+		}
+
+		break;
+	}
+
+	if (new_connection)
+	{
+		fdht_quit(pServer);
+		fdht_disconnect_server(pServer);
+	}
+
+	return result;
+}
+
+int fdht_inc(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+		const int increase)
+{
+	int result;
+	ProtoHeader header;
+	char buff[16];
+	int in_bytes;
+	int group_id;
+	FDHTServerInfo *pServer;
+	bool new_connection;
+
+	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
+	pServer = get_writable_connection(pGroupArray->groups + group_id, \
+                	&new_connection, &result);
+	if (pServer == NULL)
+	{
+		return result;
+	}
+
+	printf("group_id=%d\n", group_id);
+
+	memset(&header, 0, sizeof(header));
+	header.cmd = FDHT_PROTO_CMD_INC;
+	int2buff(group_id, header.group_id);
+	int2buff(8 + key_len, header.pkg_len);
+
+	while (1)
+	{
+		if ((result=tcpsenddata(pServer->sock, &header, \
+			sizeof(header), g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(key_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(increase, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if (in_bytes != 0)
+		{
+			logError("server %s:%d reponse bytes: %d != 0", \
+				pServer->ip_addr, pServer->port, in_bytes);
+			result = EINVAL;
+			break;
+		}
+
+		break;
+	}
+
+	if (new_connection)
+	{
+		fdht_quit(pServer);
+		fdht_disconnect_server(pServer);
+	}
+
+	return result;
 }
 
 int fdht_delete(GroupArray *pGroupArray, const char *pKey, const int key_len)
 {
-	return 0;
+	int result;
+	ProtoHeader header;
+	char buff[16];
+	int in_bytes;
+	int group_id;
+	FDHTServerInfo *pServer;
+	bool new_connection;
+
+	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
+	pServer = get_writable_connection(pGroupArray->groups + group_id, \
+                	&new_connection, &result);
+	if (pServer == NULL)
+	{
+		return result;
+	}
+
+	printf("group_id=%d\n", group_id);
+
+	memset(&header, 0, sizeof(header));
+	header.cmd = FDHT_PROTO_CMD_DEL;
+	int2buff(group_id, header.group_id);
+	int2buff(4 + key_len, header.pkg_len);
+
+	while (1)
+	{
+		if ((result=tcpsenddata(pServer->sock, &header, \
+			sizeof(header), g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(key_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if (in_bytes != 0)
+		{
+			logError("server %s:%d reponse bytes: %d != 0", \
+				pServer->ip_addr, pServer->port, in_bytes);
+			result = EINVAL;
+			break;
+		}
+
+		break;
+	}
+
+	if (new_connection)
+	{
+		fdht_quit(pServer);
+		fdht_disconnect_server(pServer);
+	}
+
+	return result;
 }
 

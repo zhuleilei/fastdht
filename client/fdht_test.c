@@ -20,21 +20,17 @@
 #include "shared_func.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
+#include "fdht_client.h"
 
 int main(int argc, char *argv[])
 {
 	//char *conf_filename;
 	int result;
-	ProtoHeader header;
 	int key_len;
 	char key[32];
-	char buff[16];
-	FDHTServerInfo server;
-	FDHTServerInfo *pServer = &server;
-	char *in_buff;
-	int in_bytes;
 	char *value;
-	char value_len;
+	int value_len;
+	GroupArray groupArray;
 
 	printf("This is FastDHT client test program v%d.%d\n" \
 "\nCopyright (C) 2008, Happy Fish / YuQing\n" \
@@ -56,90 +52,73 @@ int main(int argc, char *argv[])
 	conf_filename = argv[1];
 	*/
 
+
+	groupArray.count = 1;
+	groupArray.groups = (ServerArray *)malloc(sizeof(ServerArray) * \
+					groupArray.count);
+	if (groupArray.groups == NULL)
+	{
+		logError("malloc %d bytes fail, errno: %d, error info: %s", \
+			sizeof(ServerArray) * groupArray.count, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
 	
-	strcpy(pServer->ip_addr, "127.0.0.1");
-	pServer->port = 11411;
-
-	pServer->sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(pServer->sock < 0)
+	groupArray.groups[0].count = 1;
+	groupArray.groups[0].read_index = 0;
+	groupArray.groups[0].servers = (FDHTServerInfo *)malloc( \
+			sizeof(FDHTServerInfo) * groupArray.groups[0].count);
+	if (groupArray.groups[0].servers == NULL)
 	{
-		logError("socket create failed, errno: %d, " \
-			"error info: %s", errno, strerror(errno));
-		return errno != 0 ? errno : EPERM;
+		logError("malloc %d bytes fail, errno: %d, error info: %s", \
+			sizeof(FDHTServerInfo) * groupArray.groups[0].count, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
 	}
 
-	if ((result=connectserverbyip(pServer->sock, pServer->ip_addr, \
-			pServer->port)) != 0)
-	{
-		logError("connect to server %s:%d fail, errno: %d, " \
-			"error info: %s", pServer->ip_addr, pServer->port, \
-			 result, strerror(result));
+	memset(groupArray.groups[0].servers, 0, sizeof(FDHTServerInfo) * \
+			groupArray.groups[0].count);
 
-		close(pServer->sock);
-		return result;
-	}
+	strcpy(groupArray.groups[0].servers[0].ip_addr, "127.0.0.1");
+	groupArray.groups[0].servers[0].port = 11411;
+	groupArray.groups[0].servers[0].sock = -1;
 
 	strcpy(key, "test");
 	key_len = strlen(key);
 
-	memset(&header, 0, sizeof(header));
-	header.cmd = FDHT_PROTO_CMD_GET;
-	int2buff(0, header.group_id);
-	int2buff(4 + key_len, header.pkg_len);
+	/*
+	value = "1234567890122";
+	value_len = strlen(value);
 
-	if ((result=tcpsenddata(pServer->sock, &header, \
-			sizeof(header), g_network_timeout)) != 0)
+	if ((result=fdht_set(&groupArray, key, key_len, \
+		value, value_len)) != 0)
 	{
-		logError("send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, \
-			pServer->port, \
-			result, strerror(result));
+		return result;
+	}
+	*/
+
+	if ((result=fdht_inc(&groupArray, key, key_len, 100)) != 0)
+	{
 		return result;
 	}
 
-	int2buff(key_len, buff);
-	if ((result=tcpsenddata(pServer->sock, buff, 4, g_network_timeout)) != 0)
+	value = NULL;
+	if ((result=fdht_get(&groupArray, key, key_len, \
+		&value, &value_len)) != 0)
 	{
-		logError("send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, \
-			pServer->port, \
-			result, strerror(result));
 		return result;
 	}
 
-	if ((result=tcpsenddata(pServer->sock, key, key_len, g_network_timeout)) != 0)
+	printf("value_len: %d\n", value_len);
+	printf("value: %s\n", value);
+	free(value);
+
+	/*
+	if ((result=fdht_delete(&groupArray, key, key_len)) != 0)
 	{
-		logError("send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
 		return result;
 	}
-
-	in_buff = NULL;
-	if ((result=fdht_recv_response(pServer, &in_buff, 0, &in_bytes)) != 0)
-	{
-		logError("recv data from server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-	}
-
-	value_len = in_bytes - 4;
-	value = in_buff + 4;
-
-	if ((result=fdht_quit(pServer)) != 0)
-	{
-		logError("send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	close(pServer->sock);
+	*/
 
 	return 0;
 }
