@@ -35,16 +35,21 @@ typedef struct
 	int count;  //group count
 } GroupArray;
 
-int fdht_get(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+extern GroupArray g_group_array;
+
+int fdht_client_init(const char *filename);
+void fdht_client_destroy();
+
+int fdht_get(const char *pKey, const int key_len, \
 		char **ppValue, int *value_len);
 
-int fdht_set(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+int fdht_set(const char *pKey, const int key_len, \
 	const char *pValue, const int value_len);
 
-int fdht_inc(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+int fdht_inc(const char *pKey, const int key_len, \
 		const int increase);
 
-int fdht_delete(GroupArray *pGroupArray, const char *pKey, const int key_len);
+int fdht_delete(const char *pKey, const int key_len);
 
 #ifdef __cplusplus
 }

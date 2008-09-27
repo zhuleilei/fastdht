@@ -19,9 +19,217 @@
 #include "logger.h"
 #include "hash.h"
 #include "shared_func.h"
+#include "ini_file_reader.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
 #include "fdht_client.h"
+
+GroupArray g_group_array = {NULL, 0};
+
+static int fdht_load_groups(IniItemInfo *items, const int nItemCount)
+{
+	IniItemInfo *pItemInfo;
+	IniItemInfo *pItemEnd;
+	int group_id;
+	char item_name[32];
+	ServerArray *pServerArray;
+	FDHTServerInfo *pServerInfo;
+	char *ip_port[2];
+
+	g_group_array.count = iniGetIntValue("group_count", \
+			items, nItemCount, 0);
+	if (g_group_array.count <= 0)
+	{
+		logError("invalid group count: %d <= 0!", \
+			g_group_array.count);
+		return EINVAL;
+	}
+
+	g_group_array.groups = (ServerArray *)malloc(sizeof(ServerArray) * \
+					g_group_array.count);
+	if (g_group_array.groups == NULL)
+	{
+		logError("malloc %d bytes fail, errno: %d, error info: %s", \
+			sizeof(ServerArray) * g_group_array.count, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	pServerArray = g_group_array.groups;
+	for (group_id=0; group_id<g_group_array.count; group_id++)
+	{
+		sprintf(item_name, "group%d", group_id);
+		pItemInfo = iniGetValuesEx(item_name, items, \
+					nItemCount, &(pServerArray->count));
+		if (pItemInfo == NULL || pServerArray->count <= 0)
+		{
+			logError("group %d not exist!", group_id);
+			return ENOENT;
+		}
+
+		pServerArray->read_index = 0;
+		pServerArray->servers = (FDHTServerInfo *)malloc( \
+			sizeof(FDHTServerInfo) * pServerArray->count);
+		if (pServerArray->servers == NULL)
+		{
+			logError("malloc %d bytes fail, " \
+				"errno: %d, error info: %s", \
+				sizeof(FDHTServerInfo) * pServerArray->count, \
+				errno, strerror(errno));
+			return errno != 0 ? errno : ENOMEM;
+		}
+
+		memset(pServerArray->servers, 0, sizeof(FDHTServerInfo) * \
+			pServerArray->count);
+
+		pServerInfo = pServerArray->servers;
+		pItemEnd = pItemInfo + pServerArray->count;
+		for (; pItemInfo<pItemEnd; pItemInfo++)
+		{
+			if (splitEx(pItemInfo->value, ':', ip_port, 2) != 2)
+			{
+				logError("\"%s\" 's value \"%s\" is invalid, "\
+					"correct format is hostname:port", \
+					item_name, pItemInfo->value);
+				return EINVAL;
+			}
+
+			if (getIpaddrByName(ip_port[0], pServerInfo->ip_addr, \
+				sizeof(pServerInfo->ip_addr)) == INADDR_NONE)
+			{
+				logError("\"%s\" 's value \"%s\" is invalid, "\
+					"invalid hostname: %s", item_name, \
+					pItemInfo->value, ip_port[0]);
+				return EINVAL;
+			}
+
+			pServerInfo->port = atoi(ip_port[1]);
+			if (pServerInfo->port <= 0 || pServerInfo->port > 65535)
+			{
+				logError("\"%s\" 's value \"%s\" is invalid, "\
+					"invalid port: %d", item_name, \
+					pItemInfo->value, pServerInfo->port);
+				return EINVAL;
+			}
+			pServerInfo->sock = -1;
+
+			logDebug("group%d. %s:%d", group_id, \
+				pServerInfo->ip_addr, pServerInfo->port);
+
+			pServerInfo++;
+		}
+
+		pServerArray++;
+	}
+
+	return 0;
+}
+
+int fdht_client_init(const char *filename)
+{
+	char *pBasePath;
+	IniItemInfo *items;
+	int nItemCount;
+	int result;
+
+	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
+	{
+		logError("load conf file \"%s\" fail, ret code: %d", \
+			filename, result);
+		return result;
+	}
+
+	while (1)
+	{
+		pBasePath = iniGetStrValue("base_path", items, nItemCount);
+		if (pBasePath == NULL)
+		{
+			logError("conf file \"%s\" must have item " \
+				"\"base_path\"!", filename);
+			result = ENOENT;
+			break;
+		}
+
+		snprintf(g_base_path, sizeof(g_base_path), "%s", pBasePath);
+		chopPath(g_base_path);
+		if (!fileExists(g_base_path))
+		{
+			logError("\"%s\" can't be accessed, error info: %s", \
+				g_base_path, strerror(errno));
+			result = errno != 0 ? errno : ENOENT;
+			break;
+		}
+		if (!isDir(g_base_path))
+		{
+			logError("\"%s\" is not a directory!", g_base_path);
+			result = ENOTDIR;
+			break;
+		}
+
+		g_network_timeout = iniGetIntValue("network_timeout", \
+				items, nItemCount, DEFAULT_NETWORK_TIMEOUT);
+		if (g_network_timeout <= 0)
+		{
+			g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
+		}
+
+		if ((result=fdht_load_groups(items, nItemCount)) != 0)
+		{
+			break;
+		}
+#ifdef __DEBUG__
+		fprintf(stderr, "base_path=%s, " \
+			"network_timeout=%d, "\
+			"group_count=%d\n", \
+			g_base_path, g_network_timeout, \
+			g_group_array.count);
+#endif
+
+		break;
+	}
+
+	iniFreeItems(items);
+
+	return result;
+}
+
+void fdht_client_destroy()
+{
+	ServerArray *pServerArray;
+	ServerArray *pArrayEnd;
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+
+	if (g_group_array.groups != NULL)
+	{
+		pArrayEnd = g_group_array.groups + g_group_array.count;
+		for (pServerArray=g_group_array.groups; pServerArray<pArrayEnd;
+			 pServerArray++)
+		{
+			if (pServerArray->servers == NULL)
+			{
+				continue;
+			}
+
+			pServerEnd = pServerArray->servers+pServerArray->count;
+			for (pServerInfo=pServerArray->servers; \
+				pServerInfo<pServerEnd; pServerInfo++)
+			{
+				if (pServerInfo->sock > 0)
+				{
+					close(pServerInfo->sock);
+					pServerInfo->sock = -1;
+				}
+			}
+
+			free(pServerArray->servers);
+			pServerArray->servers = NULL;
+		}
+
+		free(g_group_array.groups);
+		g_group_array.groups = NULL;
+	}
+}
 
 FDHTServerInfo *get_writable_connection(ServerArray *pServerArray, \
 		bool *new_connection, int *err_no)
@@ -101,7 +309,7 @@ FDHTServerInfo *get_readable_connection(ServerArray *pServerArray, \
 	return NULL;
 }
 
-int fdht_get(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+int fdht_get(const char *pKey, const int key_len, \
 		char **ppValue, int *value_len)
 {
 	int result;
@@ -113,8 +321,8 @@ int fdht_get(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	FDHTServerInfo *pServer;
 	bool new_connection;
 
-	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
-	pServer = get_readable_connection(pGroupArray->groups + group_id, \
+	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	pServer = get_readable_connection(g_group_array.groups + group_id, \
                 	&new_connection, &result);
 	if (pServer == NULL)
 	{
@@ -225,7 +433,7 @@ int fdht_get(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	return result;
 }
 
-int fdht_set(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+int fdht_set(const char *pKey, const int key_len, \
 	const char *pValue, const int value_len)
 {
 	int result;
@@ -236,8 +444,8 @@ int fdht_set(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	FDHTServerInfo *pServer;
 	bool new_connection;
 
-	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
-	pServer = get_writable_connection(pGroupArray->groups + group_id, \
+	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	pServer = get_writable_connection(g_group_array.groups + group_id, \
                 	&new_connection, &result);
 	if (pServer == NULL)
 	{
@@ -334,7 +542,7 @@ int fdht_set(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	return result;
 }
 
-int fdht_inc(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+int fdht_inc(const char *pKey, const int key_len, \
 		const int increase)
 {
 	int result;
@@ -345,8 +553,10 @@ int fdht_inc(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	FDHTServerInfo *pServer;
 	bool new_connection;
 
-	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
-	pServer = get_writable_connection(pGroupArray->groups + group_id, \
+	printf("g_group_array.count=%d\n", g_group_array.count);
+
+	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	pServer = get_writable_connection(g_group_array.groups + group_id, \
                 	&new_connection, &result);
 	if (pServer == NULL)
 	{
@@ -433,7 +643,7 @@ int fdht_inc(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	return result;
 }
 
-int fdht_delete(GroupArray *pGroupArray, const char *pKey, const int key_len)
+int fdht_delete(const char *pKey, const int key_len)
 {
 	int result;
 	ProtoHeader header;
@@ -443,8 +653,8 @@ int fdht_delete(GroupArray *pGroupArray, const char *pKey, const int key_len)
 	FDHTServerInfo *pServer;
 	bool new_connection;
 
-	group_id = PJWHash(pKey, key_len) % pGroupArray->count;
-	pServer = get_writable_connection(pGroupArray->groups + group_id, \
+	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	pServer = get_writable_connection(g_group_array.groups + group_id, \
                 	&new_connection, &result);
 	if (pServer == NULL)
 	{

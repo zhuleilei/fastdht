@@ -1,6 +1,6 @@
 .SUFFIXES: .c .o .lo
 
-COMPILE = $(CC) -O3 -Wall -D_FILE_OFFSET_BITS=64 -DOS_LINUX
+COMPILE = $(CC) -g -Wall -D_FILE_OFFSET_BITS=64 -DOS_LINUX -D__DEBUG__
 INC_PATH = -I../common -I../../fastdfs/common -I../tracker -I/usr/local/include
 LIB_PATH = -L/usr/local/lib  -lpthread
 TARGET_PATH = /usr/local/bin
