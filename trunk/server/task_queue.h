@@ -18,22 +18,8 @@
 #include "fdht_define.h"
 #include "chain.h"
 
-#define TASK_STATUS_NONE	   0
-#define TASK_STATUS_RECV_DONE     11
-#define TASK_STATUS_RECV_TIMEOUT  12
-#define TASK_STATUS_RECV_ERR	  13
-#define TASK_STATUS_SEND_DONE     21
-#define TASK_STATUS_SEND_TIMEOUT  22
-#define TASK_STATUS_SEND_ERR      23
-
-#define TASK_STATUS_RECV_BASE     10
-#define TASK_STATUS_SEND_BASE     20
-#define TASK_STATUS_DISCONNECTED  30
-#define TASK_STATUS_OUT_MEMERY    40
-
 struct task_info
 {
-	char status;
 	char client_ip[IP_ADDRESS_SIZE];
 	struct event ev;
 	char *data;

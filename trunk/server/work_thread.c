@@ -47,6 +47,7 @@ static void wait_for_work_threads_exit();
 static int deal_task(struct task_info *pTask);
 
 static int deal_cmd_get(struct task_info *pTask);
+static int deal_cmd_set(struct task_info *pTask);
 
 int work_thread_init()
 {
@@ -270,6 +271,7 @@ static int deal_task(struct task_info *pTask)
 		case FDHT_PROTO_CMD_GET:
 			pHeader->status = deal_cmd_get(pTask);
 		case FDHT_PROTO_CMD_SET:
+			pHeader->status = deal_cmd_set(pTask);
 			break;
 		case FDHT_PROTO_CMD_INC:
 			break;
@@ -291,7 +293,6 @@ static int deal_task(struct task_info *pTask)
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(ProtoHeader), pHeader->pkg_len);
 
-	pTask->offset = 0;
 	send_queue_push(pTask);
 
 	return 0;
@@ -394,5 +395,79 @@ static int deal_cmd_get(struct task_info *pTask)
 	free(pValue);
 
 	return 0;
+}
+
+/**
+* request body format:
+*       key_len:  4 bytes big endian integer
+*       key:      key name
+*       value_len:  4 bytes big endian integer
+*       value:      value buff
+* response body format:
+*      none
+*/
+static int deal_cmd_set(struct task_info *pTask)
+{
+	int nInBodyLen;
+	int key_len;
+	char *key;
+	int group_id;
+	char *pValue;
+	int value_len;
+
+	CHECK_GROUP_ID(pTask, group_id)
+
+	nInBodyLen = pTask->length - sizeof(ProtoHeader);
+	if (nInBodyLen <= 8)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d <= 8", \
+			__LINE__, pTask->client_ip, nInBodyLen);
+		pTask->length = sizeof(ProtoHeader);
+		return  EINVAL;
+	}
+
+	key_len = buff2int(pTask->data + sizeof(ProtoHeader));
+	if (key_len <= 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, key length: %d <= 0", \
+			__LINE__, pTask->client_ip, key_len);
+		pTask->length = sizeof(ProtoHeader);
+		return  EINVAL;
+	}
+	if (nInBodyLen < 8 + key_len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d < %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, 8 + key_len);
+		pTask->length = sizeof(ProtoHeader);
+		return  EINVAL;
+	}
+	key = pTask->data + sizeof(ProtoHeader) + 4;
+
+	value_len = buff2int(pTask->data + sizeof(ProtoHeader) + 4 + key_len);
+	if (value_len < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, value length: %d < 0", \
+			__LINE__, pTask->client_ip, key_len);
+		pTask->length = sizeof(ProtoHeader);
+		return  EINVAL;
+	}
+	if (nInBodyLen != 8 + key_len + value_len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, 8 + key_len + value_len);
+		pTask->length = sizeof(ProtoHeader);
+		return  EINVAL;
+	}
+	pValue = pTask->data + sizeof(ProtoHeader) + 8 + key_len;
+
+	pTask->length = sizeof(ProtoHeader);
+	return db_set(g_db_list[group_id], key, key_len, pValue, value_len);
 }
 

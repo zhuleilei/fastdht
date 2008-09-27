@@ -115,7 +115,7 @@ int fdht_recv_response(FDHTServerInfo *pServer, \
 		*in_bytes, g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"tracker server: %s:%d, recv data fail, " \
+			"server: %s:%d, recv data fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, pServer->ip_addr, \
 			pServer->port, \
@@ -144,10 +144,50 @@ int fdht_quit(FDHTServerInfo *pServer)
 	if(result != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"tracker server ip: %s, send data fail, " \
+			"server ip: %s, send data fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, pServer->ip_addr, \
 			result, strerror(result));
+		return result;
+	}
+
+	return 0;
+}
+
+void fdht_disconnect_server(FDHTServerInfo *pServer)
+{
+	if (pServer->sock > 0)
+	{
+		close(pServer->sock);
+		pServer->sock = -1;
+	}
+}
+
+int fdht_connect_server(FDHTServerInfo *pServer)
+{
+	int result;
+
+	if (pServer->sock > 0)
+	{
+		close(pServer->sock);
+	}
+	pServer->sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(pServer->sock < 0)
+	{
+		logError("socket create failed, errno: %d, " \
+			"error info: %s", errno, strerror(errno));
+		return errno != 0 ? errno : EPERM;
+	}
+
+	if ((result=connectserverbyip(pServer->sock, \
+		pServer->ip_addr, pServer->port)) != 0)
+	{
+		logError("connect to %s:%d fail, errno: %d, " \
+			"error info: %s", pServer->ip_addr, \
+			pServer->port, result, strerror(result));
+
+		close(pServer->sock);
+		pServer->sock = -1;
 		return result;
 	}
 

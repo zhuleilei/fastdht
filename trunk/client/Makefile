@@ -9,13 +9,13 @@ STATIC_OBJS = ../../fastdfs/common/hash.o ../../fastdfs/common/chain.o \
               ../../fastdfs/common/shared_func.o ../../fastdfs/common/ini_file_reader.o \
               ../../fastdfs/common/logger.o ../../fastdfs/common/sockopt.o \
               ../../fastdfs/common/fdfs_base64.o \
-              ../common/fdht_global.o ../common/fdht_proto.o
+              ../common/fdht_global.o ../common/fdht_proto.o fdht_client.o
 
 SHARED_OBJS = ../../fastdfs/common/hash.lo ../../fastdfs/common/chain.lo \
               ../../fastdfs/common/shared_func.lo ../../fastdfs/common/ini_file_reader.lo \
               ../../fastdfs/common/logger.lo ../../fastdfs/common/sockopt.lo \
               ../../fastdfs/common/fdfs_base64.lo \
-              ../common/fdht_global.lo ../common/fdht_proto.lo
+              ../common/fdht_global.lo ../common/fdht_proto.lo fdht_client.lo
 
 HEADER_FILES = ../../fastdfs/common/common_define.h ../../fastdfs/common/fdfs_define.h \
                ../../fastdfs/common/fdfs_global.h \

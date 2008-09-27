@@ -125,7 +125,6 @@ int main(int argc, char *argv[])
 			"errno: %d, error info: %s", \
 			pServer->ip_addr, pServer->port, \
 			result, strerror(result));
-		return result;
 	}
 
 	value_len = in_bytes - 4;
@@ -139,6 +138,8 @@ int main(int argc, char *argv[])
 			result, strerror(result));
 		return result;
 	}
+
+	close(pServer->sock);
 
 	return 0;
 }
