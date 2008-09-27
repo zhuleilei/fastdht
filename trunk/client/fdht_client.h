@@ -37,8 +37,13 @@ typedef struct
 
 int fdht_get(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 		char **ppValue, int *value_len);
+
 int fdht_set(GroupArray *pGroupArray, const char *pKey, const int key_len, \
 	const char *pValue, const int value_len);
+
+int fdht_inc(GroupArray *pGroupArray, const char *pKey, const int key_len, \
+		const int increase);
+
 int fdht_delete(GroupArray *pGroupArray, const char *pKey, const int key_len);
 
 #ifdef __cplusplus
