@@ -641,8 +641,10 @@ static int rewind_to_prev_rec_end(BinLogReader *pReader, \
 	return 0;
 }
 
-int fdht_binlog_write(const char op_type, const BinField *pKey, \
-		const BinField *pValue)
+#define BINLOG_FIX_FIELDS_LENGTH  3 * 10 + 1 + 4 * 1
+
+int fdht_binlog_write(const char op_type, const char *pKey, const int key_len, \
+		const char *pValue, const int value_len)
 {
 	struct flock lock;
 	char buff[64];
@@ -667,7 +669,7 @@ int fdht_binlog_write(const char op_type, const BinField *pKey, \
 	{
 		write_bytes = sprintf(buff, "%10d %c %10d %10d ", \
 				(int)time(NULL), op_type,  \
-				pKey->length, pValue->length);
+				key_len, value_len);
 		if (write(g_binlog_fd, buff, write_bytes) != write_bytes)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -679,7 +681,7 @@ int fdht_binlog_write(const char op_type, const BinField *pKey, \
 			break;
 		}
 
-		if (write(g_binlog_fd, pKey->data, pKey->length)!=pKey->length)
+		if (write(g_binlog_fd, pKey, key_len) != key_len)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"write to binlog file \"%s\" fail, " \
@@ -701,8 +703,8 @@ int fdht_binlog_write(const char op_type, const BinField *pKey, \
 			break;
 		}
 
-		if (pValue->length > 0 && write(g_binlog_fd, pValue->data, \
-			pValue->length) != pValue->length)
+		if (value_len > 0 && write(g_binlog_fd, pValue, \
+			value_len) != value_len)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"write to binlog file \"%s\" fail, " \
@@ -734,7 +736,9 @@ int fdht_binlog_write(const char op_type, const BinField *pKey, \
 			break;
 		}
 
-		binlog_file_size += write_bytes;
+		binlog_file_size += BINLOG_FIX_FIELDS_LENGTH + key_len + 1 + \
+					value_len + 1;
+
 		if (binlog_file_size >= SYNC_BINLOG_FILE_MAX_SIZE)
 		{
 			g_binlog_index++;
@@ -779,8 +783,7 @@ int fdht_binlog_write(const char op_type, const BinField *pKey, \
 static int fdht_binlog_read(BinLogReader *pReader, \
 			BinLogRecord *pRecord, int *record_length)
 {
-#define FIX_FIELDS_LENGTH  3 * 10 + 1 + 4 * 1
-	char buff[FIX_FIELDS_LENGTH + 1];
+	char buff[BINLOG_FIX_FIELDS_LENGTH + 1];
 	int result;
 	int read_bytes;
 	int nItem;
@@ -788,7 +791,8 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	*record_length = 0;
 	while (1)
 	{
-		read_bytes = read(pReader->binlog_fd, buff, FIX_FIELDS_LENGTH);
+		read_bytes = read(pReader->binlog_fd, buff, \
+				BINLOG_FIX_FIELDS_LENGTH);
 		if (read_bytes == 0)  //end of file
 		{
 			if (pReader->binlog_index < g_binlog_index) //rotate
@@ -828,7 +832,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 		break;
 	}
 
-	if (read_bytes != FIX_FIELDS_LENGTH)
+	if (read_bytes != BINLOG_FIX_FIELDS_LENGTH)
 	{
 		if ((result=rewind_to_prev_rec_end(pReader, \
 				read_bytes)) != 0)
@@ -841,7 +845,8 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"read bytes: %d != %d", \
 			__LINE__, get_binlog_readable_filename(pReader, NULL),\
-			pReader->binlog_offset, read_bytes, FIX_FIELDS_LENGTH);
+			pReader->binlog_offset, read_bytes, \
+			BINLOG_FIX_FIELDS_LENGTH);
 		return ENOENT;
 	}
 
@@ -911,7 +916,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	if (read_bytes != pRecord->key.length)
 	{
 		if ((result=rewind_to_prev_rec_end(pReader, \
-			FIX_FIELDS_LENGTH + read_bytes)) != 0)
+			BINLOG_FIX_FIELDS_LENGTH + read_bytes)) != 0)
 		{
 			return result;
 		}
@@ -928,7 +933,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	if (read(pReader->binlog_fd, buff, 1) != 1) //skip space
 	{
 		if ((result=rewind_to_prev_rec_end(pReader, \
-			FIX_FIELDS_LENGTH + pRecord->key.length)) != 0)
+			BINLOG_FIX_FIELDS_LENGTH + pRecord->key.length)) != 0)
 		{
 			return result;
 		}
@@ -972,7 +977,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	if (read_bytes != pRecord->value.length)
 	{
 		if ((result=rewind_to_prev_rec_end(pReader, \
-			FIX_FIELDS_LENGTH + pRecord->key.length + 1 + \
+			BINLOG_FIX_FIELDS_LENGTH + pRecord->key.length + 1 + \
 			read_bytes)) != 0)
 		{
 			return result;
@@ -990,7 +995,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	if (read(pReader->binlog_fd, buff, 1) != 1) //skip \n
 	{
 		if ((result=rewind_to_prev_rec_end(pReader, \
-			FIX_FIELDS_LENGTH + pRecord->key.length + 1 + \
+			BINLOG_FIX_FIELDS_LENGTH + pRecord->key.length + 1 + \
 			pRecord->value.length)) != 0)
 		{
 			return result;
@@ -1005,8 +1010,9 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 		return ENOENT;
 	}
 
-	*record_length = FIX_FIELDS_LENGTH + pRecord->key.length + 1 + \
+	*record_length = BINLOG_FIX_FIELDS_LENGTH + pRecord->key.length + 1 + \
 			pRecord->value.length + 1;
+
 	printf("timestamp=%d, op_type=%c, key len=%d, value len=%d, " \
 		"record length=%d, offset=%d\n", \
 		(int)pRecord->timestamp, pRecord->op_type, \

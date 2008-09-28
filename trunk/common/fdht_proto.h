@@ -13,11 +13,15 @@
 
 #include "fdht_types.h"
 
-#define FDHT_PROTO_CMD_QUIT	19
+#define FDHT_PROTO_CMD_QUIT	10
+
 #define FDHT_PROTO_CMD_SET	11
 #define FDHT_PROTO_CMD_INC	12
 #define FDHT_PROTO_CMD_GET	13
 #define FDHT_PROTO_CMD_DEL	14
+
+#define FDHT_PROTO_CMD_SYNC_SET	21
+#define FDHT_PROTO_CMD_SYNC_DEL	22
 #define FDHT_PROTO_CMD_RESP     20
 
 #define FDHT_PROTO_PKG_LEN_SIZE		4

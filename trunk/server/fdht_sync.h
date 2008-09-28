@@ -61,8 +61,8 @@ extern int g_fdht_sync_thread_count;
 
 int fdht_sync_init();
 int fdht_sync_destroy();
-int fdht_binlog_write(const char op_type, const BinField *pKey, \
-		const BinField *pValue);
+int fdht_binlog_write(const char op_type, const char *pKey, const int key_len, \
+		const char *pValue, const int value_len);
 
 int fdht_sync_thread_start(const FDHTServerInfo *pStorage);
 int kill_fdht_sync_threads();
