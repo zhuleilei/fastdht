@@ -22,6 +22,7 @@ int g_min_buff_size = 4 * 1024;
 
 pthread_mutex_t g_storage_thread_lock;
 int g_thread_count = 0;
+int g_sync_wait_usec = DEFAULT_SYNC_WAIT_MSEC;
 
 struct timeval g_network_tv = {30, 0};
 
@@ -31,4 +32,98 @@ int g_send_count = 0;
 
 int g_allow_ip_count = 0;  /* -1 means match any ip address */
 in_addr_t *g_allow_ip_addrs = NULL;  /* sorted array, asc order */
+
+int g_local_host_ip_count = 0;
+char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
+				IP_ADDRESS_SIZE];
+
+bool is_local_host_ip(const char *client_ip)
+{
+	char *p;
+	char *pEnd;
+
+	pEnd = g_local_host_ip_addrs + \
+		IP_ADDRESS_SIZE * g_local_host_ip_count;
+	for (p=g_local_host_ip_addrs; p<pEnd; p+=IP_ADDRESS_SIZE)
+	{
+		if (strcmp(client_ip, p) == 0)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+int insert_into_local_host_ip(const char *client_ip)
+{
+	if (is_local_host_ip(client_ip))
+	{
+		return 0;
+	}
+
+	if (g_local_host_ip_count >= FDHT_MAX_LOCAL_IP_ADDRS)
+	{
+		return -1;
+	}
+
+	strcpy(g_local_host_ip_addrs + \
+		IP_ADDRESS_SIZE * g_local_host_ip_count, \
+		client_ip);
+	g_local_host_ip_count++;
+	return 1;
+}
+
+void load_local_host_ip_addrs()
+{
+	struct hostent *ent;
+	char hostname[128];
+	char ip_addr[IP_ADDRESS_SIZE];
+	int k;
+
+	insert_into_local_host_ip("127.0.0.1");
+
+	if (gethostname(hostname, sizeof(hostname)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call gethostname fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
+		return;
+	}
+
+	memset(ip_addr, 0, sizeof(ip_addr));
+        ent = gethostbyname(hostname);
+        if (ent != NULL)
+	{
+        	k = 0;
+        	while (ent->h_addr_list[k] != NULL)
+        	{
+			if (inet_ntop(ent->h_addrtype, ent->h_addr_list[k], \
+				ip_addr, sizeof(ip_addr)) != NULL)
+			{
+				insert_into_local_host_ip(ip_addr);
+			}
+
+			k++;
+        	}
+	}
+}
+
+void print_local_host_ip_addrs()
+{
+	char *p;
+	char *pEnd;
+
+	printf("local_host_ip_count=%d\n", g_local_host_ip_count);
+	pEnd = g_local_host_ip_addrs + \
+		IP_ADDRESS_SIZE * g_local_host_ip_count;
+	for (p=g_local_host_ip_addrs; p<pEnd; p+=IP_ADDRESS_SIZE)
+	{
+		printf("%d. %s\n", (int)((p-g_local_host_ip_addrs)/ \
+				IP_ADDRESS_SIZE)+1, p);
+	}
+
+	printf("\n");
+}
 
