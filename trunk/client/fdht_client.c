@@ -139,6 +139,8 @@ int fdht_client_init(const char *filename)
 		return result;
 	}
 
+	//iniPrintItems(items, nItemCount);
+
 	while (1)
 	{
 		pBasePath = iniGetStrValue("base_path", items, nItemCount);

@@ -52,6 +52,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		return result;
 	}
 
+	//iniPrintItems(items, nItemCount);
+
 	while (1)
 	{
 		if (iniGetBoolValue("disabled", items, nItemCount))
@@ -156,6 +158,15 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			}
 			g_max_pkg_size = (int)max_pkg_size;
 		}
+
+		g_sync_wait_usec = iniGetIntValue("sync_wait_msec", \
+			 items, nItemCount, DEFAULT_SYNC_WAIT_MSEC);
+		if (g_sync_wait_usec <= 0)
+		{
+			g_sync_wait_usec = DEFAULT_SYNC_WAIT_MSEC;
+		}
+		g_sync_wait_usec *= 1000;
+
 		
 		pRunByGroup = iniGetStrValue("run_by_group", \
 						items, nItemCount);
@@ -228,18 +239,19 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"port=%d, bind_addr=%s, " \
 			"max_connections=%d, "    \
 			"max_threads=%d, "    \
-			"max_pkg_size=%d, " \
+			"max_pkg_size=%d KB, " \
 			"db_type=%s, " \
 			"db_prefix=%s, " \
-			"cache_size=%lld, "    \
+			"cache_size=%d MB, sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d", \
 			g_version.major, g_version.minor, \
 			g_base_path, *group_count, \
 			g_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
-			g_max_threads, g_max_pkg_size, \
+			g_max_threads, g_max_pkg_size / 1024, \
 			*db_type == DB_BTREE ? "btree" : "hash", \
-			db_file_prefix, *nCacheSize, g_allow_ip_count);
+			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
+			g_sync_wait_usec / 1000, g_allow_ip_count);
 
 		break;
 	}
