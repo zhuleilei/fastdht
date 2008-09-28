@@ -36,6 +36,7 @@
 #include "send_thread.h"
 #include "service.h"
 #include "db_op.h"
+#include "fdht_sync.h"
 
 static pthread_mutex_t work_thread_mutex;
 static pthread_cond_t work_thread_cond;
@@ -48,8 +49,8 @@ static void wait_for_work_threads_exit();
 static int deal_task(struct task_info *pTask);
 
 static int deal_cmd_get(struct task_info *pTask);
-static int deal_cmd_set(struct task_info *pTask);
-static int deal_cmd_del(struct task_info *pTask);
+static int deal_cmd_set(struct task_info *pTask, byte op_type);
+static int deal_cmd_del(struct task_info *pTask, byte op_type);
 static int deal_cmd_inc(struct task_info *pTask);
 
 int work_thread_init()
@@ -275,13 +276,23 @@ static int deal_task(struct task_info *pTask)
 			pHeader->status = deal_cmd_get(pTask);
 			break;
 		case FDHT_PROTO_CMD_SET:
-			pHeader->status = deal_cmd_set(pTask);
+			pHeader->status = deal_cmd_set(pTask, \
+					FDHT_OP_TYPE_SOURCE_SET);
+			break;
+		case FDHT_PROTO_CMD_SYNC_SET:
+			pHeader->status = deal_cmd_set(pTask, \
+					FDHT_OP_TYPE_REPLICA_SET);
 			break;
 		case FDHT_PROTO_CMD_INC:
 			pHeader->status = deal_cmd_inc(pTask);
 			break;
 		case FDHT_PROTO_CMD_DEL:
-			pHeader->status = deal_cmd_del(pTask);
+			pHeader->status = deal_cmd_del(pTask, \
+					FDHT_OP_TYPE_SOURCE_DEL);
+			break;
+		case FDHT_PROTO_CMD_SYNC_DEL:
+			pHeader->status = deal_cmd_del(pTask, \
+					FDHT_OP_TYPE_REPLICA_DEL);
 			break;
 		case FDHT_PROTO_CMD_QUIT:
 			close(pTask->ev.ev_fd);
@@ -412,7 +423,7 @@ static int deal_cmd_get(struct task_info *pTask)
 * response body format:
 *      none
 */
-static int deal_cmd_set(struct task_info *pTask)
+static int deal_cmd_set(struct task_info *pTask, byte op_type)
 {
 	int nInBodyLen;
 	int key_len;
@@ -420,6 +431,7 @@ static int deal_cmd_set(struct task_info *pTask)
 	int group_id;
 	char *pValue;
 	int value_len;
+	int result;
 
 	CHECK_GROUP_ID(pTask, group_id)
 
@@ -474,7 +486,14 @@ static int deal_cmd_set(struct task_info *pTask)
 	pValue = pTask->data + sizeof(ProtoHeader) + 8 + key_len;
 
 	pTask->length = sizeof(ProtoHeader);
-	return db_set(g_db_list[group_id], key, key_len, pValue, value_len);
+
+	result = db_set(g_db_list[group_id], key, key_len, pValue, value_len);
+	if (result == 0)
+	{
+		fdht_binlog_write(op_type, key, key_len, pValue, value_len);
+	}
+
+	return result;
 }
 
 /**
@@ -484,12 +503,13 @@ static int deal_cmd_set(struct task_info *pTask)
 * response body format:
 *      none
 */
-static int deal_cmd_del(struct task_info *pTask)
+static int deal_cmd_del(struct task_info *pTask, byte op_type)
 {
 	int nInBodyLen;
 	int key_len;
 	char *key;
 	int group_id;
+	int result;
 
 	CHECK_GROUP_ID(pTask, group_id)
 
@@ -516,7 +536,13 @@ static int deal_cmd_del(struct task_info *pTask)
 	key = pTask->data + sizeof(ProtoHeader) + 4;
 
 	pTask->length = sizeof(ProtoHeader);
-	return db_delete(g_db_list[group_id], key, key_len);
+	result = db_delete(g_db_list[group_id], key, key_len);
+	if (result == 0)
+	{
+		fdht_binlog_write(op_type, key, key_len, NULL, 0);
+	}
+
+	return result;
 }
 
 /**
@@ -580,6 +606,13 @@ static int deal_cmd_inc(struct task_info *pTask)
 
 	value_len = sprintf(value, INT64_PRINTF_FORMAT, n);
 	pTask->length = sizeof(ProtoHeader);
-	return db_set(g_db_list[group_id], key, key_len, value, value_len);
+	result = db_set(g_db_list[group_id], key, key_len, value, value_len);
+	if (result == 0)
+	{
+		fdht_binlog_write(FDHT_OP_TYPE_SOURCE_SET, key, key_len, \
+				pValue, value_len);
+	}
+
+	return result;
 }
 

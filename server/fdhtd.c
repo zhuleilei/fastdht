@@ -33,6 +33,7 @@
 #include "send_thread.h"
 #include "work_thread.h"
 #include "service.h"
+#include "fdht_sync.h"
 
 bool bReloadFlag = false;
 
@@ -140,6 +141,11 @@ int main(int argc, char *argv[])
 		return errno;
 	}
 
+	if ((result=fdht_sync_init()) != 0)
+	{
+		fdht_service_destroy();
+		return result;
+	}
 
 	if ((result=task_queue_init()) != 0)
 	{
@@ -170,6 +176,8 @@ int main(int argc, char *argv[])
 	task_queue_destroy();
 	printf("queue count3: %d\n", free_queue_count() + recv_queue_count()); 
 	close(sock);
+
+	fdht_sync_destroy();	
 	fdht_service_destroy();
 
 	logInfo("exit nomally.\n");
