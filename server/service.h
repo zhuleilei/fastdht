@@ -24,6 +24,12 @@ extern "C" {
 extern DBInfo **g_db_list;
 extern int g_db_count;
 
+typedef char * (*get_filename_func)(const void *pArg, \
+			char *full_filename);
+
+int fdht_write_to_fd(int fd, get_filename_func filename_func, \
+		const void *pArg, const char *buff, const int len);
+
 int fdht_service_init(const char *filename, char *bind_addr, \
 		const int addr_size);
 void fdht_service_destroy();

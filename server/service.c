@@ -343,3 +343,49 @@ void fdht_service_destroy()
 	}
 }
 
+int fdht_write_to_fd(int fd, get_filename_func filename_func, \
+		const void *pArg, const char *buff, const int len)
+{
+	if (ftruncate(fd, 0) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"truncate file \"%s\" to empty fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, filename_func(pArg, NULL), \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	if (lseek(fd, 0, SEEK_SET) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"rewind file \"%s\" to start fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, filename_func(pArg, NULL), \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	if (write(fd, buff, len) != len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"write to file \"%s\" fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, filename_func(pArg, NULL), \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	if (fsync(fd) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"sync file \"%s\" to disk fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, filename_func(pArg, NULL), \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	return 0;
+}
+
