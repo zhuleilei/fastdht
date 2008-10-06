@@ -6,10 +6,10 @@
 * Please visit the FastDFS Home Page http://www.csource.org/ for more detail.
 **/
 
-//service.h
+//func.h
 
-#ifndef _SERVICE_H
-#define _SERVICE_H
+#ifndef _FUNC_H
+#define _FUNC_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,9 +30,9 @@ typedef char * (*get_filename_func)(const void *pArg, \
 int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 		const void *pArg, const char *buff, const int len);
 
-int fdht_service_init(const char *filename, char *bind_addr, \
+int fdht_func_init(const char *filename, char *bind_addr, \
 		const int addr_size);
-void fdht_service_destroy();
+void fdht_func_destroy();
 
 #ifdef __cplusplus
 }

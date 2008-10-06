@@ -18,6 +18,7 @@
 #include <pthread.h>
 #include "fdht_define.h"
 #include "fdht_global.h"
+#include "fdht_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +26,7 @@ extern "C" {
 
 #define FDHT_MAX_LOCAL_IP_ADDRS     4
 #define DEFAULT_SYNC_WAIT_MSEC    100
+
 
 extern bool g_continue_flag;
 
@@ -43,6 +45,8 @@ extern struct timeval g_network_tv;
 extern int g_conn_count;
 extern int g_recv_count;
 extern int g_send_count;
+
+extern FDHTServerStat g_server_stat;
 
 extern int g_allow_ip_count;  /* -1 means match any ip address */
 extern in_addr_t *g_allow_ip_addrs;  /* sorted array, asc order */

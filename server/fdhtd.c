@@ -32,8 +32,8 @@
 #include "recv_thread.h"
 #include "send_thread.h"
 #include "work_thread.h"
-#include "service.h"
-#include "fdht_sync.h"
+#include "func.h"
+#include "sync.h"
 
 bool bReloadFlag = false;
 
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 	}
 
 	conf_filename = argv[1];
-	if ((result=fdht_service_init(conf_filename, \
+	if ((result=fdht_func_init(conf_filename, \
 			bind_addr, sizeof(bind_addr))) != 0)
 	{
 		return result;
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_lock fail, program exit!", __LINE__);
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return result;
 	}
 
@@ -80,13 +80,13 @@ int main(int argc, char *argv[])
 	sock = socketServer(bind_addr, g_server_port, &result);
 	if (sock < 0)
 	{
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return result;
 	}
 
 	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
 	{
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return result;
 	}
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return errno;
 	}
 
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return errno;
 	}
 	
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return errno;
 	}
 
@@ -137,33 +137,33 @@ int main(int argc, char *argv[])
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return errno;
 	}
 
 	if ((result=fdht_sync_init()) != 0)
 	{
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return result;
 	}
 
 	if ((result=task_queue_init()) != 0)
 	{
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return result;
 	}
 
 	printf("queue count1: %d\n", free_queue_count() + recv_queue_count()); 
 	if ((result=work_thread_init()) != 0)
 	{
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return result;
 	}
 
 	if ((result=create_sock_io_threads(sock)) != 0)
 	{
 		work_thread_destroy();
-		fdht_service_destroy();
+		fdht_func_destroy();
 		return result;
 	}
 
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 	close(sock);
 
 	fdht_sync_destroy();	
-	fdht_service_destroy();
+	fdht_func_destroy();
 
 	logInfo("exit nomally.\n");
 	

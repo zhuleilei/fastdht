@@ -6,7 +6,7 @@
 * Please visit the FastDFS Home Page http://www.csource.org/ for more detail.
 **/
 
-//fdht_sync.c
+//sync.c
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -27,8 +27,8 @@
 #include "shared_func.h"
 #include "ini_file_reader.h"
 #include "global.h"
-#include "service.h"
-#include "fdht_sync.h"
+#include "func.h"
+#include "sync.h"
 
 #define SYNC_BINLOG_FILE_MAX_SIZE	1024 * 1024 * 1024
 #define SYNC_BINLOG_FILE_PREFIX		"binlog"
@@ -59,8 +59,8 @@ static int fdht_binlog_reader_skip(BinLogReader *pReader);
 static void fdht_reader_destroy(BinLogReader *pReader);
 
 /**
-8 bytes: filename bytes
-8 bytes: file size
+4 bytes: filename bytes
+4 bytes: file size
 FDFS_GROUP_NAME_MAX_LEN bytes: group_name
 filename bytes : filename
 file size bytes: file content
@@ -370,7 +370,6 @@ int kill_fdht_sync_threads()
 	return result;
 }
 
-
 static char *get_binlog_readable_filename(BinLogReader *pReader, \
 		char *full_filename)
 {
@@ -442,6 +441,18 @@ static char *get_mark_filename(const void *pArg, \
 			"%s/data/"SYNC_DIR_NAME"/%s_%d%s", g_base_path, \
 			pReader->ip_addr, g_server_port, SYNC_MARK_FILE_EXT);
 	return full_filename;
+}
+
+static int fdht_reader_sync_init(BinLogReader *pReader)
+{
+	int result;
+
+	if ((result=fdht_write_to_mark_file(pReader)) != 0)
+	{
+		return result;
+	}
+
+	return 0;
 }
 
 static int fdht_reader_init(FDHTServerInfo *pStorage, \
@@ -528,12 +539,10 @@ static int fdht_reader_init(FDHTServerInfo *pStorage, \
 	}
 	else
 	{
-		/*
-		if ((result=fdht_reader_sync_init_req(pReader)) != 0)
+		if ((result=fdht_reader_sync_init(pReader)) != 0)
 		{
 			return result;
 		}
-		*/
 	}
 
 	pReader->last_write_row_count = pReader->scan_row_count;

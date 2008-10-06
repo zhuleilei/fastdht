@@ -30,6 +30,8 @@ int g_conn_count = 0;
 int g_recv_count = 0;
 int g_send_count = 0;
 
+FDHTServerStat g_server_stat;
+
 int g_allow_ip_count = 0;  /* -1 means match any ip address */
 in_addr_t *g_allow_ip_addrs = NULL;  /* sorted array, asc order */
 

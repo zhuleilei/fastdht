@@ -6,10 +6,10 @@
 * Please visit the FastDFS Home Page http://www.csource.org/ for more detail.
 **/
 
-//fdht_sync.h
+//sync.h
 
-#ifndef _FDHT_SYNC_H_
-#define _FDHT_SYNC_H_
+#ifndef _SYNC_H_
+#define _SYNC_H_
 
 #include "fdht_types.h"
 #include "fdht_proto.h"
@@ -32,6 +32,7 @@ typedef struct
 
 typedef struct
 {
+	int port;
 	char ip_addr[IP_ADDRESS_SIZE];
 	bool need_sync_old;
 	bool sync_old_done;

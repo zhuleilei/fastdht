@@ -1,4 +1,4 @@
-//service.c
+//func.c
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -19,7 +19,7 @@
 #include "fdht_global.h"
 #include "global.h"
 #include "fdht_func.h"
-#include "service.h"
+#include "func.h"
 
 DBInfo **g_db_list = NULL;
 int g_db_count = 0;
@@ -261,7 +261,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	return result;
 }
 
-int fdht_service_init(const char *filename, char *bind_addr, \
+int fdht_func_init(const char *filename, char *bind_addr, \
 		const int addr_size)
 {
 	int result;
@@ -340,7 +340,7 @@ int fdht_service_init(const char *filename, char *bind_addr, \
 	return result;
 }
 
-void fdht_service_destroy()
+void fdht_func_destroy()
 {
 	int i;
 
