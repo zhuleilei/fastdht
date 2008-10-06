@@ -34,9 +34,9 @@
 #include "task_queue.h"
 #include "recv_thread.h"
 #include "send_thread.h"
-#include "service.h"
+#include "func.h"
 #include "db_op.h"
-#include "fdht_sync.h"
+#include "sync.h"
 
 static pthread_mutex_t work_thread_mutex;
 static pthread_cond_t work_thread_cond;
