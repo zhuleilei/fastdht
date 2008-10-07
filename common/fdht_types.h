@@ -27,6 +27,30 @@ typedef struct
 	char ip_addr[IP_ADDRESS_SIZE];
 } FDHTServerInfo;
 
+typedef struct {
+	uint64_t total_set_count;
+	uint64_t success_set_count;
+	uint64_t total_inc_count;
+	uint64_t success_inc_count;
+	uint64_t total_delete_count;
+	uint64_t success_delete_count;
+	uint64_t total_get_count;
+	uint64_t success_get_count;
+} FDHTServerStat;
+
+typedef struct
+{
+	FDHTServerInfo *servers;
+	int count;  //server count
+	int read_index;  //current read index for roundrobin
+} ServerArray;
+
+typedef struct
+{
+	ServerArray *groups;
+	int count;  //group count
+} GroupArray;
+
 #ifdef __cplusplus
 }
 #endif

@@ -447,6 +447,11 @@ static int fdht_reader_sync_init(BinLogReader *pReader)
 {
 	int result;
 
+	if (g_server_stat.success_set_count + g_server_stat.success_inc_count \
+		+ g_server_stat.success_delete_count == 0)
+	{
+	}
+
 	if ((result=fdht_write_to_mark_file(pReader)) != 0)
 	{
 		return result;

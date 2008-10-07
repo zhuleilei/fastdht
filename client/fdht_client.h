@@ -22,19 +22,6 @@
 extern "C" {
 #endif
 
-typedef struct
-{
-	FDHTServerInfo *servers;
-	int count;  //server count
-	int read_index;  //current read index for roundrobin
-} ServerArray;
-
-typedef struct
-{
-	ServerArray *groups;
-	int count;  //group count
-} GroupArray;
-
 extern GroupArray g_group_array;
 
 int fdht_client_init(const char *filename);
@@ -47,7 +34,7 @@ int fdht_set(const char *pKey, const int key_len, \
 	const char *pValue, const int value_len);
 
 int fdht_inc(const char *pKey, const int key_len, \
-		const int increase);
+		const int increase, char *pValue, int *value_len);
 
 int fdht_delete(const char *pKey, const int key_len);
 

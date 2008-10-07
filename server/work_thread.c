@@ -561,10 +561,8 @@ static int deal_cmd_inc(struct task_info *pTask)
 	int group_id;
 	int inc;
 	char value[32];
-	char *pValue;
 	int value_len;
 	int result;
-	int64_t n;
 
 	CHECK_GROUP_ID(pTask, group_id)
 
@@ -591,26 +589,21 @@ static int deal_cmd_inc(struct task_info *pTask)
 	key = pTask->data + sizeof(ProtoHeader) + 4;
 	inc = buff2int(pTask->data + sizeof(ProtoHeader) + 4 + key_len);
 
-	pValue = value;
 	value_len = sizeof(value) - 1;
-	if ((result=db_get(g_db_list[group_id], key, key_len, \
-               	&pValue, &value_len)) != 0)
-	{
-		pTask->length = sizeof(ProtoHeader);
-		return result;
-	}
-
-	value[value_len] = '\0';
-	n = strtoll(value, NULL, 10);
-	n += inc;
-
-	value_len = sprintf(value, INT64_PRINTF_FORMAT, n);
-	pTask->length = sizeof(ProtoHeader);
-	result = db_set(g_db_list[group_id], key, key_len, value, value_len);
+	result = db_inc(g_db_list[group_id], key, key_len, inc, \
+			value, &value_len);
 	if (result == 0)
 	{
 		fdht_binlog_write(FDHT_OP_TYPE_SOURCE_SET, key, key_len, \
-				pValue, value_len);
+				value, value_len);
+
+		pTask->length = sizeof(ProtoHeader) + 4 + value_len;
+		int2buff(value_len, pTask->data + sizeof(ProtoHeader));
+		memcpy(pTask->data+sizeof(ProtoHeader)+4, value, value_len);
+	}
+	else
+	{
+		pTask->length = sizeof(ProtoHeader);
 	}
 
 	return result;
