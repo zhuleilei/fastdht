@@ -10,6 +10,7 @@
 #include "logger.h"
 #include "shared_func.h"
 #include "db_op.h"
+#include "global.h"
 
 static void db_errcall(const DB_ENV *dbenv, const char *errpfx, const char *msg)
 {
@@ -155,14 +156,14 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	DBT key;
 	DBT value;
 
+	g_server_stat.total_set_count++;
+
 	memset(&key, 0, sizeof(key));
 	memset(&value, 0, sizeof(value));
 
-	//key.flags = DB_DBT_USERMEM;
 	key.data = (char *)pKey;
 	key.size = key_len;
 
-	//value.flags = DB_DBT_USERMEM;
 	value.data = (char *)pValue;
 	value.size = value_len;
 
@@ -175,10 +176,11 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		return EFAULT;
 	}
 
+	g_server_stat.success_set_count++;
 	return result;
 }
 
-int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+static int _db_do_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		char **ppValue, int *size)
 {
 	int result;
@@ -217,10 +219,23 @@ int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 			return EFAULT;
 		}
 	}
-	else
+
+	*ppValue = value.data;
+	*size = value.size;
+
+	return result;
+}
+
+int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+		char **ppValue, int *size)
+{
+	int result;
+
+	g_server_stat.total_get_count++;
+	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
+		ppValue, size)) == 0)
 	{
-		*ppValue = value.data;
-		*size = value.size;
+		g_server_stat.success_get_count++;
 	}
 
 	return result;
@@ -231,8 +246,9 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
 	int result;
 	DBT key;
 
+	g_server_stat.total_delete_count++;
+
 	memset(&key, 0, sizeof(key));
-	//key.flags = DB_DBT_USERMEM;
 	key.data = (char *)pKey;
 	key.size = key_len;
 
@@ -244,6 +260,7 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
 			__LINE__, result, db_strerror(result));
 	}
 
+	g_server_stat.success_delete_count++;
 	return result;
 }
 
@@ -252,8 +269,12 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 {
 	int64_t n;
 	int result;
+	DBT key;
+	DBT value;
 
-	if ((result=db_get(pDBInfo, pKey, key_len, \
+	g_server_stat.total_inc_count++;
+
+	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
 		return result;
@@ -264,6 +285,26 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	n += inc;
 
 	*value_len = sprintf(pValue, INT64_PRINTF_FORMAT, n);
-	return db_set(pDBInfo, pKey, key_len, pValue, *value_len);
+
+	memset(&key, 0, sizeof(key));
+	memset(&value, 0, sizeof(value));
+
+	key.data = (char *)pKey;
+	key.size = key_len;
+
+	value.data = (char *)pValue;
+	value.size = *value_len;
+
+	if ((result=pDBInfo->db->put(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"db_put fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+		return EFAULT;
+	}
+
+	g_server_stat.success_inc_count++;
+	return result;
 }
 
