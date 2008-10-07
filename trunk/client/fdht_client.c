@@ -22,108 +22,10 @@
 #include "ini_file_reader.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
+#include "fdht_func.h"
 #include "fdht_client.h"
 
 GroupArray g_group_array = {NULL, 0};
-
-static int fdht_load_groups(IniItemInfo *items, const int nItemCount)
-{
-	IniItemInfo *pItemInfo;
-	IniItemInfo *pItemEnd;
-	int group_id;
-	char item_name[32];
-	ServerArray *pServerArray;
-	FDHTServerInfo *pServerInfo;
-	char *ip_port[2];
-
-	g_group_array.count = iniGetIntValue("group_count", \
-			items, nItemCount, 0);
-	if (g_group_array.count <= 0)
-	{
-		logError("invalid group count: %d <= 0!", \
-			g_group_array.count);
-		return EINVAL;
-	}
-
-	g_group_array.groups = (ServerArray *)malloc(sizeof(ServerArray) * \
-					g_group_array.count);
-	if (g_group_array.groups == NULL)
-	{
-		logError("malloc %d bytes fail, errno: %d, error info: %s", \
-			sizeof(ServerArray) * g_group_array.count, \
-			errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
-	}
-
-	pServerArray = g_group_array.groups;
-	for (group_id=0; group_id<g_group_array.count; group_id++)
-	{
-		sprintf(item_name, "group%d", group_id);
-		pItemInfo = iniGetValuesEx(item_name, items, \
-					nItemCount, &(pServerArray->count));
-		if (pItemInfo == NULL || pServerArray->count <= 0)
-		{
-			logError("group %d not exist!", group_id);
-			return ENOENT;
-		}
-
-		pServerArray->read_index = 0;
-		pServerArray->servers = (FDHTServerInfo *)malloc( \
-			sizeof(FDHTServerInfo) * pServerArray->count);
-		if (pServerArray->servers == NULL)
-		{
-			logError("malloc %d bytes fail, " \
-				"errno: %d, error info: %s", \
-				sizeof(FDHTServerInfo) * pServerArray->count, \
-				errno, strerror(errno));
-			return errno != 0 ? errno : ENOMEM;
-		}
-
-		memset(pServerArray->servers, 0, sizeof(FDHTServerInfo) * \
-			pServerArray->count);
-
-		pServerInfo = pServerArray->servers;
-		pItemEnd = pItemInfo + pServerArray->count;
-		for (; pItemInfo<pItemEnd; pItemInfo++)
-		{
-			if (splitEx(pItemInfo->value, ':', ip_port, 2) != 2)
-			{
-				logError("\"%s\" 's value \"%s\" is invalid, "\
-					"correct format is hostname:port", \
-					item_name, pItemInfo->value);
-				return EINVAL;
-			}
-
-			if (getIpaddrByName(ip_port[0], pServerInfo->ip_addr, \
-				sizeof(pServerInfo->ip_addr)) == INADDR_NONE)
-			{
-				logError("\"%s\" 's value \"%s\" is invalid, "\
-					"invalid hostname: %s", item_name, \
-					pItemInfo->value, ip_port[0]);
-				return EINVAL;
-			}
-
-			pServerInfo->port = atoi(ip_port[1]);
-			if (pServerInfo->port <= 0 || pServerInfo->port > 65535)
-			{
-				logError("\"%s\" 's value \"%s\" is invalid, "\
-					"invalid port: %d", item_name, \
-					pItemInfo->value, pServerInfo->port);
-				return EINVAL;
-			}
-			pServerInfo->sock = -1;
-
-			logDebug("group%d. %s:%d", group_id, \
-				pServerInfo->ip_addr, pServerInfo->port);
-
-			pServerInfo++;
-		}
-
-		pServerArray++;
-	}
-
-	return 0;
-}
 
 int fdht_client_init(const char *filename)
 {
@@ -175,10 +77,12 @@ int fdht_client_init(const char *filename)
 			g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
 		}
 
-		if ((result=fdht_load_groups(items, nItemCount)) != 0)
+		if ((result=fdht_load_groups(items, nItemCount, \
+				&g_group_array)) != 0)
 		{
 			break;
 		}
+
 #ifdef __DEBUG__
 		fprintf(stderr, "base_path=%s, " \
 			"network_timeout=%d, "\
@@ -545,11 +449,12 @@ int fdht_set(const char *pKey, const int key_len, \
 }
 
 int fdht_inc(const char *pKey, const int key_len, \
-		const int increase)
+		const int increase, char *pValue, int *value_len)
 {
 	int result;
 	ProtoHeader header;
-	char buff[16];
+	char buff[32];
+	char *in_buff;
 	int in_bytes;
 	int group_id;
 	FDHTServerInfo *pServer;
@@ -616,7 +521,9 @@ int fdht_inc(const char *pKey, const int key_len, \
 			break;
 		}
 
-		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		in_buff = buff;
+		if ((result=fdht_recv_response(pServer, &in_buff, \
+			sizeof(buff), &in_bytes)) != 0)
 		{
 			logError("recv data from server %s:%d fail, " \
 				"errno: %d, error info: %s", \
@@ -625,14 +532,24 @@ int fdht_inc(const char *pKey, const int key_len, \
 			break;
 		}
 
-		if (in_bytes != 0)
+		if (in_bytes < 4)
 		{
-			logError("server %s:%d reponse bytes: %d != 0", \
+			logError("server %s:%d reponse bytes: %d < 4!", \
 				pServer->ip_addr, pServer->port, in_bytes);
 			result = EINVAL;
 			break;
 		}
 
+		if (in_bytes - 4 >= *value_len)
+		{
+			*value_len = 0;
+			result = ENOSPC;
+			break;
+		}
+
+		*value_len = in_bytes - 4;
+		memcpy(pValue, in_buff + 4, *value_len);
+		*(pValue + (*value_len)) = '\0';
 		break;
 	}
 

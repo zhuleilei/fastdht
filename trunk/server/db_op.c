@@ -247,3 +247,23 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
 	return result;
 }
 
+int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+	const int inc, char *pValue, int *value_len)
+{
+	int64_t n;
+	int result;
+
+	if ((result=db_get(pDBInfo, pKey, key_len, \
+               	&pValue, value_len)) != 0)
+	{
+		return result;
+	}
+
+	pValue[*value_len] = '\0';
+	n = strtoll(pValue, NULL, 10);
+	n += inc;
+
+	*value_len = sprintf(pValue, INT64_PRINTF_FORMAT, n);
+	return db_set(pDBInfo, pKey, key_len, pValue, *value_len);
+}
+

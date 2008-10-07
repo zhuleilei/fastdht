@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
 	int result;
 	int key_len;
 	char key[32];
+	char szValue[32];
 	char *value;
 	int value_len;
 
@@ -68,20 +69,24 @@ int main(int argc, char *argv[])
 		}
 		*/
 
-		if ((result=fdht_inc(key, key_len, 100)) != 0)
+		value_len = sizeof(szValue);
+		if ((result=fdht_inc(key, key_len, 100, \
+				szValue, &value_len)) != 0)
 		{
 			break;
 		}
 
+		/*
 		value = NULL;
 		if ((result=fdht_get(key, key_len, &value, &value_len)) != 0)
 		{
 			break;
 		}
+		*/
 
 		printf("value_len: %d\n", value_len);
-		printf("value: %s\n", value);
-		free(value);
+		printf("value: %s\n", szValue);
+		//free(value);
 
 		/*
 		if ((result=fdht_delete(key, key_len)) != 0)

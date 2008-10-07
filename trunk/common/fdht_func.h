@@ -31,6 +31,9 @@ extern "C" {
 int load_group_ids(IniItemInfo *items, const int nItemCount, \
 		const char *item_name, int **group_ids, int *group_count);
 
+int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
+		GroupArray *pGroupArray);
+
 #ifdef __cplusplus
 }
 #endif

@@ -299,3 +299,103 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 	return result;
 }
 
+int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
+		GroupArray *pGroupArray)
+{
+	IniItemInfo *pItemInfo;
+	IniItemInfo *pItemEnd;
+	int group_id;
+	char item_name[32];
+	ServerArray *pServerArray;
+	FDHTServerInfo *pServerInfo;
+	char *ip_port[2];
+
+	pGroupArray->count = iniGetIntValue("group_count", \
+			items, nItemCount, 0);
+	if (pGroupArray->count <= 0)
+	{
+		logError("invalid group count: %d <= 0!", \
+			pGroupArray->count);
+		return EINVAL;
+	}
+
+	pGroupArray->groups = (ServerArray *)malloc(sizeof(ServerArray) * \
+					pGroupArray->count);
+	if (pGroupArray->groups == NULL)
+	{
+		logError("malloc %d bytes fail, errno: %d, error info: %s", \
+			sizeof(ServerArray) * pGroupArray->count, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	pServerArray = pGroupArray->groups;
+	for (group_id=0; group_id<pGroupArray->count; group_id++)
+	{
+		sprintf(item_name, "group%d", group_id);
+		pItemInfo = iniGetValuesEx(item_name, items, \
+					nItemCount, &(pServerArray->count));
+		if (pItemInfo == NULL || pServerArray->count <= 0)
+		{
+			logError("group %d not exist!", group_id);
+			return ENOENT;
+		}
+
+		pServerArray->read_index = 0;
+		pServerArray->servers = (FDHTServerInfo *)malloc( \
+			sizeof(FDHTServerInfo) * pServerArray->count);
+		if (pServerArray->servers == NULL)
+		{
+			logError("malloc %d bytes fail, " \
+				"errno: %d, error info: %s", \
+				sizeof(FDHTServerInfo) * pServerArray->count, \
+				errno, strerror(errno));
+			return errno != 0 ? errno : ENOMEM;
+		}
+
+		memset(pServerArray->servers, 0, sizeof(FDHTServerInfo) * \
+			pServerArray->count);
+
+		pServerInfo = pServerArray->servers;
+		pItemEnd = pItemInfo + pServerArray->count;
+		for (; pItemInfo<pItemEnd; pItemInfo++)
+		{
+			if (splitEx(pItemInfo->value, ':', ip_port, 2) != 2)
+			{
+				logError("\"%s\" 's value \"%s\" is invalid, "\
+					"correct format is hostname:port", \
+					item_name, pItemInfo->value);
+				return EINVAL;
+			}
+
+			if (getIpaddrByName(ip_port[0], pServerInfo->ip_addr, \
+				sizeof(pServerInfo->ip_addr)) == INADDR_NONE)
+			{
+				logError("\"%s\" 's value \"%s\" is invalid, "\
+					"invalid hostname: %s", item_name, \
+					pItemInfo->value, ip_port[0]);
+				return EINVAL;
+			}
+
+			pServerInfo->port = atoi(ip_port[1]);
+			if (pServerInfo->port <= 0 || pServerInfo->port > 65535)
+			{
+				logError("\"%s\" 's value \"%s\" is invalid, "\
+					"invalid port: %d", item_name, \
+					pItemInfo->value, pServerInfo->port);
+				return EINVAL;
+			}
+			pServerInfo->sock = -1;
+
+			logDebug("group%d. %s:%d", group_id, \
+				pServerInfo->ip_addr, pServerInfo->port);
+
+			pServerInfo++;
+		}
+
+		pServerArray++;
+	}
+
+	return 0;
+}
+

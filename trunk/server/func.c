@@ -21,10 +21,36 @@
 #include "fdht_func.h"
 #include "func.h"
 
+#define DB_FILE_PREFIX_MAX_SIZE  32
+#define FDHT_STAT_FILENAME		"stat.dat"
+#define STAT_ITEM_TOTAL_SET		"total_set_count"
+#define STAT_ITEM_SUCCESS_SET		"success_set_count"
+#define STAT_ITEM_TOTAL_GET		"total_get_count"
+#define STAT_ITEM_SUCCESS_GET		"success_get_count"
+#define STAT_ITEM_TOTAL_INC		"total_inc_count"
+#define STAT_ITEM_SUCCESS_INC		"success_inc_count"
+#define STAT_ITEM_TOTAL_DELETE		"total_delete_count"
+#define STAT_ITEM_SUCCESS_DELETE	"success_delete_count"
+
 DBInfo **g_db_list = NULL;
 int g_db_count = 0;
 
-#define DB_FILE_PREFIX_MAX_SIZE  32
+static int fdht_stat_fd = -1;
+
+static char *fdht_get_stat_filename(const void *pArg, char *full_filename)
+{
+	static char buff[MAX_PATH_SIZE];
+
+	if (full_filename == NULL)
+	{
+		full_filename = buff;
+	}
+
+	snprintf(full_filename, MAX_PATH_SIZE, \
+			"%s/data/%s", g_base_path, \
+			FDHT_STAT_FILENAME);
+	return full_filename;
+}
 
 static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		const int addr_size, int **group_ids, int *group_count, \
@@ -261,6 +287,91 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	return result;
 }
 
+static int fdht_load_stat_from_file()
+{
+	char full_filename[MAX_PATH_SIZE];
+	char data_path[MAX_PATH_SIZE];
+	IniItemInfo *items;
+	int nItemCount;
+	int result;
+
+	memset(&g_server_stat, 0, sizeof(g_server_stat));
+
+	snprintf(data_path, sizeof(data_path), "%s/data", g_base_path);
+	if (!fileExists(data_path))
+	{
+		if (mkdir(data_path, 0755) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"mkdir \"%s\" fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, data_path, errno, strerror(errno));
+			return errno != 0 ? errno : ENOENT;
+		}
+	}
+
+	fdht_get_stat_filename(NULL, full_filename);
+	if (fileExists(full_filename))
+	{
+		if ((result=iniLoadItems(full_filename, &items, &nItemCount)) \
+			 != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"load from stat file \"%s\" fail, " \
+				"error code: %d", \
+				__LINE__, full_filename, result);
+			return result;
+		}
+
+		if (nItemCount < 8)
+		{
+			iniFreeItems(items);
+			logError("file: "__FILE__", line: %d, " \
+				"in stat file \"%s\", item count: %d < 12", \
+				__LINE__, full_filename, nItemCount);
+			return ENOENT;
+		}
+
+		g_server_stat.total_set_count = iniGetInt64Value( \
+				STAT_ITEM_TOTAL_SET, \
+				items, nItemCount, 0);
+		g_server_stat.success_set_count = iniGetInt64Value( \
+				STAT_ITEM_SUCCESS_SET, \
+				items, nItemCount, 0);
+		g_server_stat.total_get_count = iniGetInt64Value( \
+				STAT_ITEM_TOTAL_GET, \
+				items, nItemCount, 0);
+		g_server_stat.success_get_count = iniGetInt64Value( \
+				STAT_ITEM_SUCCESS_GET, \
+				items, nItemCount, 0);
+		g_server_stat.total_inc_count = iniGetInt64Value( \
+				STAT_ITEM_TOTAL_INC, \
+				items, nItemCount, 0);
+		g_server_stat.success_inc_count = iniGetInt64Value( \
+				STAT_ITEM_SUCCESS_INC, \
+				items, nItemCount, 0);
+		g_server_stat.total_delete_count = iniGetInt64Value( \
+				STAT_ITEM_TOTAL_DELETE, \
+				items, nItemCount, 0);
+		g_server_stat.success_delete_count = iniGetInt64Value( \
+				STAT_ITEM_SUCCESS_DELETE, \
+				items, nItemCount, 0);
+		iniFreeItems(items);
+	}
+
+	fdht_stat_fd = open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (fdht_stat_fd < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"open stat file \"%s\" fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, full_filename, errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	return fdht_write_to_stat_file();
+}
+
 int fdht_func_init(const char *filename, char *bind_addr, \
 		const int addr_size)
 {
@@ -337,6 +448,11 @@ int fdht_func_init(const char *filename, char *bind_addr, \
 	}
 
 	free(group_ids);
+	if (result == 0)
+	{
+		result = fdht_load_stat_from_file();
+	}
+
 	return result;
 }
 
@@ -352,6 +468,13 @@ void fdht_func_destroy()
 			free(g_db_list[i]);
 			g_db_list[i] = NULL;
 		}
+	}
+
+	if (fdht_stat_fd >= 0)
+	{
+		fdht_write_to_stat_file();
+		close(fdht_stat_fd);
+		fdht_stat_fd = -1;
 	}
 }
 
@@ -399,5 +522,33 @@ int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 	}
 
 	return 0;
+}
+
+int fdht_write_to_stat_file()
+{
+	char buff[512];
+	int len;
+
+	len = sprintf(buff, 
+		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s="INT64_PRINTF_FORMAT"\n", \
+		STAT_ITEM_TOTAL_SET, g_server_stat.total_set_count, \
+		STAT_ITEM_SUCCESS_SET, g_server_stat.success_set_count, \
+		STAT_ITEM_TOTAL_GET, g_server_stat.total_get_count, \
+		STAT_ITEM_SUCCESS_GET, g_server_stat.success_get_count, \
+		STAT_ITEM_TOTAL_INC, g_server_stat.total_inc_count, \
+		STAT_ITEM_SUCCESS_INC, g_server_stat.success_inc_count, \
+		STAT_ITEM_TOTAL_DELETE, g_server_stat.total_delete_count, \
+		STAT_ITEM_SUCCESS_DELETE, g_server_stat.success_delete_count \
+	    );
+
+	return fdht_write_to_fd(fdht_stat_fd, \
+			fdht_get_stat_filename, NULL, buff, len);
 }
 

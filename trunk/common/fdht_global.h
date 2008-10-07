@@ -17,6 +17,7 @@
 #include <time.h>
 #include <pthread.h>
 #include "fdht_define.h"
+#include "fdht_types.h"
 
 typedef struct
 {
