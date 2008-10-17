@@ -37,13 +37,165 @@ int g_db_count = 0;
 
 static int fdht_stat_fd = -1;
 
-int load_group_ids(IniItemInfo *items, const int nItemCount, \
+static int fdht_cmp_by_ip_and_port(const void *p1, const void *p2)
+{
+	int res;
+
+	res = strcmp(((FDHTServerInfo *)p1)->ip_addr, \
+			((FDHTServerInfo *)p2)->ip_addr);
+	if (res != 0)
+	{
+		return res;
+	}
+
+	return ((FDHTServerInfo *)p1)->port - \
+			((FDHTServerInfo *)p2)->port;
+}
+
+static int load_group_servers(GroupArray *pGroupArray, \
+		int *group_ids, const int group_count, \
+		FDHTServerInfo **ppGroupServers, int *server_count)
+{
+	ServerArray *pServerArray;
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+	FDHTServerInfo *pFound;
+	int *counts;
+	int group_servers;
+	int compare;
+	int result;
+	int id;
+	int k;
+	int i;
+
+	*ppGroupServers = NULL;
+	*server_count = 0;
+
+	id = group_ids[0];
+	pServerArray = pGroupArray->groups + id;
+	*ppGroupServers = (FDHTServerInfo *)malloc( \
+				sizeof(FDHTServerInfo) * pServerArray->count);
+	if (*ppGroupServers == NULL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, errno: %d, error info: %s", \
+			__LINE__, \
+			sizeof(FDHTServerInfo) * pServerArray->count, \
+			errno, strerror(errno));
+
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	pServerEnd = pServerArray->servers + pServerArray->count;
+	for (pServerInfo=pServerArray->servers; \
+		pServerInfo<pServerEnd; pServerInfo++)
+	{
+		compare = 1;
+		for (k=0; k<*server_count; k++)
+		{
+			compare = fdht_cmp_by_ip_and_port(pServerInfo, \
+						(*ppGroupServers) + k);
+			if (compare <= 0)
+			{
+				break;
+			}
+		}
+
+		if (compare == 0)
+		{
+			continue;
+		}
+
+		for (i=*server_count-1; i>=k; i++)
+		{
+			memcpy((*ppGroupServers) + (i+1), \
+				(*ppGroupServers) + i, sizeof(FDHTServerInfo));
+		}
+		memcpy((*ppGroupServers) + k, pServerInfo, \
+				sizeof(FDHTServerInfo));
+		(*server_count)++;
+	}
+
+	counts = (int *)malloc(sizeof(int) * (*server_count));
+	if (counts == NULL)
+	{
+		free(*ppGroupServers);
+		*ppGroupServers = NULL;
+		*server_count = 0;
+
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, errno: %d, error info: %s", \
+			__LINE__, sizeof(int) * (*server_count), \
+			errno, strerror(errno));
+
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	result = 0;
+	for (k=1; k < group_count && result == 0; k++)
+	{
+		group_servers = 0;
+		memset(counts, 0, sizeof(int) * (*server_count));
+
+		pServerArray = pGroupArray->groups + group_ids[k];
+		pServerEnd = pServerArray->servers + pServerArray->count;
+		for (pServerInfo=pServerArray->servers; \
+			pServerInfo<pServerEnd; pServerInfo++)
+		{
+			pFound = (FDHTServerInfo *)bsearch(pServerInfo, \
+				*ppGroupServers, *server_count, \
+				sizeof(FDHTServerInfo),fdht_cmp_by_ip_and_port);
+			if (pFound == NULL)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"group %d and group %d: " \
+					"servers not same, group %d " \
+					"no server \"%s:%d\"", __LINE__, \
+					group_ids[0], group_ids[k], \
+					group_ids[0], pServerInfo->ip_addr, \
+					pServerInfo->port);
+				result = EINVAL;
+				break;
+			}
+			else
+			{
+				if (counts[pFound - (*ppGroupServers)]++ == 0)
+				{
+					group_servers++;
+				}
+			}
+		}
+
+		if (group_servers != *server_count)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"group %d server count: %d, " \
+				"group %d server count: %d, " \
+				"servers not same", __LINE__, \
+				group_ids[0], *server_count, \
+				group_ids[k], group_servers);
+			result = EINVAL;
+			break;
+		}
+	}
+
+	free(counts);
+	if (result != 0)
+	{
+		free(*ppGroupServers);
+		*ppGroupServers = NULL;
+		*server_count = 0;
+	}
+
+	return result;
+}
+
+static int load_group_ids(GroupArray *pGroupArray, \
 		const char *bind_addr, int **group_ids, int *group_count)
 {
 #define MAX_HOST_ADDRS	10
 
 	int result;
-	GroupArray groupArray;
 	char host_addrs[MAX_HOST_ADDRS][IP_ADDRESS_SIZE];
 	int addrs_count;
 	ServerArray *pServerArray;
@@ -53,7 +205,9 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 	int id;
 	int k;
 
+	*group_ids = NULL;
 	*group_count = 0;
+
 	if (*bind_addr != '\0')
 	{
 		addrs_count = 1;
@@ -83,28 +237,20 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 		*/
 	}
 
-	memset(&groupArray, 0, sizeof(groupArray));
-	result = fdht_load_groups(items, nItemCount, &groupArray);
-	if (result != 0)
-	{
-		return result;
-	}
-
-	*group_ids = (int *)malloc(sizeof(int) * groupArray.count);
+	*group_ids = (int *)malloc(sizeof(int) * pGroupArray->count);
 	if (*group_ids == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, sizeof(int) * groupArray.count, \
+			__LINE__, sizeof(int) * pGroupArray->count, \
 			errno, strerror(errno));
 
-		fdht_free_group_array(&groupArray);
 		return errno != 0 ? errno : ENOMEM;
 	}
 
 	id = 0;
-	pArrayEnd = groupArray.groups + groupArray.count;
-	for (pServerArray=groupArray.groups; pServerArray<pArrayEnd;
+	pArrayEnd = pGroupArray->groups + pGroupArray->count;
+	for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
 		 pServerArray++)
 	{
 		if (pServerArray->servers == NULL)
@@ -137,8 +283,6 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 		id++;
 	}
 
-	fdht_free_group_array(&groupArray);
-
 	if (*group_count == 0)
 	{
 		free(*group_ids);
@@ -149,13 +293,6 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 			"program exit!", __LINE__);
 		return ENOENT;
 	}
-
-	/*
-	for (k=0; k < *group_count; k++)
-	{
-		printf("group id: %d\n", (*group_ids)[k]);
-	}
-	*/
 
 	return 0;
 }
@@ -177,6 +314,7 @@ static char *fdht_get_stat_filename(const void *pArg, char *full_filename)
 
 static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		const int addr_size, int **group_ids, int *group_count, \
+		FDHTServerInfo **ppGroupServers, int *server_count, \
 		DBType *db_type, u_int64_t *nCacheSize, \
 		char *db_file_prefix)
 {
@@ -192,6 +330,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	int nItemCount;
 	int result;
 	u_int64_t max_pkg_size;
+	GroupArray groupArray;
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
 	{
@@ -376,14 +515,32 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		snprintf(db_file_prefix, DB_FILE_PREFIX_MAX_SIZE, \
 			"%s", pDbFilePrefix);
 
-		if ((result=load_group_ids(items, nItemCount, \
-			bind_addr, group_ids, group_count)) != 0)
+		memset(&groupArray, 0, sizeof(groupArray));
+		result = fdht_load_groups(items, nItemCount, &groupArray);
+		if (result != 0)
 		{
 			break;
 		}
 
+		if ((result=load_group_ids(&groupArray, bind_addr, \
+				group_ids, group_count)) != 0)
+		{
+			fdht_free_group_array(&groupArray);
+			break;
+		}
+
+		result = load_group_servers(&groupArray, *group_ids, \
+			*group_count, ppGroupServers, server_count);
+		fdht_free_group_array(&groupArray);
+		if (result != 0)
+		{
+			free(*group_ids);
+			*group_ids = NULL;
+			break;
+		}
+
 		logInfo("FastDHT v%d.%d, base_path=%s, " \
-			"group count=%d, " \
+			"group count=%d, group server count: %d, " \
 			"network_timeout=%d, "\
 			"port=%d, bind_addr=%s, " \
 			"max_connections=%d, "    \
@@ -394,7 +551,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"cache_size=%d MB, sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d", \
 			g_version.major, g_version.minor, \
-			g_base_path, *group_count, \
+			g_base_path, *group_count, *server_count, \
 			g_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
 			g_max_threads, g_max_pkg_size / 1024, \
@@ -495,8 +652,8 @@ static int fdht_load_stat_from_file()
 	return fdht_write_to_stat_file();
 }
 
-int fdht_func_init(const char *filename, char *bind_addr, \
-		const int addr_size)
+int fdht_func_init(const char *filename, char *bind_addr, const int addr_size,\
+		FDHTServerInfo **ppGroupServers, int *server_count)
 {
 	int result;
 	int *group_ids;
@@ -511,8 +668,8 @@ int fdht_func_init(const char *filename, char *bind_addr, \
 	char db_filename[DB_FILE_PREFIX_MAX_SIZE+8];
 
 	result = fdht_load_from_conf_file(filename, bind_addr, \
-		addr_size, &group_ids, &group_count, &db_type, \
-		&nCacheSize, db_file_prefix);
+		addr_size, &group_ids, &group_count, ppGroupServers, \
+		server_count, &db_type, &nCacheSize, db_file_prefix);
 	if (result != 0)
 	{
 		return result;

@@ -49,6 +49,8 @@ int main(int argc, char *argv[])
 {
 	char *conf_filename;
 	char bind_addr[IP_ADDRESS_SIZE];
+	FDHTServerInfo *pGroupServers;
+	int server_count;
 	
 	int result;
 	int sock;
@@ -62,10 +64,18 @@ int main(int argc, char *argv[])
 	}
 
 	conf_filename = argv[1];
-	if ((result=fdht_func_init(conf_filename, \
-			bind_addr, sizeof(bind_addr))) != 0)
+	if ((result=fdht_func_init(conf_filename, bind_addr, \
+		sizeof(bind_addr), &pGroupServers, &server_count)) != 0)
 	{
 		return result;
+	}
+
+	{
+	int k;
+	for (k=0; k<server_count; k++)
+	{
+		printf("%d. %s:%d\n", k+1, pGroupServers[k].ip_addr, pGroupServers[k].port);	
+	}
 	}
 
 	if ((result=init_pthread_lock(&g_storage_thread_lock)) != 0)
