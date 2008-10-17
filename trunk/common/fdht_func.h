@@ -28,11 +28,11 @@
 extern "C" {
 #endif
 
-int load_group_ids(IniItemInfo *items, const int nItemCount, \
-		const char *item_name, int **group_ids, int *group_count);
+int fdfs_split_ids(const char *szIds, int **ppIds, int *id_count);
 
 int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 		GroupArray *pGroupArray);
+void fdht_free_group_array(GroupArray *pGroupArray);
 
 #ifdef __cplusplus
 }

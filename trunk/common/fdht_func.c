@@ -27,10 +27,8 @@
 #include "ini_file_reader.h"
 #include "fdht_func.h"
 
-int load_group_ids(IniItemInfo *items, const int nItemCount, \
-		const char *item_name, int **group_ids, int *group_count)
+int fdfs_split_ids(const char *szIds, int **ppIds, int *id_count)
 {
-	char *pGroupIds;
 	char *pBuff;
 	char *pNumStart;
 	char *p;
@@ -46,21 +44,10 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 	int nStart;
 	int nEnd;
 
-	if ((pGroupIds=iniGetStrValue(item_name, items, nItemCount)) == NULL)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"no item \"%s\" in conf file", \
-			__LINE__, item_name);
-
-		*group_count = 0;
-		*group_ids = NULL;
-		return ENOENT;
-	}
-
-	alloc_count = getOccurCount(pGroupIds, ',') + 1;
-	*group_count = 0;
-	*group_ids = (int *)malloc(sizeof(int) * alloc_count);
-	if (*group_ids == NULL)
+	alloc_count = getOccurCount(szIds, ',') + 1;
+	*id_count = 0;
+	*ppIds = (int *)malloc(sizeof(int) * alloc_count);
+	if (*ppIds == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s.", \
@@ -69,15 +56,15 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 		return errno != 0 ? errno : ENOMEM;
 	}
 
-	pBuff = strdup(pGroupIds);
+	pBuff = strdup(szIds);
 	if (pBuff == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"strdup \"%s\" fail, errno: %d, error info: %s.", \
-			__LINE__, pGroupIds, \
+			__LINE__, szIds, \
 			errno, strerror(errno));
-		free(*group_ids);
-		*group_ids = NULL;
+		free(*ppIds);
+		*ppIds = NULL;
 		return errno != 0 ? errno : ENOMEM;
 	}
 
@@ -109,7 +96,7 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 				logError("file: "__FILE__", line: %d, " \
 					"invalid group ids \"%s\", " \
 					"which contains empty group id!", \
-					__LINE__, pGroupIds);
+					__LINE__, szIds);
 				result = EINVAL;
 				break;
 			}
@@ -120,14 +107,14 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 				logError("file: "__FILE__", line: %d, " \
 					"invalid group ids \"%s\", which contains " \
 					"invalid char: %c(0x%02X)! remain string: %s", \
-					__LINE__, pGroupIds, *p, *p, p);
+					__LINE__, szIds, *p, *p, p);
 				result = EINVAL;
 				break;
 			}
 
 			*p = '\0';
-			(*group_ids)[*group_count] = atoi(pNumStart);
-			(*group_count)++;
+			(*ppIds)[*id_count] = atoi(pNumStart);
+			(*id_count)++;
 	
 			if (ch == '\0')
 			{
@@ -143,7 +130,7 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 			logError("file: "__FILE__", line: %d, " \
 				"invalid group ids \"%s\", which contains " \
 				"invalid char: %c(0x%02X)! remain string: %s", \
-				__LINE__, pGroupIds, *p, *p, p);
+				__LINE__, szIds, *p, *p, p);
 			result = EINVAL;
 			break;
 		}
@@ -167,7 +154,7 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 				"invalid group ids: %s, " \
 				"empty entry before char %c(0x%02X), " \
 				"remain string: %s", \
-				__LINE__, pGroupIds, *p, *p, p);
+				__LINE__, szIds, *p, *p, p);
 			result = EINVAL;
 			break;
 		}
@@ -182,7 +169,7 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 			logError("file: "__FILE__", line: %d, " \
 				"expect \"-\", but char %c(0x%02X) ocurs " \
 				"in group ids: %s, remain string: %s",\
-				__LINE__, *p, *p, pGroupIds, p);
+				__LINE__, *p, *p, szIds, p);
 			result = EINVAL;
 			break;
 		}
@@ -208,7 +195,7 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 			logError("file: "__FILE__", line: %d, " \
 				"invalid group ids: %s, " \
 				"empty entry before char %c(0x%02X)", \
-				__LINE__, pGroupIds, *p, *p);
+				__LINE__, szIds, *p, *p);
 			result = EINVAL;
 			break;
 		}
@@ -224,7 +211,7 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 			logError("file: "__FILE__", line: %d, " \
 				"expect \"]\", but char %c(0x%02X) ocurs " \
 				"in group ids: %s",\
-				__LINE__, *p, *p, pGroupIds);
+				__LINE__, *p, *p, szIds);
 			result = EINVAL;
 			break;
 		}
@@ -237,12 +224,12 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 		{
 			count = 0;
 		}
-		if (alloc_count < *group_count + (count + 1))
+		if (alloc_count < *id_count + (count + 1))
 		{
 			alloc_count += count + 1;
-			*group_ids = (int *)realloc(*group_ids, \
+			*ppIds = (int *)realloc(*ppIds, \
 				sizeof(int) * alloc_count);
-			if (*group_ids == NULL)
+			if (*ppIds == NULL)
 			{
 				result = errno != 0 ? errno : ENOMEM;
 				logError("file: "__FILE__", line: %d, "\
@@ -258,8 +245,8 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 
 		for (i=nStart; i<=nEnd; i++)
 		{
-			(*group_ids)[*group_count] = i;
-			(*group_count)++;
+			(*ppIds)[*id_count] = i;
+			(*id_count)++;
 		}
 
 		p++; //skip ]
@@ -276,7 +263,7 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 
 	free(pBuff);
 
-	if (result == 0 && *group_count == 0)
+	if (result == 0 && *id_count == 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"invalid group ids count: 0!", __LINE__);
@@ -285,15 +272,15 @@ int load_group_ids(IniItemInfo *items, const int nItemCount, \
 
 	if (result != 0)
 	{
-		*group_count = 0;
-		free(*group_ids);
-		*group_ids = NULL;
+		*id_count = 0;
+		free(*ppIds);
+		*ppIds = NULL;
 	}
 
-	printf("*group_count=%d\n", *group_count);
-	for (i=0; i<*group_count; i++)
+	printf("*id_count=%d\n", *id_count);
+	for (i=0; i<*id_count; i++)
 	{
-		printf("%d\n", (*group_ids)[i]);
+		printf("%d\n", (*ppIds)[i]);
 	}
 
 	return result;
@@ -314,8 +301,9 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 			items, nItemCount, 0);
 	if (pGroupArray->count <= 0)
 	{
-		logError("invalid group count: %d <= 0!", \
-			pGroupArray->count);
+		logError("file: "__FILE__", line: %d, " \
+			"invalid group count: %d <= 0!", \
+			__LINE__, pGroupArray->count);
 		return EINVAL;
 	}
 
@@ -323,8 +311,9 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 					pGroupArray->count);
 	if (pGroupArray->groups == NULL)
 	{
-		logError("malloc %d bytes fail, errno: %d, error info: %s", \
-			sizeof(ServerArray) * pGroupArray->count, \
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, errno: %d, error info: %s", \
+			__LINE__, sizeof(ServerArray) * pGroupArray->count, \
 			errno, strerror(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -337,7 +326,8 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 					nItemCount, &(pServerArray->count));
 		if (pItemInfo == NULL || pServerArray->count <= 0)
 		{
-			logError("group %d not exist!", group_id);
+			logError("file: "__FILE__", line: %d, " \
+				"group %d not exist!", __LINE__, group_id);
 			return ENOENT;
 		}
 
@@ -346,8 +336,9 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 			sizeof(FDHTServerInfo) * pServerArray->count);
 		if (pServerArray->servers == NULL)
 		{
-			logError("malloc %d bytes fail, " \
-				"errno: %d, error info: %s", \
+			logError("file: "__FILE__", line: %d, " \
+				"malloc %d bytes fail, " \
+				"errno: %d, error info: %s", __LINE__, \
 				sizeof(FDHTServerInfo) * pServerArray->count, \
 				errno, strerror(errno));
 			return errno != 0 ? errno : ENOMEM;
@@ -362,26 +353,40 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 		{
 			if (splitEx(pItemInfo->value, ':', ip_port, 2) != 2)
 			{
-				logError("\"%s\" 's value \"%s\" is invalid, "\
+				logError("file: "__FILE__", line: %d, " \
+					"\"%s\" 's value \"%s\" is invalid, "\
 					"correct format is hostname:port", \
-					item_name, pItemInfo->value);
+					__LINE__, item_name, pItemInfo->value);
 				return EINVAL;
 			}
 
 			if (getIpaddrByName(ip_port[0], pServerInfo->ip_addr, \
 				sizeof(pServerInfo->ip_addr)) == INADDR_NONE)
 			{
-				logError("\"%s\" 's value \"%s\" is invalid, "\
-					"invalid hostname: %s", item_name, \
+				logError("file: "__FILE__", line: %d, " \
+					"\"%s\" 's value \"%s\" is invalid, "\
+					"invalid hostname: %s", \
+					__LINE__, item_name, \
 					pItemInfo->value, ip_port[0]);
+				return EINVAL;
+			}
+
+			if (strcmp(pServerInfo->ip_addr, "127.0.0.1") == 0)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"group%d: invalid hostname \"%s\", " \
+					"ip address can not be 127.0.0.1!", \
+					__LINE__, group_id, pItemInfo->value);
 				return EINVAL;
 			}
 
 			pServerInfo->port = atoi(ip_port[1]);
 			if (pServerInfo->port <= 0 || pServerInfo->port > 65535)
 			{
-				logError("\"%s\" 's value \"%s\" is invalid, "\
-					"invalid port: %d", item_name, \
+				logError("file: "__FILE__", line: %d, " \
+					"\"%s\" 's value \"%s\" is invalid, "\
+					"invalid port: %d", \
+					__LINE__, item_name, \
 					pItemInfo->value, pServerInfo->port);
 				return EINVAL;
 			}
@@ -397,5 +402,43 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 	}
 
 	return 0;
+}
+
+void fdht_free_group_array(GroupArray *pGroupArray)
+{
+	ServerArray *pServerArray;
+	ServerArray *pArrayEnd;
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+
+	if (pGroupArray->groups != NULL)
+	{
+		pArrayEnd = pGroupArray->groups + pGroupArray->count;
+		for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
+			 pServerArray++)
+		{
+			if (pServerArray->servers == NULL)
+			{
+				continue;
+			}
+
+			pServerEnd = pServerArray->servers+pServerArray->count;
+			for (pServerInfo=pServerArray->servers; \
+				pServerInfo<pServerEnd; pServerInfo++)
+			{
+				if (pServerInfo->sock > 0)
+				{
+					close(pServerInfo->sock);
+					pServerInfo->sock = -1;
+				}
+			}
+
+			free(pServerArray->servers);
+			pServerArray->servers = NULL;
+		}
+
+		free(pGroupArray->groups);
+		pGroupArray->groups = NULL;
+	}
 }
 

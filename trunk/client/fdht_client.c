@@ -101,40 +101,7 @@ int fdht_client_init(const char *filename)
 
 void fdht_client_destroy()
 {
-	ServerArray *pServerArray;
-	ServerArray *pArrayEnd;
-	FDHTServerInfo *pServerInfo;
-	FDHTServerInfo *pServerEnd;
-
-	if (g_group_array.groups != NULL)
-	{
-		pArrayEnd = g_group_array.groups + g_group_array.count;
-		for (pServerArray=g_group_array.groups; pServerArray<pArrayEnd;
-			 pServerArray++)
-		{
-			if (pServerArray->servers == NULL)
-			{
-				continue;
-			}
-
-			pServerEnd = pServerArray->servers+pServerArray->count;
-			for (pServerInfo=pServerArray->servers; \
-				pServerInfo<pServerEnd; pServerInfo++)
-			{
-				if (pServerInfo->sock > 0)
-				{
-					close(pServerInfo->sock);
-					pServerInfo->sock = -1;
-				}
-			}
-
-			free(pServerArray->servers);
-			pServerArray->servers = NULL;
-		}
-
-		free(g_group_array.groups);
-		g_group_array.groups = NULL;
-	}
+	fdht_free_group_array(&g_group_array);
 }
 
 FDHTServerInfo *get_writable_connection(ServerArray *pServerArray, \
