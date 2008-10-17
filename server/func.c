@@ -37,6 +37,129 @@ int g_db_count = 0;
 
 static int fdht_stat_fd = -1;
 
+int load_group_ids(IniItemInfo *items, const int nItemCount, \
+		const char *bind_addr, int **group_ids, int *group_count)
+{
+#define MAX_HOST_ADDRS	10
+
+	int result;
+	GroupArray groupArray;
+	char host_addrs[MAX_HOST_ADDRS][IP_ADDRESS_SIZE];
+	int addrs_count;
+	ServerArray *pServerArray;
+	ServerArray *pArrayEnd;
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+	int id;
+	int k;
+
+	*group_count = 0;
+	if (*bind_addr != '\0')
+	{
+		addrs_count = 1;
+		snprintf(host_addrs[0], IP_ADDRESS_SIZE, "%s", bind_addr);
+	}
+	else
+	{
+		result = gethostaddrs(host_addrs, MAX_HOST_ADDRS, &addrs_count);
+		if (result != 0)
+		{
+			return result;
+		}
+
+		if (addrs_count == 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"can't get ip address from local host", \
+				__LINE__);
+			return ENOENT;
+		}
+
+		/*
+		for (k=0; k < addrs_count; k++)
+		{
+			printf("%d. ip addr: %s\n", k+1, host_addrs[k]);
+		}
+		*/
+	}
+
+	memset(&groupArray, 0, sizeof(groupArray));
+	result = fdht_load_groups(items, nItemCount, &groupArray);
+	if (result != 0)
+	{
+		return result;
+	}
+
+	*group_ids = (int *)malloc(sizeof(int) * groupArray.count);
+	if (*group_ids == NULL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, errno: %d, error info: %s", \
+			__LINE__, sizeof(int) * groupArray.count, \
+			errno, strerror(errno));
+
+		fdht_free_group_array(&groupArray);
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	id = 0;
+	pArrayEnd = groupArray.groups + groupArray.count;
+	for (pServerArray=groupArray.groups; pServerArray<pArrayEnd;
+		 pServerArray++)
+	{
+		if (pServerArray->servers == NULL)
+		{
+			id++;
+			continue;
+		}
+
+		pServerEnd = pServerArray->servers+pServerArray->count;
+		for (pServerInfo=pServerArray->servers; \
+			pServerInfo<pServerEnd; pServerInfo++)
+		{
+			for (k=0; k < addrs_count; k++)
+			{
+				if (strcmp(host_addrs[k], \
+					pServerInfo->ip_addr) == 0)
+				{
+					(*group_ids)[*group_count] = id;
+					(*group_count)++;
+					break;
+				}
+			}
+
+			if (k < addrs_count)  //found
+			{
+				break;
+			}
+		}
+
+		id++;
+	}
+
+	fdht_free_group_array(&groupArray);
+
+	if (*group_count == 0)
+	{
+		free(*group_ids);
+		*group_ids = NULL;
+
+		logError("file: "__FILE__", line: %d, " \
+			"local host does not belong to any group, " \
+			"program exit!", __LINE__);
+		return ENOENT;
+	}
+
+	/*
+	for (k=0; k < *group_count; k++)
+	{
+		printf("group id: %d\n", (*group_ids)[k]);
+	}
+	*/
+
+	return 0;
+}
+
 static char *fdht_get_stat_filename(const void *pArg, char *full_filename)
 {
 	static char buff[MAX_PATH_SIZE];
@@ -253,8 +376,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		snprintf(db_file_prefix, DB_FILE_PREFIX_MAX_SIZE, \
 			"%s", pDbFilePrefix);
 
-		if ((result=load_group_ids(items, nItemCount, "group_ids", \
-			group_ids, group_count)) != 0)
+		if ((result=load_group_ids(items, nItemCount, \
+			bind_addr, group_ids, group_count)) != 0)
 		{
 			break;
 		}
