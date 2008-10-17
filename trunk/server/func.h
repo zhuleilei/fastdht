@@ -32,9 +32,10 @@ int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 
 int fdht_write_to_stat_file();
 
-int fdht_func_init(const char *filename, char *bind_addr, const int addr_size,\
-		FDHTServerInfo **ppGroupServers, int *server_count);
+int fdht_func_init(const char *filename, char *bind_addr, const int addr_size);
 void fdht_func_destroy();
+
+int group_cmp_by_ip_and_port(const void *p1, const void *p2);
 
 #ifdef __cplusplus
 }

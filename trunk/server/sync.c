@@ -30,6 +30,14 @@
 #include "func.h"
 #include "sync.h"
 
+#define DATA_DIR_INITED_FILENAME	".sync_init_flag"
+#define INIT_ITEM_STORAGE_JOIN_TIME	"storage_join_time"
+#define INIT_ITEM_SYNC_OLD_DONE		"sync_old_done"
+#define INIT_ITEM_SYNC_SRC_SERVER	"sync_src_server"
+#define INIT_ITEM_SYNC_SRC_PORT		"sync_src_port"
+#define INIT_ITEM_SYNC_UNTIL_TIMESTAMP	"sync_until_timestamp"
+
+
 #define SYNC_BINLOG_FILE_MAX_SIZE	1024 * 1024 * 1024
 #define SYNC_BINLOG_FILE_PREFIX		"binlog"
 #define SYNC_BINLOG_INDEX_FILENAME	SYNC_BINLOG_FILE_PREFIX".index"
@@ -49,6 +57,7 @@ int g_binlog_index = 0;
 static off_t binlog_file_size = 0;
 
 int g_fdht_sync_thread_count = 0;
+
 static pthread_mutex_t sync_thread_lock;
 
 /* save sync thread ids */
@@ -57,6 +66,7 @@ static pthread_t *sync_tids = NULL;
 static int fdht_write_to_mark_file(BinLogReader *pReader);
 static int fdht_binlog_reader_skip(BinLogReader *pReader);
 static void fdht_reader_destroy(BinLogReader *pReader);
+static int fdht_sync_thread_start(const FDHTGroupServer *pStorage);
 
 /**
 4 bytes: filename bytes
@@ -216,6 +226,111 @@ static int open_next_writable_binlog()
 	return 0;
 }
 
+static int create_sync_threads()
+{
+	FDHTGroupServer *pServer;
+	FDHTGroupServer *pEnd;
+	int result;
+
+	pEnd = g_group_servers + g_group_server_count;
+	for (pServer=g_group_servers; pServer<pEnd; pServer++)
+	{
+		if ((result=fdht_sync_thread_start(pServer)) != 0)
+		{
+			return result;
+		}
+	}
+
+	return 0;
+}
+
+static int load_sync_init_data()
+{
+	IniItemInfo *items;
+	int nItemCount;
+	char *pValue;
+	int result;
+	char data_filename[MAX_PATH_SIZE];
+
+	snprintf(data_filename, sizeof(data_filename), "%s/data/%s", \
+			g_base_path, DATA_DIR_INITED_FILENAME);
+	if (fileExists(data_filename))
+	{
+		if ((result=iniLoadItems(data_filename, \
+				&items, &nItemCount)) \
+			 != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"load from file \"%s\" fail, " \
+				"error code: %d", \
+				__LINE__, data_filename, result);
+			return result;
+		}
+		
+		pValue = iniGetStrValue(INIT_ITEM_STORAGE_JOIN_TIME, \
+				items, nItemCount);
+		if (pValue == NULL)
+		{
+			iniFreeItems(items);
+			logError("file: "__FILE__", line: %d, " \
+				"in file \"%s\", item \"%s\" not exists", \
+				__LINE__, data_filename, \
+				INIT_ITEM_STORAGE_JOIN_TIME);
+			return ENOENT;
+		}
+		g_storage_join_time = atoi(pValue);
+
+		pValue = iniGetStrValue(INIT_ITEM_SYNC_OLD_DONE, \
+				items, nItemCount);
+		if (pValue == NULL)
+		{
+			iniFreeItems(items);
+			logError("file: "__FILE__", line: %d, " \
+				"in file \"%s\", item \"%s\" not exists", \
+				__LINE__, data_filename, \
+				INIT_ITEM_SYNC_OLD_DONE);
+			return ENOENT;
+		}
+		g_sync_old_done = atoi(pValue);
+
+		pValue = iniGetStrValue(INIT_ITEM_SYNC_SRC_SERVER, \
+				items, nItemCount);
+		if (pValue == NULL)
+		{
+			iniFreeItems(items);
+			logError("file: "__FILE__", line: %d, " \
+				"in file \"%s\", item \"%s\" not exists", \
+				__LINE__, data_filename, \
+				INIT_ITEM_SYNC_SRC_SERVER);
+			return ENOENT;
+		}
+		snprintf(g_sync_src_ip_addr, sizeof(g_sync_src_ip_addr), \
+				"%s", pValue);
+
+		g_sync_src_port = iniGetIntValue(INIT_ITEM_SYNC_SRC_PORT, \
+				items, nItemCount, 0);
+		
+		g_sync_until_timestamp = iniGetIntValue( \
+				INIT_ITEM_SYNC_UNTIL_TIMESTAMP, \
+				items, nItemCount, 0);
+		iniFreeItems(items);
+
+		//printf("g_sync_old_done = %d\n", g_sync_old_done);
+		//printf("g_sync_src_ip_addr = %s\n", g_sync_src_ip_addr);
+		//printf("g_sync_until_timestamp = %d\n", g_sync_until_timestamp);
+	}
+	else
+	{
+		g_storage_join_time = time(NULL);
+		if ((result=write_to_sync_ini_file()) != 0)
+		{
+			return result;
+		}
+	}
+
+	return 0;
+}
+
 int fdht_sync_init()
 {
 	char data_path[MAX_PATH_SIZE];
@@ -324,6 +439,16 @@ int fdht_sync_init()
 	}
 
 	load_local_host_ip_addrs();
+
+	if ((result=load_sync_init_data()) != 0)
+	{
+		return result;
+	}
+
+	if ((result=create_sync_threads()) != 0)
+	{
+		return result;
+	}
 
 	return 0;
 }
@@ -439,7 +564,7 @@ static char *get_mark_filename(const void *pArg, \
 
 	snprintf(full_filename, MAX_PATH_SIZE, \
 			"%s/data/"SYNC_DIR_NAME"/%s_%d%s", g_base_path, \
-			pReader->ip_addr, g_server_port, SYNC_MARK_FILE_EXT);
+			pReader->ip_addr, pReader->port, SYNC_MARK_FILE_EXT);
 	return full_filename;
 }
 
@@ -452,10 +577,12 @@ static int fdht_reader_sync_init(BinLogReader *pReader)
 	{
 	}
 
+	/*
 	if ((result=fdht_write_to_mark_file(pReader)) != 0)
 	{
 		return result;
 	}
+	*/
 
 	return 0;
 }
@@ -474,6 +601,8 @@ static int fdht_reader_init(FDHTServerInfo *pStorage, \
 	pReader->binlog_fd = -1;
 
 	strcpy(pReader->ip_addr, pStorage->ip_addr);
+	pReader->port = pStorage->port;
+
 	get_mark_filename(pReader, full_filename);
 	bFileExist = fileExists(full_filename);
 	if (bFileExist)
@@ -1090,7 +1219,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 	pStorage = (FDHTServerInfo *)arg;
 
 	strcpy(fdht_server.ip_addr, pStorage->ip_addr);
-	fdht_server.port = g_server_port;
+	fdht_server.port = pStorage->port;
 	fdht_server.sock = -1;
 	while (g_continue_flag)
 	{
@@ -1132,7 +1261,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 			}
 
 			if ((conn_result=connectserverbyip(fdht_server.sock,\
-				fdht_server.ip_addr, g_server_port)) == 0)
+				fdht_server.ip_addr, fdht_server.port)) == 0)
 			{
 				char szFailPrompt[36];
 				if (nContinuousFail == 0)
@@ -1149,7 +1278,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 					"successfully connect to " \
 					"storage server %s:%d%s", __LINE__, \
 					fdht_server.ip_addr, \
-					g_server_port, szFailPrompt);
+					fdht_server.port, szFailPrompt);
 				nContinuousFail = 0;
 				break;
 			}
@@ -1160,7 +1289,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 					"connect to storage server %s:%d fail" \
 					", errno: %d, error info: %s", \
 					__LINE__, \
-					fdht_server.ip_addr, g_server_port, \
+					fdht_server.ip_addr, fdht_server.port, \
 					conn_result, strerror(conn_result));
 				previousCode = conn_result;
 			}
@@ -1177,7 +1306,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 				"connect to storage server %s:%d fail, " \
 				"try count: %d, errno: %d, error info: %s", \
 				__LINE__, fdht_server.ip_addr, \
-				g_server_port, nContinuousFail, \
+				fdht_server.port, nContinuousFail, \
 				conn_result, strerror(conn_result));
 		}
 
@@ -1353,7 +1482,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 	return NULL;
 }
 
-int fdht_sync_thread_start(const FDHTServerInfo *pStorage)
+static int fdht_sync_thread_start(const FDHTGroupServer *pStorage)
 {
 	int result;
 	pthread_attr_t pattr;
@@ -1421,6 +1550,51 @@ int fdht_sync_thread_start(const FDHTServerInfo *pStorage)
 
 	pthread_attr_destroy(&pattr);
 
+	return 0;
+}
+
+int write_to_sync_ini_file()
+{
+	char full_filename[MAX_PATH_SIZE];
+	char buff[256];
+	int fd;
+	int len;
+
+	snprintf(full_filename, sizeof(full_filename), \
+		"%s/data/%s", g_base_path, DATA_DIR_INITED_FILENAME);
+	if ((fd=open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"open file \"%s\" fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, full_filename, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	len = sprintf(buff, "%s=%d\n" \
+		"%s=%d\n"  \
+		"%s=%s\n"  \
+		"%s=%d\n"  \
+		"%s=%d\n", \
+		INIT_ITEM_STORAGE_JOIN_TIME, g_storage_join_time, \
+		INIT_ITEM_SYNC_OLD_DONE, g_sync_old_done, \
+		INIT_ITEM_SYNC_SRC_SERVER, g_sync_src_ip_addr, \
+		INIT_ITEM_SYNC_SRC_PORT, g_sync_src_port, \
+		INIT_ITEM_SYNC_UNTIL_TIMESTAMP, g_sync_until_timestamp \
+	    );
+	if (write(fd, buff, len) != len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"write to file \"%s\" fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, full_filename, \
+			errno, strerror(errno));
+		close(fd);
+		return errno != 0 ? errno : EIO;
+	}
+
+	close(fd);
 	return 0;
 }
 

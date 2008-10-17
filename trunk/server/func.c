@@ -37,29 +37,30 @@ int g_db_count = 0;
 
 static int fdht_stat_fd = -1;
 
-static int fdht_cmp_by_ip_and_port(const void *p1, const void *p2)
+int group_cmp_by_ip_and_port(const void *p1, const void *p2)
 {
 	int res;
 
-	res = strcmp(((FDHTServerInfo *)p1)->ip_addr, \
-			((FDHTServerInfo *)p2)->ip_addr);
+	res = strcmp(((FDHTGroupServer *)p1)->ip_addr, \
+			((FDHTGroupServer *)p2)->ip_addr);
 	if (res != 0)
 	{
 		return res;
 	}
 
-	return ((FDHTServerInfo *)p1)->port - \
-			((FDHTServerInfo *)p2)->port;
+	return ((FDHTGroupServer *)p1)->port - \
+			((FDHTGroupServer *)p2)->port;
 }
 
 static int load_group_servers(GroupArray *pGroupArray, \
 		int *group_ids, const int group_count, \
-		FDHTServerInfo **ppGroupServers, int *server_count)
+		FDHTGroupServer **ppGroupServers, int *server_count)
 {
 	ServerArray *pServerArray;
 	FDHTServerInfo *pServerInfo;
 	FDHTServerInfo *pServerEnd;
-	FDHTServerInfo *pFound;
+	FDHTGroupServer *pFound;
+	FDHTGroupServer targetServer;
 	int *counts;
 	int group_servers;
 	int compare;
@@ -73,18 +74,21 @@ static int load_group_servers(GroupArray *pGroupArray, \
 
 	id = group_ids[0];
 	pServerArray = pGroupArray->groups + id;
-	*ppGroupServers = (FDHTServerInfo *)malloc( \
-				sizeof(FDHTServerInfo) * pServerArray->count);
+	*ppGroupServers = (FDHTGroupServer*)malloc( \
+				sizeof(FDHTGroupServer) * pServerArray->count);
 	if (*ppGroupServers == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
 			__LINE__, \
-			sizeof(FDHTServerInfo) * pServerArray->count, \
+			sizeof(FDHTGroupServer) * pServerArray->count, \
 			errno, strerror(errno));
 
 		return errno != 0 ? errno : ENOMEM;
 	}
+
+	memset(*ppGroupServers, 0, sizeof(FDHTGroupServer)*pServerArray->count);
+	memset(&targetServer, 0, sizeof(FDHTGroupServer));
 
 	pServerEnd = pServerArray->servers + pServerArray->count;
 	for (pServerInfo=pServerArray->servers; \
@@ -93,7 +97,9 @@ static int load_group_servers(GroupArray *pGroupArray, \
 		compare = 1;
 		for (k=0; k<*server_count; k++)
 		{
-			compare = fdht_cmp_by_ip_and_port(pServerInfo, \
+			strcpy(targetServer.ip_addr, pServerInfo->ip_addr);
+			targetServer.port = pServerInfo->port;
+			compare = group_cmp_by_ip_and_port(&targetServer, \
 						(*ppGroupServers) + k);
 			if (compare <= 0)
 			{
@@ -109,10 +115,11 @@ static int load_group_servers(GroupArray *pGroupArray, \
 		for (i=*server_count-1; i>=k; i++)
 		{
 			memcpy((*ppGroupServers) + (i+1), \
-				(*ppGroupServers) + i, sizeof(FDHTServerInfo));
+				(*ppGroupServers) + i, sizeof(FDHTGroupServer));
 		}
-		memcpy((*ppGroupServers) + k, pServerInfo, \
-				sizeof(FDHTServerInfo));
+		strcpy((*ppGroupServers)[k].ip_addr, pServerInfo->ip_addr);
+		(*ppGroupServers)[k].port = pServerInfo->port;
+
 		(*server_count)++;
 	}
 
@@ -142,9 +149,11 @@ static int load_group_servers(GroupArray *pGroupArray, \
 		for (pServerInfo=pServerArray->servers; \
 			pServerInfo<pServerEnd; pServerInfo++)
 		{
-			pFound = (FDHTServerInfo *)bsearch(pServerInfo, \
+			strcpy(targetServer.ip_addr, pServerInfo->ip_addr);
+			targetServer.port = pServerInfo->port;
+			pFound = (FDHTGroupServer *)bsearch(&targetServer, \
 				*ppGroupServers, *server_count, \
-				sizeof(FDHTServerInfo),fdht_cmp_by_ip_and_port);
+				sizeof(FDHTGroupServer),group_cmp_by_ip_and_port);
 			if (pFound == NULL)
 			{
 				logError("file: "__FILE__", line: %d, " \
@@ -314,7 +323,6 @@ static char *fdht_get_stat_filename(const void *pArg, char *full_filename)
 
 static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		const int addr_size, int **group_ids, int *group_count, \
-		FDHTServerInfo **ppGroupServers, int *server_count, \
 		DBType *db_type, u_int64_t *nCacheSize, \
 		char *db_file_prefix)
 {
@@ -530,7 +538,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		result = load_group_servers(&groupArray, *group_ids, \
-			*group_count, ppGroupServers, server_count);
+			*group_count, &g_group_servers, &g_group_server_count);
 		fdht_free_group_array(&groupArray);
 		if (result != 0)
 		{
@@ -551,7 +559,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"cache_size=%d MB, sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d", \
 			g_version.major, g_version.minor, \
-			g_base_path, *group_count, *server_count, \
+			g_base_path, *group_count, g_group_server_count, \
 			g_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
 			g_max_threads, g_max_pkg_size / 1024, \
@@ -652,8 +660,7 @@ static int fdht_load_stat_from_file()
 	return fdht_write_to_stat_file();
 }
 
-int fdht_func_init(const char *filename, char *bind_addr, const int addr_size,\
-		FDHTServerInfo **ppGroupServers, int *server_count)
+int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 {
 	int result;
 	int *group_ids;
@@ -668,8 +675,8 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size,\
 	char db_filename[DB_FILE_PREFIX_MAX_SIZE+8];
 
 	result = fdht_load_from_conf_file(filename, bind_addr, \
-		addr_size, &group_ids, &group_count, ppGroupServers, \
-		server_count, &db_type, &nCacheSize, db_file_prefix);
+		addr_size, &group_ids, &group_count, 
+		&db_type, &nCacheSize, db_file_prefix);
 	if (result != 0)
 	{
 		return result;
@@ -755,6 +762,12 @@ void fdht_func_destroy()
 		fdht_write_to_stat_file();
 		close(fdht_stat_fd);
 		fdht_stat_fd = -1;
+	}
+
+	if (g_group_servers != NULL)
+	{
+		free(g_group_servers);
+		g_group_servers = NULL;
 	}
 }
 
