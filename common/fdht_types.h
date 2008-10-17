@@ -27,6 +27,14 @@ typedef struct
 	char ip_addr[IP_ADDRESS_SIZE];
 } FDHTServerInfo;
 
+typedef struct
+{
+	char ip_addr[IP_ADDRESS_SIZE];
+	int port;
+	int sync_req_count;    //sync req count
+	int64_t update_count;  //runtime var
+} FDHTGroupServer;
+
 typedef struct {
 	uint64_t total_set_count;
 	uint64_t success_set_count;

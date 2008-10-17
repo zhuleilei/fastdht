@@ -65,7 +65,7 @@ int fdht_sync_destroy();
 int fdht_binlog_write(const char op_type, const char *pKey, const int key_len, \
 		const char *pValue, const int value_len);
 
-int fdht_sync_thread_start(const FDHTServerInfo *pStorage);
+int write_to_sync_ini_file();
 int kill_fdht_sync_threads();
 
 #ifdef __cplusplus

@@ -31,6 +31,14 @@ int g_recv_count = 0;
 int g_send_count = 0;
 
 FDHTServerStat g_server_stat;
+FDHTGroupServer *g_group_servers = NULL;
+int g_group_server_count = 0;
+
+int g_storage_join_time = 0;
+bool g_sync_old_done = false;
+char g_sync_src_ip_addr[IP_ADDRESS_SIZE] = {0};
+int g_sync_src_port = 0;
+int g_sync_until_timestamp = 0;
 
 int g_allow_ip_count = 0;  /* -1 means match any ip address */
 in_addr_t *g_allow_ip_addrs = NULL;  /* sorted array, asc order */
