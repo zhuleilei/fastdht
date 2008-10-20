@@ -43,6 +43,7 @@
 static pthread_mutex_t work_thread_mutex;
 static pthread_cond_t work_thread_cond;
 static int init_pthread_cond();
+static time_t first_sync_req_time = 0;
 
 static int g_done_count = 0;
 
@@ -55,6 +56,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type);
 static int deal_cmd_del(struct task_info *pTask, byte op_type);
 static int deal_cmd_inc(struct task_info *pTask);
 static int deal_cmd_sync_req(struct task_info *pTask);
+static int deal_cmd_sync_done(struct task_info *pTask);
 
 int work_thread_init()
 {
@@ -304,6 +306,9 @@ static int deal_task(struct task_info *pTask)
 		case FDHT_PROTO_CMD_SYNC_REQ:
 			pHeader->status = deal_cmd_sync_req(pTask);
 			break;
+		case FDHT_PROTO_CMD_SYNC_NOTIFY:
+			pHeader->status = deal_cmd_sync_done(pTask);
+			break;
 		default:
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, invalid cmd: 0x%02X", \
@@ -432,8 +437,9 @@ static int deal_cmd_get(struct task_info *pTask)
 
 /**
 * request body format:
-*      4 bytes: server port
-*      8 bytes: update count
+*      server port : 4 bytes
+*      sync_old_done: 1 byte
+*      update count: 8 bytes
 * response body format:
 *      sync_old_done: 1 byte
 *      sync_src_ip_addr: IP_ADDRESS_SIZE bytes
@@ -449,13 +455,13 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 	FDHTGroupServer *pFound;
 	FDHTGroupServer *pServer;
 	FDHTGroupServer *pEnd;
-	int req_server_count;
+	bool src_sync_old_done;
 
 	nInBodyLen = pTask->length - sizeof(ProtoHeader);
-	if (nInBodyLen != 12)
+	if (nInBodyLen != 13)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d != 12", \
+			"client ip: %s, body length: %d != 13", \
 			__LINE__, pTask->client_ip, nInBodyLen);
 		pTask->length = sizeof(ProtoHeader);
 		return EINVAL;
@@ -468,8 +474,10 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 	}
 
 	memset(&targetServer, 0, sizeof(FDHTGroupServer));
+	strcpy(targetServer.ip_addr, pTask->client_ip);
 	targetServer.port = buff2int(pTask->data + sizeof(ProtoHeader));
-	update_count = buff2long(pTask->data + sizeof(ProtoHeader) + 4);
+	src_sync_old_done = *(pTask->data + sizeof(ProtoHeader) + 4);
+	update_count = buff2long(pTask->data + sizeof(ProtoHeader) + 5);
 
 	pFound = (FDHTGroupServer *)bsearch(&targetServer, \
 			g_group_servers, g_group_server_count, \
@@ -483,41 +491,111 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 		return ENOENT;
 	}
 
+	if (first_sync_req_time == 0)
+	{
+		first_sync_req_time = time(NULL);
+	}
+
+	pFound->sync_old_done = src_sync_old_done;
 	pFound->sync_req_count++;
 	pFound->update_count = update_count;
 
-	if (g_group_servers[0].sync_req_count > 0 && \
-	    g_group_servers[0].update_count > 0)
+	pEnd = g_group_servers + g_group_server_count;
+	pServer = g_group_servers;
+	while (pServer < pEnd && is_local_host_ip(pServer->ip_addr))
 	{
-		strcpy(g_sync_src_ip_addr, g_group_servers[0].ip_addr);
-		g_sync_src_port = g_group_servers[0].port;
-		g_sync_until_timestamp = time(NULL);
+		pServer++;
+	}
 
-		if ((result=write_to_sync_ini_file()) != 0)
+	if (pServer == pEnd) //impossible
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client: %s:%d, the ip addresses of all servers " \
+			"are local ip addresses.", __LINE__, \
+			pTask->client_ip, targetServer.port);
+		pTask->length = sizeof(ProtoHeader);
+		return ENOENT;
+	}
+
+	if (!pServer->sync_old_done)
+	{
+		if (time(NULL) - first_sync_req_time < SYNC_REQ_WAIT_SECONDS)
 		{
 			pTask->length = sizeof(ProtoHeader);
-			return result;
+			return EAGAIN;
 		}
 
-		PACK_SYNC_REQ_BODY(pTask)
+		while (pServer < pEnd)
+		{
+			if ((!is_local_host_ip(pServer->ip_addr)) && \
+			     pServer->sync_old_done)
+			{
+				break;
+			}
+
+			pServer++;
+		}
+
+		if (pServer == pEnd)
+		{
+			pTask->length = sizeof(ProtoHeader);
+			return ENOENT;
+		}
+	}
+
+	if (pServer->update_count > 0)
+	{
+		strcpy(g_sync_src_ip_addr, pServer->ip_addr);
+		g_sync_src_port = pServer->port;
+		g_sync_until_timestamp = time(NULL);
+	}
+	else
+	{
+		g_sync_old_done = true;  //no old data to sync
+	}
+
+	if ((result=write_to_sync_ini_file()) != 0)
+	{
+		pTask->length = sizeof(ProtoHeader);
+		return result;
+	}
+
+	PACK_SYNC_REQ_BODY(pTask)
+	return 0;
+}
+
+static int deal_cmd_sync_done(struct task_info *pTask)
+{
+	int result;
+	int nInBodyLen;
+	int src_port;
+
+	pTask->length = sizeof(ProtoHeader);
+	nInBodyLen = pTask->length - sizeof(ProtoHeader);
+	if (nInBodyLen != 4)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != 4", \
+			__LINE__, pTask->client_ip, nInBodyLen);
+		return EINVAL;
+	}
+
+	src_port = buff2int(pTask->data + sizeof(ProtoHeader));
+	if (!(strcmp(pTask->client_ip, g_sync_src_ip_addr) == 0 && \
+		src_port == g_sync_src_port))
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"server: %s:%d not the sync src server!", \
+			__LINE__, pTask->client_ip, src_port);
+		return EINVAL;
+	}
+
+	if (g_sync_old_done)
+	{
 		return 0;
 	}
 
-	req_server_count = 0;
-	pEnd = g_group_servers + g_group_server_count;
-	for (pServer=g_group_servers; pServer<pEnd; pServer++)
-	{
-		if (pServer->sync_req_count > 0)
-		{
-			req_server_count++;
-		}
-	}
-
-	if (req_server_count == g_group_server_count - 1)
-	{
-	}
-
-	//SYNC_REQ_WAIT_SECONDS
+	g_sync_old_done = true;
 	if ((result=write_to_sync_ini_file()) != 0)
 	{
 		return result;
