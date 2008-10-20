@@ -67,6 +67,13 @@ int fdht_connect_server(FDHTServerInfo *pServer);
 **/
 void fdht_disconnect_server(FDHTServerInfo *pServer);
 
+int fdht_client_set(FDHTServerInfo *pServer, const int prot_cmd, \
+	const int group_id, const char *pKey, const int key_len, \
+	const char *pValue, const int value_len);
+
+int fdht_client_delete(FDHTServerInfo *pServer, const int prot_cmd, \
+	const int group_id, const char *pKey, const int key_len);
+
 #ifdef __cplusplus
 }
 #endif

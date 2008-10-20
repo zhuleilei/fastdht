@@ -310,9 +310,6 @@ int fdht_set(const char *pKey, const int key_len, \
 	const char *pValue, const int value_len)
 {
 	int result;
-	ProtoHeader header;
-	char buff[16];
-	int in_bytes;
 	int group_id;
 	FDHTServerInfo *pServer;
 	bool new_connection;
@@ -326,85 +323,8 @@ int fdht_set(const char *pKey, const int key_len, \
 	}
 
 	printf("group_id=%d\n", group_id);
-
-	memset(&header, 0, sizeof(header));
-	header.cmd = FDHT_PROTO_CMD_SET;
-	int2buff(group_id, header.group_id);
-	int2buff(8 + key_len + value_len, header.pkg_len);
-
-	while (1)
-	{
-		if ((result=tcpsenddata(pServer->sock, &header, \
-			sizeof(header), g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		int2buff(key_len, buff);
-		if ((result=tcpsenddata(pServer->sock, buff, 4, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		int2buff(value_len, buff);
-		if ((result=tcpsenddata(pServer->sock, buff, 4, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if ((result=tcpsenddata(pServer->sock, (char *)pValue, value_len, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
-		{
-			logError("recv data from server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if (in_bytes != 0)
-		{
-			logError("server %s:%d reponse bytes: %d != 0", \
-				pServer->ip_addr, pServer->port, in_bytes);
-			result = EINVAL;
-			break;
-		}
-
-		break;
-	}
+	result = fdht_client_set(pServer, FDHT_PROTO_CMD_SET, group_id, \
+			pKey, key_len, pValue, value_len);
 
 	if (new_connection)
 	{
@@ -532,9 +452,6 @@ int fdht_inc(const char *pKey, const int key_len, \
 int fdht_delete(const char *pKey, const int key_len)
 {
 	int result;
-	ProtoHeader header;
-	char buff[16];
-	int in_bytes;
 	int group_id;
 	FDHTServerInfo *pServer;
 	bool new_connection;
@@ -548,64 +465,8 @@ int fdht_delete(const char *pKey, const int key_len)
 	}
 
 	printf("group_id=%d\n", group_id);
-
-	memset(&header, 0, sizeof(header));
-	header.cmd = FDHT_PROTO_CMD_DEL;
-	int2buff(group_id, header.group_id);
-	int2buff(4 + key_len, header.pkg_len);
-
-	while (1)
-	{
-		if ((result=tcpsenddata(pServer->sock, &header, \
-			sizeof(header), g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		int2buff(key_len, buff);
-		if ((result=tcpsenddata(pServer->sock, buff, 4, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
-		{
-			logError("recv data from server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if (in_bytes != 0)
-		{
-			logError("server %s:%d reponse bytes: %d != 0", \
-				pServer->ip_addr, pServer->port, in_bytes);
-			result = EINVAL;
-			break;
-		}
-
-		break;
-	}
+	result = fdht_client_delete(pServer, FDHT_PROTO_CMD_DEL, group_id, \
+			pKey, key_len);
 
 	if (new_connection)
 	{

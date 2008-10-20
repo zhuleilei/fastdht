@@ -48,14 +48,16 @@ extern int g_send_count;
 
 extern FDHTServerStat g_server_stat;
 
+extern int g_group_count;
 extern FDHTGroupServer *g_group_servers;
 extern int g_group_server_count;
 
-extern int g_storage_join_time;
+extern int g_server_join_time;
 extern bool g_sync_old_done;
 extern char g_sync_src_ip_addr[IP_ADDRESS_SIZE];
 extern int g_sync_src_port;
 extern int g_sync_until_timestamp;
+extern int g_sync_done_timestamp;
 
 extern int g_allow_ip_count;  /* -1 means match any ip address */
 extern in_addr_t *g_allow_ip_addrs;  /* sorted array, asc order */

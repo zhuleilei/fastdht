@@ -194,3 +194,163 @@ int fdht_connect_server(FDHTServerInfo *pServer)
 	return 0;
 }
 
+int fdht_client_set(FDHTServerInfo *pServer, const int prot_cmd, \
+	const int group_id, const char *pKey, const int key_len, \
+	const char *pValue, const int value_len)
+{
+	int result;
+	ProtoHeader header;
+	char buff[16];
+	int in_bytes;
+
+	memset(&header, 0, sizeof(header));
+	header.cmd = prot_cmd;
+	int2buff(group_id, header.group_id);
+	int2buff(8 + key_len + value_len, header.pkg_len);
+
+	while (1)
+	{
+		if ((result=tcpsenddata(pServer->sock, &header, \
+			sizeof(header), g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(key_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(value_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pValue, value_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if (in_bytes != 0)
+		{
+			logError("server %s:%d reponse bytes: %d != 0", \
+				pServer->ip_addr, pServer->port, in_bytes);
+			result = EINVAL;
+			break;
+		}
+
+		break;
+	}
+
+	return result;
+}
+
+int fdht_client_delete(FDHTServerInfo *pServer, const int prot_cmd, \
+	const int group_id, const char *pKey, const int key_len)
+{
+	int result;
+	ProtoHeader header;
+	char buff[16];
+	int in_bytes;
+
+	memset(&header, 0, sizeof(header));
+	header.cmd = prot_cmd;
+	int2buff(group_id, header.group_id);
+	int2buff(4 + key_len, header.pkg_len);
+
+	while (1)
+	{
+		if ((result=tcpsenddata(pServer->sock, &header, \
+			sizeof(header), g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		int2buff(key_len, buff);
+		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if (in_bytes != 0)
+		{
+			logError("server %s:%d reponse bytes: %d != 0", \
+				pServer->ip_addr, pServer->port, in_bytes);
+			result = EINVAL;
+			break;
+		}
+
+		break;
+	}
+
+	return result;
+}
+
