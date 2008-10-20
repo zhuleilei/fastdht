@@ -29,7 +29,6 @@ int main(int argc, char *argv[])
 	int key_len;
 	char key[32];
 	char szValue[32];
-	char *value;
 	int value_len;
 
 	printf("This is FastDHT client test program v%d.%d\n" \

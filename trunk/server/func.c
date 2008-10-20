@@ -550,7 +550,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 
 		logInfo("FastDHT v%d.%d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
-			"group server count: %d, " \
+			"group server count=%d, " \
 			"network_timeout=%d, "\
 			"port=%d, bind_addr=%s, " \
 			"max_connections=%d, "    \
