@@ -30,6 +30,7 @@ typedef struct
 typedef struct
 {
 	char ip_addr[IP_ADDRESS_SIZE];
+	bool sync_old_done;
 	int port;
 	int sync_req_count;    //sync req count
 	int64_t update_count;  //runtime var

@@ -66,7 +66,148 @@ static pthread_t *sync_tids = NULL;
 static int fdht_write_to_mark_file(BinLogReader *pReader);
 static int fdht_binlog_reader_skip(BinLogReader *pReader);
 static void fdht_reader_destroy(BinLogReader *pReader);
-static int fdht_sync_thread_start(const FDHTGroupServer *pStorage);
+static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer);
+
+
+
+/**
+* request body format:
+*      server port : 4 bytes
+* response body format:
+*      none
+*/
+static int fdht_report_sync_done(FDHTServerInfo *pDestServer)
+{
+	int result;
+	ProtoHeader *pHeader;
+	char out_buff[sizeof(ProtoHeader) + 8];
+	char in_buff[1];
+	char *pInBuff;
+	int in_bytes;
+
+	memset(out_buff, 0, sizeof(out_buff));
+	pHeader = (ProtoHeader *)out_buff;
+	pHeader->cmd = FDHT_PROTO_CMD_SYNC_NOTIFY;
+	int2buff(4, pHeader->pkg_len);
+	int2buff(g_server_port, out_buff + sizeof(ProtoHeader));
+
+	while (1)
+	{
+		if ((result=tcpsenddata(pDestServer->sock, out_buff, \
+			sizeof(ProtoHeader) + 4, g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pDestServer->ip_addr, pDestServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		pInBuff = in_buff;
+		if ((result=fdht_recv_response(pDestServer, &pInBuff, \
+			0, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pDestServer->ip_addr, pDestServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		logInfo("file: "__FILE__", line: %d, " \
+			"sync old data to dest server: %s:%d done.", \
+			__LINE__, pDestServer->ip_addr, pDestServer->port);
+		break;
+	}
+
+	return result;
+}
+
+/**
+* request body format:
+*      server port : 4 bytes
+*      sync_old_done: 1 byte
+*      update count: 8 bytes
+* response body format:
+*      sync_old_done: 1 byte
+*      sync_src_ip_addr: IP_ADDRESS_SIZE bytes
+*      sync_src_port:  4 bytes
+*      sync_until_timestamp: 4 bytes
+*/
+static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
+{
+	int result;
+	ProtoHeader *pHeader;
+	char out_buff[sizeof(ProtoHeader) + 16];
+	char in_buff[IP_ADDRESS_SIZE + 16];
+	char *pInBuff;
+	int in_bytes;
+	char sync_src_ip_addr[IP_ADDRESS_SIZE];
+	int sync_src_port;
+
+	memset(out_buff, 0, sizeof(out_buff));
+	pHeader = (ProtoHeader *)out_buff;
+	pHeader->cmd = FDHT_PROTO_CMD_SYNC_REQ;
+	int2buff(13, pHeader->pkg_len);
+
+	int2buff(g_server_port, out_buff + sizeof(ProtoHeader));
+	*(out_buff + sizeof(ProtoHeader) + 4) = g_sync_old_done;
+	long2buff(g_server_stat.success_set_count+g_server_stat.success_inc_count
+		+ g_server_stat.success_delete_count,
+		out_buff + sizeof(ProtoHeader) + 5);
+
+	while (1)
+	{
+		if ((result=tcpsenddata(pDestServer->sock, out_buff, \
+			sizeof(ProtoHeader) + 13, g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pDestServer->ip_addr, pDestServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		pInBuff = in_buff;
+		if ((result=fdht_recv_response(pDestServer, &pInBuff, \
+			IP_ADDRESS_SIZE + 9, &in_bytes)) != 0)
+		{
+			logError("recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pDestServer->ip_addr, pDestServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		pReader->sync_old_done = *in_buff;
+		memcpy(sync_src_ip_addr, in_buff+1, IP_ADDRESS_SIZE - 1);
+		sync_src_ip_addr[IP_ADDRESS_SIZE - 1] = '\0';
+		sync_src_port = buff2int(in_buff+1+IP_ADDRESS_SIZE);
+		pReader->until_timestamp = buff2int(in_buff+1+IP_ADDRESS_SIZE+4);
+
+		if (is_local_host_ip(sync_src_ip_addr) && \
+			sync_src_port == g_server_port)
+		{
+			pReader->need_sync_old = true;
+		}
+		else
+		{
+			pReader->need_sync_old = false;
+		}
+
+		formatDatetime(pReader->until_timestamp, "%Y-%m-%d %H:%M:%S", \
+				out_buff, sizeof(out_buff));
+		logInfo("file: "__FILE__", line: %d, " \
+			"sync dest server: %s:%d, src server: %s:%d, " \
+			"until_timestamp=%s, sync_old_done=%d", \
+			__LINE__, pDestServer->ip_addr, pDestServer->port, \
+			sync_src_ip_addr, sync_src_port, \
+			out_buff, pReader->sync_old_done);
+		break;
+	}
+
+	return result;
+}
 
 /**
 4 bytes: filename bytes
@@ -75,7 +216,7 @@ FDFS_GROUP_NAME_MAX_LEN bytes: group_name
 filename bytes : filename
 file size bytes: file content
 **/
-static int fdht_sync_set(FDHTServerInfo *pStorageServer, \
+static int fdht_sync_set(FDHTServerInfo *pDestServer, \
 			const BinLogRecord *pRecord, const char proto_cmd)
 {
 	return 0;
@@ -86,7 +227,7 @@ send pkg format:
 FDFS_GROUP_NAME_MAX_LEN bytes: group_name
 remain bytes: filename
 **/
-static int fdht_sync_del(FDHTServerInfo *pStorageServer, \
+static int fdht_sync_del(FDHTServerInfo *pDestServer, \
 			const BinLogRecord *pRecord)
 {
 	return 0;
@@ -100,29 +241,29 @@ static int fdht_sync_del(FDHTServerInfo *pStorageServer, \
 	} \
 
 static int fdht_sync_data(BinLogReader *pReader, \
-			FDHTServerInfo *pStorageServer, \
+			FDHTServerInfo *pDestServer, \
 			const BinLogRecord *pRecord)
 {
 	int result;
 	switch(pRecord->op_type)
 	{
 		case FDHT_OP_TYPE_SOURCE_SET:
-			result = fdht_sync_set(pStorageServer, \
+			result = fdht_sync_set(pDestServer, \
 				pRecord, FDHT_PROTO_CMD_SYNC_SET);
 			break;
 		case FDHT_OP_TYPE_SOURCE_DEL:
 			result = fdht_sync_del( \
-				pStorageServer, pRecord);
+				pDestServer, pRecord);
 			break;
 		case FDHT_OP_TYPE_REPLICA_SET:
 			STARAGE_CHECK_IF_NEED_SYNC_OLD(pReader, pRecord)
-			result = fdht_sync_set(pStorageServer, \
+			result = fdht_sync_set(pDestServer, \
 				pRecord, FDHT_PROTO_CMD_SYNC_SET);
 			break;
 		case FDHT_OP_TYPE_REPLICA_DEL:
 			STARAGE_CHECK_IF_NEED_SYNC_OLD(pReader, pRecord)
 			result = fdht_sync_del( \
-				pStorageServer, pRecord);
+				pDestServer, pRecord);
 			break;
 		default:
 			return EINVAL;
@@ -568,26 +709,41 @@ static char *get_mark_filename(const void *pArg, \
 	return full_filename;
 }
 
-static int fdht_reader_sync_init(BinLogReader *pReader)
+static int fdht_reader_sync_init(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 {
 	int result;
 
-	if (g_server_stat.success_set_count + g_server_stat.success_inc_count \
-		+ g_server_stat.success_delete_count == 0)
+	result = 0;
+	while (g_continue_flag)
 	{
+		result = fdht_sync_req(pDestServer, pReader);
+		if (result == 0)
+		{
+			break;
+		}
+
+		if (!(result == EAGAIN || result == ENOENT))
+		{
+			return result;
+		}
+
+		sleep(60);
 	}
 
-	/*
+	if (!g_continue_flag)
+	{
+		return result != 0 ? result : ENOENT;
+	}
+
 	if ((result=fdht_write_to_mark_file(pReader)) != 0)
 	{
 		return result;
 	}
-	*/
 
 	return 0;
 }
 
-static int fdht_reader_init(FDHTServerInfo *pStorage, \
+static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 			BinLogReader *pReader)
 {
 	char full_filename[MAX_PATH_SIZE];
@@ -600,8 +756,8 @@ static int fdht_reader_init(FDHTServerInfo *pStorage, \
 	pReader->mark_fd = -1;
 	pReader->binlog_fd = -1;
 
-	strcpy(pReader->ip_addr, pStorage->ip_addr);
-	pReader->port = pStorage->port;
+	strcpy(pReader->ip_addr, pDestServer->ip_addr);
+	pReader->port = pDestServer->port;
 
 	get_mark_filename(pReader, full_filename);
 	bFileExist = fileExists(full_filename);
@@ -673,7 +829,7 @@ static int fdht_reader_init(FDHTServerInfo *pStorage, \
 	}
 	else
 	{
-		if ((result=fdht_reader_sync_init(pReader)) != 0)
+		if ((result=fdht_reader_sync_init(pDestServer, pReader)) != 0)
 		{
 			return result;
 		}
@@ -1200,7 +1356,7 @@ static int fdht_binlog_reader_skip(BinLogReader *pReader)
 
 static void* fdht_sync_thread_entrance(void* arg)
 {
-	FDHTServerInfo *pStorage;
+	FDHTServerInfo *pDestServer;
 	BinLogReader reader;
 	BinLogRecord record;
 	FDHTServerInfo fdht_server;
@@ -1216,32 +1372,13 @@ static void* fdht_sync_thread_entrance(void* arg)
 	memset(local_ip_addr, 0, sizeof(local_ip_addr));
 	memset(&reader, 0, sizeof(reader));
 
-	pStorage = (FDHTServerInfo *)arg;
+	pDestServer = (FDHTServerInfo *)arg;
 
-	strcpy(fdht_server.ip_addr, pStorage->ip_addr);
-	fdht_server.port = pStorage->port;
+	strcpy(fdht_server.ip_addr, pDestServer->ip_addr);
+	fdht_server.port = pDestServer->port;
 	fdht_server.sock = -1;
 	while (g_continue_flag)
 	{
-		if (fdht_reader_init(pStorage, &reader) != 0)
-		{
-			logCrit("file: "__FILE__", line: %d, " \
-				"fdht_reader_init fail, program exit!", \
-				__LINE__);
-			g_continue_flag = false;
-			break;
-		}
-
-		/*
-		while (g_continue_flag && \
-			(pStorage->status != FDFS_FDHT_STATUS_ACTIVE && \
-			pStorage->status != FDFS_FDHT_STATUS_WAIT_SYNC && \
-			pStorage->status != FDFS_FDHT_STATUS_SYNCING))
-		{
-			sleep(1);
-		}
-		*/
-
 		previousCode = 0;
 		nContinuousFail = 0;
 		conn_result = 0;
@@ -1335,24 +1472,14 @@ static void* fdht_sync_thread_entrance(void* arg)
 			break;
 		}
 
-		/*
-		if (pStorage->status == FDFS_FDHT_STATUS_WAIT_SYNC)
+		if (fdht_reader_init(&fdht_server, &reader) != 0)
 		{
-			pStorage->status = FDFS_FDHT_STATUS_SYNCING;
-			fdht_report_fdht_status(pStorage->ip_addr, \
-				pStorage->status);
+			logCrit("file: "__FILE__", line: %d, " \
+				"fdht_reader_init fail, program exit!", \
+				__LINE__);
+			g_continue_flag = false;
+			break;
 		}
-		if (pStorage->status == FDFS_FDHT_STATUS_SYNCING)
-		{
-			if (reader.need_sync_old && reader.sync_old_done)
-			{
-				pStorage->status = FDFS_FDHT_STATUS_ONLINE;
-				fdht_report_fdht_status(  \
-					pStorage->ip_addr, \
-					pStorage->status);
-			}
-		}
-		*/
 
 		sync_result = 0;
 		while (g_continue_flag)
@@ -1364,6 +1491,10 @@ static void* fdht_sync_thread_entrance(void* arg)
 				if (reader.need_sync_old && \
 					!reader.sync_old_done)
 				{
+
+				if ((result=fdht_report_sync_done(
+					&fdht_server)) == 0)
+				{
 				reader.sync_old_done = true;
 				if (fdht_write_to_mark_file(&reader) != 0)
 				{
@@ -1374,18 +1505,8 @@ static void* fdht_sync_thread_entrance(void* arg)
 					g_continue_flag = false;
 					break;
 				}
-
-				/*
-				if (pStorage->status == \
-					FDFS_FDHT_STATUS_SYNCING)
-				{
-					pStorage->status = \
-						FDFS_FDHT_STATUS_ONLINE;
-					fdht_report_fdht_status(  \
-						pStorage->ip_addr, \
-						pStorage->status);
 				}
-				*/
+
 				}
 
 				usleep(g_sync_wait_usec);
@@ -1482,13 +1603,13 @@ static void* fdht_sync_thread_entrance(void* arg)
 	return NULL;
 }
 
-static int fdht_sync_thread_start(const FDHTGroupServer *pStorage)
+static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 {
 	int result;
 	pthread_attr_t pattr;
 	pthread_t tid;
 
-	if (is_local_host_ip(pStorage->ip_addr)) //can't self sync to self
+	if (is_local_host_ip(pDestServer->ip_addr)) //can't self sync to self
 	{
 		return 0;
 	}
@@ -1500,11 +1621,11 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pStorage)
 
 	/*
 	//printf("start storage ip_addr: %s, g_fdht_sync_thread_count=%d\n", 
-			pStorage->ip_addr, g_fdht_sync_thread_count);
+			pDestServer->ip_addr, g_fdht_sync_thread_count);
 	*/
 
 	if ((result=pthread_create(&tid, &pattr, fdht_sync_thread_entrance, \
-		(void *)pStorage)) != 0)
+		(void *)pDestServer)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"create thread failed, errno: %d, " \
