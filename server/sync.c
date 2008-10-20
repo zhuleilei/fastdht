@@ -371,6 +371,7 @@ static int create_sync_threads()
 	pEnd = g_group_servers + g_group_server_count;
 	for (pServer=g_group_servers; pServer<pEnd; pServer++)
 	{
+		//printf("%s:%d\n", pServer->ip_addr, pServer->port);
 		if ((result=fdht_sync_thread_start(pServer)) != 0)
 		{
 			return result;
@@ -1355,7 +1356,7 @@ static int fdht_binlog_reader_skip(BinLogReader *pReader)
 
 static void* fdht_sync_thread_entrance(void* arg)
 {
-	FDHTServerInfo *pDestServer;
+	FDHTGroupServer *pDestServer;
 	BinLogReader reader;
 	BinLogRecord record;
 	FDHTServerInfo fdht_server;
@@ -1368,10 +1369,10 @@ static void* fdht_sync_thread_entrance(void* arg)
 	int previousCode;
 	int nContinuousFail;
 	
+	pDestServer = (FDHTGroupServer *)arg;
+
 	memset(local_ip_addr, 0, sizeof(local_ip_addr));
 	memset(&reader, 0, sizeof(reader));
-
-	pDestServer = (FDHTServerInfo *)arg;
 
 	strcpy(fdht_server.ip_addr, pDestServer->ip_addr);
 	fdht_server.port = pDestServer->port;
@@ -1619,8 +1620,8 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 	}
 
 	/*
-	//printf("start storage ip_addr: %s, g_fdht_sync_thread_count=%d\n", 
-			pDestServer->ip_addr, g_fdht_sync_thread_count);
+	//printf("start storage ip_addr: %s:%d, g_fdht_sync_thread_count=%d\n", 
+			pDestServer->ip_addr, pDestServer->port, g_fdht_sync_thread_count);
 	*/
 
 	if ((result=pthread_create(&tid, &pattr, fdht_sync_thread_entrance, \

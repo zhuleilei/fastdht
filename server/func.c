@@ -548,6 +548,16 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
+		/*
+		{
+		int i;
+		for (i=0; i<g_group_server_count; i++)
+		{
+			printf("%d. %s:%d\n", i+1, g_group_servers[i].ip_addr, g_group_servers[i].port);
+		}
+		}
+		*/
+
 		logInfo("FastDHT v%d.%d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
