@@ -530,6 +530,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
+		g_group_count = groupArray.count;
 		if ((result=load_group_ids(&groupArray, bind_addr, \
 				group_ids, group_count)) != 0)
 		{
@@ -548,7 +549,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		logInfo("FastDHT v%d.%d, base_path=%s, " \
-			"group count=%d, group server count: %d, " \
+			"total group count=%d, my group count=%d, " \
+			"group server count: %d, " \
 			"network_timeout=%d, "\
 			"port=%d, bind_addr=%s, " \
 			"max_connections=%d, "    \
@@ -559,8 +561,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"cache_size=%d MB, sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d", \
 			g_version.major, g_version.minor, \
-			g_base_path, *group_count, g_group_server_count, \
-			g_network_timeout, \
+			g_base_path, g_group_count, *group_count, \
+			g_group_server_count, g_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
 			g_max_threads, g_max_pkg_size / 1024, \
 			*db_type == DB_BTREE ? "btree" : "hash", \

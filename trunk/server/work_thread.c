@@ -517,7 +517,7 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 		return ENOENT;
 	}
 
-	if (!pServer->sync_old_done)
+	if (!(pServer->sync_req_count > 0 && pServer->sync_old_done))
 	{
 		if (time(NULL) - first_sync_req_time < SYNC_REQ_WAIT_SECONDS)
 		{
@@ -527,8 +527,9 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 
 		while (pServer < pEnd)
 		{
-			if ((!is_local_host_ip(pServer->ip_addr)) && \
-			     pServer->sync_old_done)
+			if (pServer->sync_req_count > 0 && \
+			     pServer->sync_old_done && \
+			     !is_local_host_ip(pServer->ip_addr))
 			{
 				break;
 			}
@@ -541,6 +542,13 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 			pTask->length = sizeof(ProtoHeader);
 			return ENOENT;
 		}
+	}
+
+	if (!(strcmp(pTask->client_ip, pServer->ip_addr) == 0 && \
+		targetServer.port == pServer->port))
+	{
+		pTask->length = sizeof(ProtoHeader);
+		return EAGAIN;
 	}
 
 	if (pServer->update_count > 0)
@@ -596,6 +604,7 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 	}
 
 	g_sync_old_done = true;
+	g_sync_done_timestamp = time(NULL);
 	if ((result=write_to_sync_ini_file()) != 0)
 	{
 		return result;

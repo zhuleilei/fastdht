@@ -26,16 +26,18 @@
 #include "sockopt.h"
 #include "shared_func.h"
 #include "ini_file_reader.h"
+#include "hash.h"
 #include "global.h"
 #include "func.h"
 #include "sync.h"
 
 #define DATA_DIR_INITED_FILENAME	".sync_init_flag"
-#define INIT_ITEM_STORAGE_JOIN_TIME	"storage_join_time"
+#define INIT_ITEM_SERVER_JOIN_TIME	"server_join_time"
 #define INIT_ITEM_SYNC_OLD_DONE		"sync_old_done"
 #define INIT_ITEM_SYNC_SRC_SERVER	"sync_src_server"
 #define INIT_ITEM_SYNC_SRC_PORT		"sync_src_port"
 #define INIT_ITEM_SYNC_UNTIL_TIMESTAMP	"sync_until_timestamp"
+#define INIT_ITEM_SYNC_DONE_TIMESTAMP	"sync_done_timestamp"
 
 
 #define SYNC_BINLOG_FILE_MAX_SIZE	1024 * 1024 * 1024
@@ -209,28 +211,25 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 	return result;
 }
 
-/**
-4 bytes: filename bytes
-4 bytes: file size
-FDFS_GROUP_NAME_MAX_LEN bytes: group_name
-filename bytes : filename
-file size bytes: file content
-**/
 static int fdht_sync_set(FDHTServerInfo *pDestServer, \
-			const BinLogRecord *pRecord, const char proto_cmd)
+			const BinLogRecord *pRecord)
 {
-	return 0;
+	int group_id;
+
+	group_id = PJWHash(pRecord->key.data,pRecord->key.length)%g_group_count;
+	return fdht_client_set(pDestServer, FDHT_PROTO_CMD_SYNC_SET, \
+		group_id, pRecord->key.data, pRecord->key.length, \
+		pRecord->value.data, pRecord->value.length);
 }
 
-/**
-send pkg format:
-FDFS_GROUP_NAME_MAX_LEN bytes: group_name
-remain bytes: filename
-**/
 static int fdht_sync_del(FDHTServerInfo *pDestServer, \
 			const BinLogRecord *pRecord)
 {
-	return 0;
+	int group_id;
+
+	group_id = PJWHash(pRecord->key.data,pRecord->key.length)%g_group_count;
+	return fdht_client_delete(pDestServer, FDHT_PROTO_CMD_SYNC_DEL, \
+		group_id, pRecord->key.data, pRecord->key.length);
 }
 
 #define STARAGE_CHECK_IF_NEED_SYNC_OLD(pReader, pRecord) \
@@ -248,22 +247,18 @@ static int fdht_sync_data(BinLogReader *pReader, \
 	switch(pRecord->op_type)
 	{
 		case FDHT_OP_TYPE_SOURCE_SET:
-			result = fdht_sync_set(pDestServer, \
-				pRecord, FDHT_PROTO_CMD_SYNC_SET);
+			result = fdht_sync_set(pDestServer, pRecord);
 			break;
 		case FDHT_OP_TYPE_SOURCE_DEL:
-			result = fdht_sync_del( \
-				pDestServer, pRecord);
+			result = fdht_sync_del(pDestServer, pRecord);
 			break;
 		case FDHT_OP_TYPE_REPLICA_SET:
 			STARAGE_CHECK_IF_NEED_SYNC_OLD(pReader, pRecord)
-			result = fdht_sync_set(pDestServer, \
-				pRecord, FDHT_PROTO_CMD_SYNC_SET);
+			result = fdht_sync_set(pDestServer, pRecord);
 			break;
 		case FDHT_OP_TYPE_REPLICA_DEL:
 			STARAGE_CHECK_IF_NEED_SYNC_OLD(pReader, pRecord)
-			result = fdht_sync_del( \
-				pDestServer, pRecord);
+			result = fdht_sync_del(pDestServer, pRecord);
 			break;
 		default:
 			return EINVAL;
@@ -408,7 +403,7 @@ static int load_sync_init_data()
 			return result;
 		}
 		
-		pValue = iniGetStrValue(INIT_ITEM_STORAGE_JOIN_TIME, \
+		pValue = iniGetStrValue(INIT_ITEM_SERVER_JOIN_TIME, \
 				items, nItemCount);
 		if (pValue == NULL)
 		{
@@ -416,10 +411,10 @@ static int load_sync_init_data()
 			logError("file: "__FILE__", line: %d, " \
 				"in file \"%s\", item \"%s\" not exists", \
 				__LINE__, data_filename, \
-				INIT_ITEM_STORAGE_JOIN_TIME);
+				INIT_ITEM_SERVER_JOIN_TIME);
 			return ENOENT;
 		}
-		g_storage_join_time = atoi(pValue);
+		g_server_join_time = atoi(pValue);
 
 		pValue = iniGetStrValue(INIT_ITEM_SYNC_OLD_DONE, \
 				items, nItemCount);
@@ -454,6 +449,11 @@ static int load_sync_init_data()
 		g_sync_until_timestamp = iniGetIntValue( \
 				INIT_ITEM_SYNC_UNTIL_TIMESTAMP, \
 				items, nItemCount, 0);
+
+		g_sync_done_timestamp = iniGetIntValue( \
+				INIT_ITEM_SYNC_DONE_TIMESTAMP, \
+				items, nItemCount, 0);
+
 		iniFreeItems(items);
 
 		//printf("g_sync_old_done = %d\n", g_sync_old_done);
@@ -462,7 +462,7 @@ static int load_sync_init_data()
 	}
 	else
 	{
-		g_storage_join_time = time(NULL);
+		g_server_join_time = time(NULL);
 		if ((result=write_to_sync_ini_file()) != 0)
 		{
 			return result;
@@ -967,7 +967,7 @@ int fdht_binlog_write(const char op_type, const char *pKey, const int key_len, \
 	while (1)
 	{
 		write_bytes = sprintf(buff, "%10d %c %10d %10d ", \
-				(int)time(NULL), op_type,  \
+				(int)time(NULL), op_type, \
 				key_len, value_len);
 		if (write(g_binlog_fd, buff, write_bytes) != write_bytes)
 		{
@@ -1151,9 +1151,8 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 
 	buff[read_bytes] = '\0';
 	if ((nItem=sscanf(buff, "%10d %c %10d %10d ", \
-			(int *)&(pRecord->timestamp), \
-			&(pRecord->op_type), &(pRecord->key.length), \
-			&(pRecord->value.length))) != 4)
+			(int *)&(pRecord->timestamp), &(pRecord->op_type), \
+			&(pRecord->key.length), &(pRecord->value.length))) != 4)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"data format invalid, binlog file: %s, " \
@@ -1697,12 +1696,14 @@ int write_to_sync_ini_file()
 		"%s=%d\n"  \
 		"%s=%s\n"  \
 		"%s=%d\n"  \
+		"%s=%d\n"  \
 		"%s=%d\n", \
-		INIT_ITEM_STORAGE_JOIN_TIME, g_storage_join_time, \
+		INIT_ITEM_SERVER_JOIN_TIME, g_server_join_time, \
 		INIT_ITEM_SYNC_OLD_DONE, g_sync_old_done, \
 		INIT_ITEM_SYNC_SRC_SERVER, g_sync_src_ip_addr, \
 		INIT_ITEM_SYNC_SRC_PORT, g_sync_src_port, \
-		INIT_ITEM_SYNC_UNTIL_TIMESTAMP, g_sync_until_timestamp \
+		INIT_ITEM_SYNC_UNTIL_TIMESTAMP, g_sync_until_timestamp, \
+		INIT_ITEM_SYNC_DONE_TIMESTAMP, g_sync_done_timestamp \
 	    );
 	if (write(fd, buff, len) != len)
 	{
