@@ -25,7 +25,9 @@
 #define FDHT_PROTO_CMD_SYNC_SET	   23
 #define FDHT_PROTO_CMD_SYNC_DEL	   24
 
-#define FDHT_PROTO_CMD_RESP        20
+#define FDHT_PROTO_CMD_HEART_BEAT  30
+
+#define FDHT_PROTO_CMD_RESP        40
 
 #define FDHT_PROTO_PKG_LEN_SIZE		4
 #define FDHT_PROTO_CMD_SIZE		1
@@ -73,6 +75,8 @@ int fdht_client_set(FDHTServerInfo *pServer, const int prot_cmd, \
 
 int fdht_client_delete(FDHTServerInfo *pServer, const int prot_cmd, \
 	const int group_id, const char *pKey, const int key_len);
+
+int fdht_client_heart_beat(FDHTServerInfo *pServer);
 
 #ifdef __cplusplus
 }
