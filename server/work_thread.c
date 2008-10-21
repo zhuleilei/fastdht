@@ -640,16 +640,17 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 	int nInBodyLen;
 	int src_port;
 
-	pTask->length = sizeof(ProtoHeader);
 	nInBodyLen = pTask->length - sizeof(ProtoHeader);
 	if (nInBodyLen != 4)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != 4", \
 			__LINE__, pTask->client_ip, nInBodyLen);
+		pTask->length = sizeof(ProtoHeader);
 		return EINVAL;
 	}
 
+	pTask->length = sizeof(ProtoHeader);
 	src_port = buff2int(pTask->data + sizeof(ProtoHeader));
 	if (!(strcmp(pTask->client_ip, g_sync_src_ip_addr) == 0 && \
 		src_port == g_sync_src_port))
