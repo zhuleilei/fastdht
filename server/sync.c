@@ -743,11 +743,6 @@ static int fdht_reader_sync_init(FDHTServerInfo *pDestServer, BinLogReader *pRea
 		return result != 0 ? result : ENOENT;
 	}
 
-	if ((result=fdht_write_to_mark_file(pReader)) != 0)
-	{
-		return result;
-	}
-
 	return 0;
 }
 
