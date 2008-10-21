@@ -299,6 +299,10 @@ static int deal_task(struct task_info *pTask)
 			pHeader->status = deal_cmd_del(pTask, \
 					FDHT_OP_TYPE_REPLICA_DEL);
 			break;
+		case FDHT_PROTO_CMD_HEART_BEAT:
+			pTask->length = sizeof(ProtoHeader);
+			pHeader->status = 0;
+			break;
 		case FDHT_PROTO_CMD_QUIT:
 			close(pTask->ev.ev_fd);
 			free_queue_push(pTask);
