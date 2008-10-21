@@ -456,6 +456,8 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 	FDHTGroupServer *pFound;
 	FDHTGroupServer *pServer;
 	FDHTGroupServer *pEnd;
+	FDHTGroupServer *pFirstServer;
+	FDHTGroupServer *pMaxCountServer;
 	bool src_sync_old_done;
 
 	nInBodyLen = pTask->length - sizeof(ProtoHeader);
@@ -468,7 +470,8 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 		return EINVAL;
 	}
 
-	printf("deal_cmd_sync_req, nInBodyLen=%d\n", nInBodyLen);
+	printf("deal_cmd_sync_req, file: "__FILE__", line: %d\n", __LINE__);
+
 	if (g_sync_old_done)
 	{
 		PACK_SYNC_REQ_BODY(pTask)
@@ -503,13 +506,13 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 	pFound->update_count = update_count;
 
 	pEnd = g_group_servers + g_group_server_count;
-	pServer = g_group_servers;
-	while (pServer < pEnd && is_local_host_ip(pServer->ip_addr))
+	pFirstServer = g_group_servers;
+	while (pFirstServer < pEnd && is_local_host_ip(pFirstServer->ip_addr))
 	{
-		pServer++;
+		pFirstServer++;
 	}
 
-	if (pServer == pEnd) //impossible
+	if (pFirstServer == pEnd) //impossible
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client: %s:%d, the ip addresses of all servers " \
@@ -519,14 +522,68 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 		return ENOENT;
 	}
 
-	if (!(pServer->sync_req_count > 0 && pServer->sync_old_done))
+	while (1)
 	{
+		printf("deal_cmd_sync_req, file: "__FILE__", line: %d\n", __LINE__);
+		if (pFirstServer->sync_req_count > 0 && pFirstServer->sync_old_done)
+		{
+			pServer = pFirstServer;
+			break;
+		}
+
+		pServer = pFirstServer;
+		while (pServer < pEnd)
+		{
+			if (is_local_host_ip(pServer->ip_addr))
+			{
+				pServer++;
+				continue;
+			}
+
+			if (pServer->sync_req_count == 0)
+			{
+				break;
+			}
+
+			if (pServer->sync_old_done)
+			{
+				break;
+			}
+
+			pServer++;
+		}
+
+		if (pServer >= pEnd) //all is new server?
+		{
+			pMaxCountServer = pFirstServer;
+			pServer = pFirstServer + 1;
+			while (pServer < pEnd)
+			{
+				if (is_local_host_ip(pServer->ip_addr))
+				{
+					pServer++;
+					continue;
+				}
+
+				if (pServer->update_count > pMaxCountServer->update_count)
+				{
+					pMaxCountServer = pServer;
+				}
+
+				pServer++;
+			}
+
+			pServer = pMaxCountServer;
+			break;
+		}
+
 		if (time(NULL) - first_sync_req_time < SYNC_REQ_WAIT_SECONDS)
 		{
 			pTask->length = sizeof(ProtoHeader);
 			return EAGAIN;
 		}
 
+		pServer = pFirstServer + 1;
 		while (pServer < pEnd)
 		{
 			if (pServer->sync_req_count > 0 && \
@@ -539,13 +596,16 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 			pServer++;
 		}
 
-		if (pServer == pEnd)
+		if (pServer >= pEnd)
 		{
 			pTask->length = sizeof(ProtoHeader);
 			return ENOENT;
 		}
+
+		break;
 	}
 
+	printf("deal_cmd_sync_req, file: "__FILE__", line: %d\n", __LINE__);
 	if (!(strcmp(pTask->client_ip, pServer->ip_addr) == 0 && \
 		targetServer.port == pServer->port))
 	{

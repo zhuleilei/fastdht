@@ -81,6 +81,8 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	{
 		blocks++;
 	}
+
+	//printf("gb=%d, bytes=%d, blocks=%d\n", gb, bytes, blocks);
 	if ((result=pDBInfo->env->set_cachesize(pDBInfo->env, \
 			gb, bytes, blocks)) != 0)
 	{
