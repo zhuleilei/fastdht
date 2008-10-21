@@ -318,6 +318,7 @@ static int deal_task(struct task_info *pTask)
 			break;
 	}
 
+	printf("cmd=%d, resp pkg_len=%d\n", pHeader->cmd, pTask->length - sizeof(ProtoHeader));
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(ProtoHeader), pHeader->pkg_len);
 
@@ -467,6 +468,7 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 		return EINVAL;
 	}
 
+	printf("deal_cmd_sync_req, nInBodyLen=%d\n", nInBodyLen);
 	if (g_sync_old_done)
 	{
 		PACK_SYNC_REQ_BODY(pTask)
