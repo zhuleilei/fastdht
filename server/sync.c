@@ -1189,7 +1189,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 
 	if (pRecord->key.length > pRecord->key.size)
 	{
-		pRecord->key.size = pRecord->key.length;
+		pRecord->key.size = pRecord->key.length + 64;
 		pRecord->key.data = (char *)realloc(pRecord->key.data, \
 						pRecord->key.size);
 		if (pRecord->key.data == NULL)
@@ -1250,7 +1250,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 
 	if (pRecord->value.length > pRecord->value.size)
 	{
-		pRecord->value.size = pRecord->value.length;
+		pRecord->value.size = pRecord->value.length + 1024;
 		pRecord->value.data = (char *)realloc(pRecord->value.data, \
 						pRecord->value.size);
 		if (pRecord->value.data == NULL)
@@ -1329,6 +1329,7 @@ static int fdht_binlog_reader_skip(BinLogReader *pReader)
 	int result;
 	int record_len;
 
+	memset(&record, 0, sizeof(record));
 	while (1)
 	{
 		result = fdht_binlog_read(pReader, \
@@ -1376,6 +1377,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 
 	memset(local_ip_addr, 0, sizeof(local_ip_addr));
 	memset(&reader, 0, sizeof(reader));
+	memset(&record, 0, sizeof(record));
 
 	strcpy(fdht_server.ip_addr, pDestServer->ip_addr);
 	fdht_server.port = pDestServer->port;
