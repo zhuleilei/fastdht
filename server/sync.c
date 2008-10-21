@@ -163,8 +163,9 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 		if ((result=tcpsenddata(pDestServer->sock, out_buff, \
 			sizeof(ProtoHeader) + 13, g_network_timeout)) != 0)
 		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
+			logError("file: "__FILE__", line: %d, " \
+				"send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", __LINE__, \
 				pDestServer->ip_addr, pDestServer->port, \
 				result, strerror(result));
 			break;
@@ -174,10 +175,6 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 		if ((result=fdht_recv_response(pDestServer, &pInBuff, \
 			IP_ADDRESS_SIZE + 9, &in_bytes)) != 0)
 		{
-			logError("recv data from server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pDestServer->ip_addr, pDestServer->port, \
-				result, strerror(result));
 			break;
 		}
 
