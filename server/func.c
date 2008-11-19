@@ -453,7 +453,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 		else 
 		{
-			if ((result=parse_bytes(pMaxPkgSize, \
+			if ((result=parse_bytes(pMaxPkgSize, 1, \
 					&max_pkg_size)) != 0)
 			{
 				return result;
@@ -512,7 +512,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		{
 			*nCacheSize = 16 * 1024 * 1024;
 		}
-		else if ((result=parse_bytes(pCacheSize, nCacheSize)) != 0)
+		else if ((result=parse_bytes(pCacheSize, 1, nCacheSize)) != 0)
 		{
 			break;
 		}
