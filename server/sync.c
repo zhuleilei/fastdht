@@ -72,6 +72,7 @@ static int fdht_write_to_mark_file(BinLogReader *pReader);
 static int fdht_binlog_reader_skip(BinLogReader *pReader);
 static void fdht_reader_destroy(BinLogReader *pReader);
 static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer);
+static int fdht_binlog_fsync(const bool bNeedLock);
 
 
 
@@ -614,6 +615,7 @@ int fdht_sync_destroy()
 	int result;
 	if (g_binlog_fd >= 0)
 	{
+		fdht_binlog_fsync(true);
 		close(g_binlog_fd);
 		g_binlog_fd = -1;
 	}
