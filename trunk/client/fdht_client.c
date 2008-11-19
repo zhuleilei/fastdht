@@ -104,76 +104,51 @@ void fdht_client_destroy()
 	fdht_free_group_array(&g_group_array);
 }
 
-FDHTServerInfo *get_writable_connection(ServerArray *pServerArray, \
-		bool *new_connection, int *err_no)
+#define get_readable_connection(pServerArray, hash_code, new_connection, \
+	err_no)   get_connection(pServerArray, hash_code, new_connection, \
+	err_no)
+
+#define get_writable_connection(pServerArray, hash_code, new_connection, \
+	err_no)   get_connection(pServerArray, hash_code, new_connection, \
+	err_no)
+
+static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
+		const int hash_code, bool *new_connection, int *err_no)
 {
 	FDHTServerInfo *pServer;
 	FDHTServerInfo *pEnd;
+	int server_index;
 
+	server_index = hash_code % pServerArray->count;
 	pEnd = pServerArray->servers + pServerArray->count;
-	for (pServer = pServerArray->servers; pServer<pEnd; pServer++)
-	{
-		if (pServer->sock > 0)  //already connected
-		{
-			*new_connection = false;
-			return pServer;
-		}
-
-		if (fdht_connect_server(pServer) == 0)
-		{
-			*new_connection = true;
-			return pServer;
-		}
-	}
-
-	*err_no = ENOENT;
-	return NULL;
-}
-
-FDHTServerInfo *get_readable_connection(ServerArray *pServerArray, \
-		bool *new_connection, int *err_no)
-{
-	FDHTServerInfo *pServer;
-	FDHTServerInfo *pEnd;
-
-	if (pServerArray->read_index >= pServerArray->count)
-	{
-		pServerArray->read_index = 0;
-	}
-
-	pEnd = pServerArray->servers + pServerArray->count;
-	for (pServer = pServerArray->servers + pServerArray->read_index; \
+	for (pServer = pServerArray->servers + server_index; \
 		pServer<pEnd; pServer++)
 	{
 		if (pServer->sock > 0)  //already connected
 		{
 			*new_connection = false;
-			pServerArray->read_index++;
 			return pServer;
 		}
 
 		if (fdht_connect_server(pServer) == 0)
 		{
 			*new_connection = true;
-			pServerArray->read_index++;
 			return pServer;
 		}
 	}
 
-	pEnd = pServerArray->servers + pServerArray->read_index;	
+	pEnd = pServerArray->servers + server_index;
 	for (pServer = pServerArray->servers; pServer<pEnd; pServer++)
 	{
 		if (pServer->sock > 0)  //already connected
 		{
 			*new_connection = false;
-			pServerArray->read_index++;
 			return pServer;
 		}
 
 		if (fdht_connect_server(pServer) == 0)
 		{
 			*new_connection = true;
-			pServerArray->read_index++;
 			return pServer;
 		}
 	}
@@ -193,10 +168,12 @@ int fdht_get(const char *pKey, const int key_len, \
 	int group_id;
 	FDHTServerInfo *pServer;
 	bool new_connection;
+	int hash_code;
 
-	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	hash_code = PJWHash(pKey, key_len);
+	group_id = hash_code % g_group_array.count;
 	pServer = get_readable_connection(g_group_array.groups + group_id, \
-                	&new_connection, &result);
+                	hash_code, &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
@@ -313,10 +290,12 @@ int fdht_set(const char *pKey, const int key_len, \
 	int group_id;
 	FDHTServerInfo *pServer;
 	bool new_connection;
+	int hash_code;
 
-	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	hash_code = PJWHash(pKey, key_len);
+	group_id = hash_code % g_group_array.count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
-                	&new_connection, &result);
+                	hash_code, &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
@@ -346,12 +325,12 @@ int fdht_inc(const char *pKey, const int key_len, \
 	int group_id;
 	FDHTServerInfo *pServer;
 	bool new_connection;
+	int hash_code;
 
-	printf("g_group_array.count=%d\n", g_group_array.count);
-
-	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	hash_code = PJWHash(pKey, key_len);
+	group_id = hash_code % g_group_array.count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
-                	&new_connection, &result);
+                	hash_code, &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
@@ -455,10 +434,12 @@ int fdht_delete(const char *pKey, const int key_len)
 	int group_id;
 	FDHTServerInfo *pServer;
 	bool new_connection;
+	int hash_code;
 
-	group_id = PJWHash(pKey, key_len) % g_group_array.count;
+	hash_code = PJWHash(pKey, key_len);
+	group_id = hash_code % g_group_array.count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
-                	&new_connection, &result);
+                	hash_code, &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;

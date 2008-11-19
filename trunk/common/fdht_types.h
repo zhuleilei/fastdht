@@ -51,7 +51,6 @@ typedef struct
 {
 	FDHTServerInfo *servers;
 	int count;  //server count
-	int read_index;  //current read index for roundrobin
 } ServerArray;
 
 typedef struct

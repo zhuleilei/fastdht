@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	strcpy(key, "test");
+	strcpy(key, "test2");
 	key_len = strlen(key);
 
 	while (1)
