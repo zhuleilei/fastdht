@@ -322,7 +322,7 @@ static int deal_task(struct task_info *pTask)
 			break;
 	}
 
-	//printf("cmd=%d, resp pkg_len=%d\n", pHeader->cmd, pTask->length - sizeof(ProtoHeader));
+	//printf("client ip: %s, cmd=%d, resp pkg_len=%d\n", pTask->client_ip, pHeader->cmd, pTask->length - sizeof(ProtoHeader));
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(ProtoHeader), pHeader->pkg_len);
 
