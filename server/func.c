@@ -407,7 +407,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
 		}
 
-		g_heart_beat_interval = g_network_timeout - 5;
+		g_heart_beat_interval = g_network_timeout / 2;
 		if (g_heart_beat_interval <= 0)
 		{
 			g_heart_beat_interval = 1;
