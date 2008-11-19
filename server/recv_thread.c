@@ -57,7 +57,7 @@ int recv_notify_write()
 
 int kill_recv_thread()
 {
-	if (write(recv_fds[1], "\0", 1) != 1)
+	if (recv_fds[1] >= 0 && write(recv_fds[1], "\0", 1) != 1)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call write failed, " \
@@ -331,15 +331,14 @@ static void client_sock_read(int sock, short event, void *arg)
 			return;
 		}
 
-		printf("pkg cmd: %d\n", ((ProtoHeader *)pTask->data)->cmd);
-		printf("pkg length: %d\n", pTask->length);
+		//printf("pkg cmd: %d\n", ((ProtoHeader *)pTask->data)->cmd);
+		//printf("pkg length: %d\n", pTask->length);
 	}
 
 	pTask->offset += bytes;
-	printf("pkg length: %d, pkg offset: %d\n", pTask->length, pTask->offset);
+	//printf("pkg length: %d, pkg offset: %d\n", pTask->length, pTask->offset);
 	if (pTask->offset >= pTask->length) //recv done
 	{
-		printf("recv done\n");
 		//event_del(&pTask->ev);
 		work_queue_push(pTask);
 	}

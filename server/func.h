@@ -31,6 +31,7 @@ int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 		const void *pArg, const char *buff, const int len);
 
 int fdht_write_to_stat_file();
+int fdht_terminate();
 
 int fdht_func_init(const char *filename, char *bind_addr, const int addr_size);
 void fdht_func_destroy();

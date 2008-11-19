@@ -1004,7 +1004,7 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 			binlog_file_size = 0;
 			if (write_ret != 0)
 			{
-				g_continue_flag = false;
+				fdht_terminate();
 				logCrit("file: "__FILE__", line: %d, " \
 					"open binlog file \"%s\" fail, " \
 					"program exit!", \
@@ -1118,7 +1118,7 @@ static int fdht_binlog_direct_write(const char op_type, \
 		binlog_file_size = 0;
 		if (result != 0)
 		{
-			g_continue_flag = false;
+			fdht_terminate();
 			logCrit("file: "__FILE__", line: %d, " \
 					"open binlog file \"%s\" fail, " \
 				"program exit!", \
@@ -1431,11 +1431,13 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	*record_length = CALC_RECORD_LENGTH(pRecord->key.length, \
 					pRecord->value.length);
 
-	printf("timestamp=%d, op_type=%c, key len=%d, value len=%d, " \
+	/*
+	//printf("timestamp=%d, op_type=%c, key len=%d, value len=%d, " \
 		"record length=%d, offset=%d\n", \
 		(int)pRecord->timestamp, pRecord->op_type, \
 		pRecord->key.length, pRecord->value.length, \
 		*record_length, (int)pReader->binlog_offset);
+	*/
 
 	return 0;
 }
@@ -1518,7 +1520,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 					"errno: %d, error info: %s. " \
 					"program exit!", __LINE__, \
 					errno, strerror(errno));
-				g_continue_flag = false;
+				fdht_terminate();
 				break;
 			}
 
@@ -1632,7 +1634,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 						"fdht_write_to_mark_file " \
 						"fail, program exit!", \
 						__LINE__);
-					g_continue_flag = false;
+					fdht_terminate();
 					break;
 				}
 				}
@@ -1665,10 +1667,6 @@ static void* fdht_sync_thread_entrance(void* arg)
 			}
 			else if (read_result != 0)
 			{
-				logCrit("file: "__FILE__", line: %d, " \
-					"fdht_binlog_read fail, " \
-					"program exit!", __LINE__);
-				g_continue_flag = false;
 				break;
 			}
 
@@ -1681,7 +1679,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 					logCrit("file: "__FILE__", line: %d, " \
 						"rewind_to_prev_rec_end fail, "\
 						"program exit!", __LINE__);
-					g_continue_flag = false;
+					fdht_terminate();
 				}
 
 				break;
@@ -1689,8 +1687,9 @@ static void* fdht_sync_thread_entrance(void* arg)
 
 			last_active_time = time(NULL);
 
+			++reader.scan_row_count;
 			reader.binlog_offset += record_len;
-			if (++reader.scan_row_count % 100 == 0)
+			if (reader.sync_row_count % 1000 == 0)
 			{
 				if (fdht_write_to_mark_file(&reader) != 0)
 				{
@@ -1698,7 +1697,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 						"fdht_write_to_mark_file " \
 						"fail, program exit!", \
 						__LINE__);
-					g_continue_flag = false;
+					fdht_terminate();
 					break;
 				}
 			}
@@ -1711,7 +1710,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 				logCrit("file: "__FILE__", line: %d, " \
 					"fdht_write_to_mark_file fail, " \
 					"program exit!", __LINE__);
-				g_continue_flag = false;
+				fdht_terminate();
 				break;
 			}
 		}

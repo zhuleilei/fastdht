@@ -19,6 +19,9 @@
 #include "fdht_global.h"
 #include "global.h"
 #include "fdht_func.h"
+#include "task_queue.h"
+#include "recv_thread.h"
+#include "send_thread.h"
 #include "func.h"
 
 #define DB_FILE_PREFIX_MAX_SIZE  32
@@ -241,7 +244,7 @@ static int load_group_ids(GroupArray *pGroupArray, \
 		/*
 		for (k=0; k < addrs_count; k++)
 		{
-			printf("%d. ip addr: %s\n", k+1, host_addrs[k]);
+			//printf("%d. ip addr: %s\n", k+1, host_addrs[k]);
 		}
 		*/
 	}
@@ -559,7 +562,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		int i;
 		for (i=0; i<g_group_server_count; i++)
 		{
-			printf("%d. %s:%d\n", i+1, g_group_servers[i].ip_addr, g_group_servers[i].port);
+			//printf("%d. %s:%d\n", i+1, g_group_servers[i].ip_addr, g_group_servers[i].port);
 		}
 		}
 		*/
@@ -861,5 +864,16 @@ int fdht_write_to_stat_file()
 
 	return fdht_write_to_fd(fdht_stat_fd, \
 			fdht_get_stat_filename, NULL, buff, len);
+}
+
+int fdht_terminate()
+{
+	int result;
+
+	g_continue_flag = false;
+	result = kill_recv_thread();
+	result += kill_send_thread();
+
+	return result;
 }
 

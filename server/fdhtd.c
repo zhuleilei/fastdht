@@ -43,8 +43,6 @@ static void sigUsrHandler(int sig);
 
 static int create_sock_io_threads(int server_sock);
 
-static int g_done_count = 0;
-
 int main(int argc, char *argv[])
 {
 	char *conf_filename;
@@ -160,9 +158,9 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-
 	if ((result=create_sock_io_threads(sock)) != 0)
 	{
+		fdht_terminate();
 		work_thread_destroy();
 		fdht_func_destroy();
 		return result;
@@ -178,7 +176,7 @@ int main(int argc, char *argv[])
 	printf("queue count3: %d\n", free_queue_count() + recv_queue_count()); 
 	close(sock);
 
-	fdht_sync_destroy();	
+	fdht_sync_destroy();
 	fdht_func_destroy();
 
 	logInfo("exit nomally.\n");
@@ -190,14 +188,12 @@ static void sigQuitHandler(int sig)
 {
 	if (g_continue_flag)
 	{
-		g_continue_flag = false;
-		kill_recv_thread();
-		kill_send_thread();
+		fdht_terminate();
 		logCrit("file: "__FILE__", line: %d, " \
 			"catch signal %d, program exiting...", \
 			__LINE__, sig);
-		printf("g_conn_count: %d, g_recv_count: %d, g_send_count=%d, g_done_count=%d\n", 
-			g_conn_count, g_recv_count, g_send_count, g_done_count);
+		printf("g_conn_count: %d, g_recv_count: %d, g_send_count=%d\n", 
+			g_conn_count, g_recv_count, g_send_count);
 		fflush(stdout);
 		printf("free queue count: %d, task queue count: %d\n", free_queue_count(), recv_queue_count()); 
 		fflush(stdout);
