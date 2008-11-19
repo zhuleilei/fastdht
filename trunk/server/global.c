@@ -25,7 +25,7 @@ pthread_mutex_t g_storage_thread_lock;
 int g_thread_count = 0;
 int g_sync_wait_usec = DEFAULT_SYNC_WAIT_MSEC;
 
-struct timeval g_network_tv = {30, 0};
+struct timeval g_network_tv = {DEFAULT_NETWORK_TIMEOUT, 0};
 
 int g_conn_count = 0;
 int g_recv_count = 0;
