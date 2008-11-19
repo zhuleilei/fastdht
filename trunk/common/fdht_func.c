@@ -286,6 +286,21 @@ int fdfs_split_ids(const char *szIds, int **ppIds, int *id_count)
 	return result;
 }
 
+static int fdht_cmp_by_ip_and_port(const void *p1, const void *p2)
+{
+	int res;
+
+	res = strcmp(((FDHTServerInfo*)p1)->ip_addr, \
+			((FDHTServerInfo*)p2)->ip_addr);
+	if (res != 0)
+	{
+		return res;
+	}
+
+	return ((FDHTServerInfo*)p1)->port - \
+			((FDHTServerInfo*)p2)->port;
+}
+
 int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 		GroupArray *pGroupArray)
 {
@@ -295,6 +310,7 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 	char item_name[32];
 	ServerArray *pServerArray;
 	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
 	char *ip_port[2];
 
 	pGroupArray->count = iniGetIntValue("group_count", \
@@ -396,6 +412,23 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 				pServerInfo->ip_addr, pServerInfo->port);
 
 			pServerInfo++;
+		}
+
+		qsort(pServerArray->servers, pServerArray->count, \
+			sizeof(FDHTServerInfo), fdht_cmp_by_ip_and_port);
+		pServerEnd = pServerArray->servers + pServerArray->count;
+		for (pServerInfo=pServerArray->servers + 1; \
+			pServerInfo<pServerEnd; pServerInfo++)
+		{
+			if (fdht_cmp_by_ip_and_port(pServerInfo-1, \
+				pServerInfo) == 0)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"group: \"%s\",  duplicate server: " \
+					"%s:%d", __LINE__, item_name, \
+					pServerInfo->ip_addr,pServerInfo->port);
+				return EINVAL;
+			}
 		}
 
 		pServerArray++;

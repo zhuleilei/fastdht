@@ -54,7 +54,7 @@ int send_notify_write()
 
 int kill_send_thread()
 {
-	if (write(send_fds[1], "\0", 1) != 1)
+	if (send_fds[1] >= 0 && write(send_fds[1], "\0", 1) != 1)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call write failed, " \

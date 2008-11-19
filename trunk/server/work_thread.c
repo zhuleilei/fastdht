@@ -222,7 +222,7 @@ static void *work_thread_entrance(void* arg)
 		g_done_count++;
 	}
 
-	printf("thead exit.\n");
+	//printf("thead exit.\n");
 	fflush(stdout);
 
 	if ((result=pthread_mutex_lock(&work_thread_mutex)) != 0)
@@ -322,7 +322,7 @@ static int deal_task(struct task_info *pTask)
 			break;
 	}
 
-	printf("cmd=%d, resp pkg_len=%d\n", pHeader->cmd, pTask->length - sizeof(ProtoHeader));
+	//printf("cmd=%d, resp pkg_len=%d\n", pHeader->cmd, pTask->length - sizeof(ProtoHeader));
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(ProtoHeader), pHeader->pkg_len);
 
@@ -474,8 +474,6 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 		return EINVAL;
 	}
 
-	printf("deal_cmd_sync_req, file: "__FILE__", line: %d\n", __LINE__);
-
 	if (g_sync_old_done)
 	{
 		PACK_SYNC_REQ_BODY(pTask)
@@ -528,7 +526,6 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 
 	while (1)
 	{
-		printf("deal_cmd_sync_req, file: "__FILE__", line: %d\n", __LINE__);
 		if (pFirstServer->sync_req_count > 0 && pFirstServer->sync_old_done)
 		{
 			pServer = pFirstServer;
@@ -609,7 +606,6 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 		break;
 	}
 
-	printf("deal_cmd_sync_req, file: "__FILE__", line: %d\n", __LINE__);
 	if (!(strcmp(pTask->client_ip, pServer->ip_addr) == 0 && \
 		targetServer.port == pServer->port))
 	{
