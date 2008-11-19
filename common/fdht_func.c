@@ -347,7 +347,6 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 			return ENOENT;
 		}
 
-		pServerArray->read_index = 0;
 		pServerArray->servers = (FDHTServerInfo *)malloc( \
 			sizeof(FDHTServerInfo) * pServerArray->count);
 		if (pServerArray->servers == NULL)
