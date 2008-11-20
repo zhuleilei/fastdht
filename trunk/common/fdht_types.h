@@ -20,6 +20,13 @@
 extern "C" {
 #endif
 
+#define FDHT_MAX_NAMESPACE_LEN	 64
+#define FDHT_MAX_OBJECT_ID_LEN	128
+#define FDHT_MAX_SUB_KEY_LEN	128
+
+#define FDHT_MAX_FULL_KEY_LEN    (FDHT_MAX_NAMESPACE_LEN + \
+				FDHT_MAX_OBJECT_ID_LEN + FDHT_MAX_SUB_KEY_LEN)
+
 typedef struct
 {
 	int sock;

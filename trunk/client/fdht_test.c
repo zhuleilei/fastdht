@@ -53,16 +53,15 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	strcpy(key, "test5");
-	key_len = strlen(key);
+	srand(time(NULL));
+	key_len = sprintf(key, "k%d", rand());
 
 	while (1)
 	{
 		char *value;
-		value = "1234567890122";
-		value_len = strlen(value);
+		value_len = sprintf(szValue, "%d", rand());
 
-		if ((result=fdht_set(key, key_len, value, value_len)) != 0)
+		if ((result=fdht_set(key, key_len, szValue, value_len)) != 0)
 		{
 			break;
 		}

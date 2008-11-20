@@ -38,7 +38,8 @@ typedef struct
 {
 	char pkg_len[FDHT_PROTO_PKG_LEN_SIZE];  //body length
 	char group_id[FDHT_PROTO_PKG_LEN_SIZE]; //the group id key belong to
-	char timestamp[FDHT_PROTO_PKG_LEN_SIZE];
+	char timestamp[FDHT_PROTO_PKG_LEN_SIZE]; //current time
+	char timeout[FDHT_PROTO_PKG_LEN_SIZE];   //remain timeout
 	char cmd;
 	char status;
 } ProtoHeader;
