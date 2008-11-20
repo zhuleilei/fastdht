@@ -352,9 +352,86 @@ static int deal_task(struct task_info *pTask)
 		return  EINVAL; \
 	} \
 
+#define PARSE_COMMON_BODY(min_body_len, pTask, nInBodyLen, namespace_len, \
+		pNameSpace, obj_id_len, pObjectId, key_len, key) \
+	nInBodyLen = pTask->length - sizeof(ProtoHeader); \
+	if (nInBodyLen <= min_body_len) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d <= %d", \
+			__LINE__, pTask->client_ip, nInBodyLen, min_body_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+ \
+	namespace_len = buff2int(pTask->data + sizeof(ProtoHeader)); \
+	if (namespace_len < 0 || namespace_len > FDHT_MAX_NAMESPACE_LEN) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, invalid namespace length: %d", \
+			__LINE__, pTask->client_ip, namespace_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+	if (nInBodyLen <= min_body_len + namespace_len) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d <= %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, min_body_len + namespace_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+	pNameSpace = pTask->data + sizeof(ProtoHeader) + 4; \
+ \
+	obj_id_len = buff2int(pNameSpace + namespace_len); \
+	if (obj_id_len < 0 || obj_id_len > FDHT_MAX_OBJECT_ID_LEN) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, invalid object length: %d", \
+			__LINE__, pTask->client_ip, obj_id_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+	if (nInBodyLen <= min_body_len + namespace_len + obj_id_len) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d <= %d", \
+			__LINE__, pTask->client_ip, nInBodyLen, \
+			min_body_len + namespace_len + obj_id_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+	pObjectId = pNameSpace + namespace_len + 4; \
+ \
+	key_len = buff2int(pObjectId + obj_id_len); \
+	if (key_len < 0 || key_len > FDHT_MAX_SUB_KEY_LEN) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, invalid key length: %d", \
+			__LINE__, pTask->client_ip, key_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+	if (nInBodyLen < min_body_len + namespace_len + obj_id_len + key_len) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, min_body_len + namespace_len + \
+			obj_id_len + key_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+	key = pObjectId + obj_id_len + 4;
+
 
 /**
 * request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
 *       key_len:  4 bytes big endian integer
 *       key:      key name
 * response body format:
@@ -367,34 +444,31 @@ static int deal_cmd_get(struct task_info *pTask)
 	int key_len;
 	char *key;
 	int group_id;
+	int namespace_len;
+	char *pNameSpace;
+	int obj_id_len;
+	char *pObjectId;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	char *pValue;
 	int value_len;
 	int result;
 
+
 	CHECK_GROUP_ID(pTask, group_id)
 
-	nInBodyLen = pTask->length - sizeof(ProtoHeader);
-	if (nInBodyLen <= 4)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d <= 4", \
-			__LINE__, pTask->client_ip, nInBodyLen);
-		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
-	}
+	PARSE_COMMON_BODY(12, pTask, nInBodyLen, namespace_len, \
+		pNameSpace, obj_id_len, pObjectId, key_len, key)
 
-	key_len = buff2int(pTask->data + sizeof(ProtoHeader));
-	if (nInBodyLen != 4 + key_len)
+	if (nInBodyLen != 12 + namespace_len + obj_id_len + key_len)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 4 + key_len);
+			nInBodyLen, 12 + namespace_len + obj_id_len + key_len);
 		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
+		return EINVAL;
 	}
 
-	key = pTask->data + sizeof(ProtoHeader) + 4;
 	pValue = NULL;
 	if ((result=db_get(g_db_list[group_id], key, key_len, \
                	&pValue, &value_len)) != 0)
@@ -678,6 +752,10 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 
 /**
 * request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
 *       key_len:  4 bytes big endian integer
 *       key:      key name
 *       value_len:  4 bytes big endian integer
@@ -691,43 +769,21 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	int key_len;
 	char *key;
 	int group_id;
+	int namespace_len;
+	char *pNameSpace;
+	int obj_id_len;
+	char *pObjectId;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	char *pValue;
 	int value_len;
 	int result;
 
 	CHECK_GROUP_ID(pTask, group_id)
 
-	nInBodyLen = pTask->length - sizeof(ProtoHeader);
-	if (nInBodyLen <= 8)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d <= 8", \
-			__LINE__, pTask->client_ip, nInBodyLen);
-		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
-	}
+	PARSE_COMMON_BODY(16, pTask, nInBodyLen, namespace_len, \
+		pNameSpace, obj_id_len, pObjectId, key_len, key)
 
-	key_len = buff2int(pTask->data + sizeof(ProtoHeader));
-	if (key_len <= 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, key length: %d <= 0", \
-			__LINE__, pTask->client_ip, key_len);
-		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
-	}
-	if (nInBodyLen < 8 + key_len)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d < %d", \
-			__LINE__, pTask->client_ip, \
-			nInBodyLen, 8 + key_len);
-		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
-	}
-	key = pTask->data + sizeof(ProtoHeader) + 4;
-
-	value_len = buff2int(pTask->data + sizeof(ProtoHeader) + 4 + key_len);
+	value_len = buff2int(key + key_len);
 	if (value_len < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -770,6 +826,10 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 
 /**
 * request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
 *       key_len:  4 bytes big endian integer
 *       key:      key name
 * response body format:
@@ -828,6 +888,10 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 
 /**
 * request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
 *       key_len:  4 bytes big endian integer
 *       key:      key name
 *       incr      4 bytes big endian integer
@@ -840,6 +904,11 @@ static int deal_cmd_inc(struct task_info *pTask)
 	char *key;
 	int key_len;
 	int group_id;
+	int namespace_len;
+	char *pNameSpace;
+	int obj_id_len;
+	char *pObjectId;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	int inc;
 	char value[32];
 	int value_len;
@@ -847,28 +916,10 @@ static int deal_cmd_inc(struct task_info *pTask)
 
 	CHECK_GROUP_ID(pTask, group_id)
 
-	nInBodyLen = pTask->length - sizeof(ProtoHeader);
-	if (nInBodyLen <= 8)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d <= 4", \
-			__LINE__, pTask->client_ip, nInBodyLen);
-		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
-	}
+	PARSE_COMMON_BODY(16, pTask, nInBodyLen, namespace_len, \
+		pNameSpace, obj_id_len, pObjectId, key_len, key)
 
-	key_len = buff2int(pTask->data + sizeof(ProtoHeader));
-	if (nInBodyLen != 8 + key_len)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d != %d", \
-			__LINE__, pTask->client_ip, \
-			nInBodyLen, 4 + key_len);
-		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
-	}
-	key = pTask->data + sizeof(ProtoHeader) + 4;
-	inc = buff2int(pTask->data + sizeof(ProtoHeader) + 4 + key_len);
+	inc = buff2int(key + key_len);
 
 	value_len = sizeof(value) - 1;
 	result = db_inc(g_db_list[group_id], key, key_len, inc, \
