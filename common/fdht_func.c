@@ -407,8 +407,10 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 			}
 			pServerInfo->sock = -1;
 
+			/*
 			logDebug("group%d. %s:%d", group_id, \
 				pServerInfo->ip_addr, pServerInfo->port);
+			*/
 
 			pServerInfo++;
 		}
@@ -429,6 +431,15 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 				return EINVAL;
 			}
 		}
+
+		/*
+		for (pServerInfo=pServerArray->servers; \
+			pServerInfo<pServerEnd; pServerInfo++)
+		{
+			logDebug("group%d. %s:%d", group_id, \
+				pServerInfo->ip_addr, pServerInfo->port);
+		}
+		*/
 
 		pServerArray++;
 	}
