@@ -752,7 +752,17 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	result = db_set(g_db_list[group_id], key, key_len, pValue, value_len);
 	if (result == 0)
 	{
-		fdht_binlog_write(op_type, key, key_len, pValue, value_len);
+		time_t timestamp;
+		if (op_type == FDHT_OP_TYPE_SOURCE_SET)
+		{
+			timestamp = time(NULL);
+		}
+		else
+		{
+			timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp);
+		}
+		fdht_binlog_write(timestamp, op_type, key, key_len, \
+					pValue, value_len);
 	}
 
 	return result;
@@ -801,7 +811,16 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 	result = db_delete(g_db_list[group_id], key, key_len);
 	if (result == 0)
 	{
-		fdht_binlog_write(op_type, key, key_len, NULL, 0);
+		time_t timestamp;
+		if (op_type == FDHT_OP_TYPE_SOURCE_DEL)
+		{
+			timestamp = time(NULL);
+		}
+		else
+		{
+			timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp);
+		}
+		fdht_binlog_write(timestamp, op_type, key, key_len, NULL, 0);
 	}
 
 	return result;
@@ -856,8 +875,8 @@ static int deal_cmd_inc(struct task_info *pTask)
 			value, &value_len);
 	if (result == 0)
 	{
-		fdht_binlog_write(FDHT_OP_TYPE_SOURCE_SET, key, key_len, \
-				value, value_len);
+		fdht_binlog_write(time(NULL), FDHT_OP_TYPE_SOURCE_SET, \
+				key, key_len, value, value_len);
 
 		pTask->length = sizeof(ProtoHeader) + 4 + value_len;
 		int2buff(value_len, pTask->data + sizeof(ProtoHeader));

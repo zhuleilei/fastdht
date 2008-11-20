@@ -53,12 +53,12 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	strcpy(key, "test2");
+	strcpy(key, "test5");
 	key_len = strlen(key);
 
 	while (1)
 	{
-		/*
+		char *value;
 		value = "1234567890122";
 		value_len = strlen(value);
 
@@ -66,7 +66,6 @@ int main(int argc, char *argv[])
 		{
 			break;
 		}
-		*/
 
 		value_len = sizeof(szValue);
 		if ((result=fdht_inc(key, key_len, 100, \

@@ -179,7 +179,7 @@ int fdht_get(const char *pKey, const int key_len, \
 		return result;
 	}
 
-	printf("group_id=%d\n", group_id);
+	//printf("get group_id=%d\n", group_id);
 
 	memset(&header, 0, sizeof(header));
 	header.cmd = FDHT_PROTO_CMD_GET;
@@ -301,9 +301,9 @@ int fdht_set(const char *pKey, const int key_len, \
 		return result;
 	}
 
-	printf("group_id=%d\n", group_id);
-	result = fdht_client_set(pServer, FDHT_PROTO_CMD_SET, group_id, \
-			pKey, key_len, pValue, value_len);
+	//printf("set group_id=%d\n", group_id);
+	result = fdht_client_set(pServer, time(NULL), FDHT_PROTO_CMD_SET, \
+			group_id, pKey, key_len, pValue, value_len);
 
 	if (new_connection)
 	{
@@ -336,7 +336,7 @@ int fdht_inc(const char *pKey, const int key_len, \
 		return result;
 	}
 
-	printf("group_id=%d\n", group_id);
+	//printf("inc group_id=%d\n", group_id);
 
 	memset(&header, 0, sizeof(header));
 	header.cmd = FDHT_PROTO_CMD_INC;
@@ -445,9 +445,9 @@ int fdht_delete(const char *pKey, const int key_len)
 		return result;
 	}
 
-	printf("group_id=%d\n", group_id);
-	result = fdht_client_delete(pServer, FDHT_PROTO_CMD_DEL, group_id, \
-			pKey, key_len);
+	//printf("del group_id=%d\n", group_id);
+	result = fdht_client_delete(pServer, time(NULL), FDHT_PROTO_CMD_DEL, \
+			group_id, pKey, key_len);
 
 	if (new_connection)
 	{

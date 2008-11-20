@@ -232,8 +232,9 @@ static int fdht_sync_set(FDHTServerInfo *pDestServer, \
 	int group_id;
 
 	group_id = PJWHash(pRecord->key.data,pRecord->key.length)%g_group_count;
-	return fdht_client_set(pDestServer, FDHT_PROTO_CMD_SYNC_SET, \
-		group_id, pRecord->key.data, pRecord->key.length, \
+	return fdht_client_set(pDestServer, pRecord->timestamp, \
+		FDHT_PROTO_CMD_SYNC_SET, group_id, \
+		pRecord->key.data, pRecord->key.length, \
 		pRecord->value.data, pRecord->value.length);
 }
 
@@ -243,8 +244,9 @@ static int fdht_sync_del(FDHTServerInfo *pDestServer, \
 	int group_id;
 
 	group_id = PJWHash(pRecord->key.data,pRecord->key.length)%g_group_count;
-	return fdht_client_delete(pDestServer, FDHT_PROTO_CMD_SYNC_DEL, \
-		group_id, pRecord->key.data, pRecord->key.length);
+	return fdht_client_delete(pDestServer, pRecord->timestamp, \
+		FDHT_PROTO_CMD_SYNC_DEL, group_id, \
+		pRecord->key.data, pRecord->key.length);
 }
 
 #define STARAGE_CHECK_IF_NEED_SYNC_OLD(pReader, pRecord) \
@@ -1035,7 +1037,7 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 }
 
 
-static int fdht_binlog_direct_write(const char op_type, \
+static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
 		const char *pKey, const int key_len, \
 		const char *pValue, const int value_len)
 {
@@ -1044,7 +1046,7 @@ static int fdht_binlog_direct_write(const char op_type, \
 	int result;
 
 	write_bytes = sprintf(buff, "%10d %c %10d %10d ", \
-			(int)time(NULL), op_type, \
+			(int)timestamp, op_type, \
 			key_len, value_len);
 	if (write(g_binlog_fd, buff, write_bytes) != write_bytes)
 	{
@@ -1134,7 +1136,8 @@ static int fdht_binlog_direct_write(const char op_type, \
 	return 0;
 }
 
-int fdht_binlog_write(const char op_type, const char *pKey, const int key_len, \
+int fdht_binlog_write(const time_t timestamp, const char op_type, \
+		const char *pKey, const int key_len, \
 		const char *pValue, const int value_len)
 {
 	int record_len;
@@ -1152,7 +1155,7 @@ int fdht_binlog_write(const char op_type, const char *pKey, const int key_len, \
 	record_len = CALC_RECORD_LENGTH(key_len, value_len);
 	if (record_len >= sizeof(binlog_write_cache_buff))
 	{
-		write_ret = fdht_binlog_direct_write(op_type, \
+		write_ret = fdht_binlog_direct_write(timestamp, op_type, \
 				pKey, key_len, pValue, value_len);
 		if ((result=pthread_mutex_unlock(&sync_thread_lock)) != 0)
 		{
@@ -1177,7 +1180,7 @@ int fdht_binlog_write(const char op_type, const char *pKey, const int key_len, \
 	}
 
 	pbinlog_write_cache_current += sprintf(pbinlog_write_cache_current, \
-			"%10d %c %10d %10d ", (int)time(NULL), op_type, \
+			"%10d %c %10d %10d ", (int)timestamp, op_type, \
 			key_len, value_len);
 
 	memcpy(pbinlog_write_cache_current, pKey, key_len);
@@ -1271,7 +1274,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 		return ENOENT;
 	}
 
-	buff[read_bytes] = '\0';
+	*(buff + read_bytes) = '\0';
 	if ((nItem=sscanf(buff, "%10d %c %10d %10d ", \
 			(int *)&(pRecord->timestamp), &(pRecord->op_type), \
 			&(pRecord->key.length), &(pRecord->value.length))) != 4)

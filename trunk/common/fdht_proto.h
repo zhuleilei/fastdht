@@ -36,8 +36,9 @@ typedef int fdht_pkg_size_t;
 
 typedef struct
 {
-	char pkg_len[FDHT_PROTO_PKG_LEN_SIZE];
+	char pkg_len[FDHT_PROTO_PKG_LEN_SIZE];  //body length
 	char group_id[FDHT_PROTO_PKG_LEN_SIZE]; //the group id key belong to
+	char timestamp[FDHT_PROTO_PKG_LEN_SIZE];
 	char cmd;
 	char status;
 } ProtoHeader;
@@ -69,12 +70,14 @@ int fdht_connect_server(FDHTServerInfo *pServer);
 **/
 void fdht_disconnect_server(FDHTServerInfo *pServer);
 
-int fdht_client_set(FDHTServerInfo *pServer, const int prot_cmd, \
-	const int group_id, const char *pKey, const int key_len, \
+int fdht_client_set(FDHTServerInfo *pServer, const time_t timestamp, \
+	const int prot_cmd, const int group_id, \
+	const char *pKey, const int key_len, \
 	const char *pValue, const int value_len);
 
-int fdht_client_delete(FDHTServerInfo *pServer, const int prot_cmd, \
-	const int group_id, const char *pKey, const int key_len);
+int fdht_client_delete(FDHTServerInfo *pServer, const time_t timestamp, \
+	const int prot_cmd, const int group_id, \
+	const char *pKey, const int key_len);
 
 int fdht_client_heart_beat(FDHTServerInfo *pServer);
 
