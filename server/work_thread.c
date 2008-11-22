@@ -323,6 +323,8 @@ static int deal_task(struct task_info *pTask)
 	}
 
 	//printf("client ip: %s, cmd=%d, resp pkg_len=%d\n", pTask->client_ip, pHeader->cmd, pTask->length - sizeof(ProtoHeader));
+
+	int2buff((int)time(NULL), pHeader->timestamp);
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(ProtoHeader), pHeader->pkg_len);
 
@@ -331,8 +333,18 @@ static int deal_task(struct task_info *pTask)
 	return 0;
 }
 
-#define CHECK_GROUP_ID(pTask, group_id) \
-	group_id = buff2int(((ProtoHeader *)pTask->data)->group_id); \
+#define CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires) \
+	key_hash_code = buff2int(((ProtoHeader *)pTask->data)->key_hash_code); \
+	timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp); \
+	expires = buff2int(((ProtoHeader *)pTask->data)->expires); \
+	if (timestamp > 0) \
+	{ \
+		if (expires > 0)  \
+		{ \
+			expires = time(NULL) + (expires - timestamp); \
+		} \
+	} \
+	group_id = key_hash_code % g_group_count; \
 	if (group_id < 0 || group_id >= g_db_count) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
@@ -443,18 +455,22 @@ static int deal_cmd_get(struct task_info *pTask)
 	int nInBodyLen;
 	int key_len;
 	char *key;
+	int key_hash_code;
 	int group_id;
+	int timestamp;
+	int expires;
 	int namespace_len;
 	char *pNameSpace;
 	int obj_id_len;
 	char *pObjectId;
+	int full_key_len;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	char *pValue;
+	char *p;  //tmp var
 	int value_len;
 	int result;
 
-
-	CHECK_GROUP_ID(pTask, group_id)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
 	PARSE_COMMON_BODY(12, pTask, nInBodyLen, namespace_len, \
 		pNameSpace, obj_id_len, pObjectId, key_len, key)
@@ -469,14 +485,25 @@ static int deal_cmd_get(struct task_info *pTask)
 		return EINVAL;
 	}
 
+	FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
+                        key_len, key, full_key, full_key_len, p)
+
 	pValue = NULL;
-	if ((result=db_get(g_db_list[group_id], key, key_len, \
+	if ((result=db_get(g_db_list[group_id], full_key, full_key_len, \
                	&pValue, &value_len)) != 0)
 	{
 		pTask->length = sizeof(ProtoHeader);
 		return result;
 	}
 
+	if (expires != FDHT_EXPIRES_NONE)
+	{
+		int2buff(expires, pValue);
+		result = db_set(g_db_list[group_id], full_key, full_key_len, \
+			pValue, value_len);
+	}
+
+	value_len -= 4;
 	pTask->length = sizeof(ProtoHeader) + 4 + value_len;
 	if (pTask->length > pTask->size)
 	{
@@ -497,8 +524,10 @@ static int deal_cmd_get(struct task_info *pTask)
 		}
 	}
 
+	memcpy(((ProtoHeader *)pTask->data)->expires, pValue, 4);
+
 	int2buff(value_len, pTask->data+sizeof(ProtoHeader));
-	memcpy(pTask->data+sizeof(ProtoHeader)+4, pValue, value_len);
+	memcpy(pTask->data+sizeof(ProtoHeader)+4, pValue+4, value_len);
 	free(pValue);
 
 	return 0;
@@ -758,6 +787,7 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 *       object_id: the object id (can be empty)
 *       key_len:  4 bytes big endian integer
 *       key:      key name
+*       pad:      4 bytes
 *       value_len:  4 bytes big endian integer
 *       value:      value buff
 * response body format:
@@ -769,18 +799,23 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	int key_len;
 	char *key;
 	int group_id;
+	int key_hash_code;
+	time_t timestamp;
+	time_t expires;
 	int namespace_len;
 	char *pNameSpace;
 	int obj_id_len;
 	char *pObjectId;
+	int full_key_len;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	char *p;  //tmp var
 	char *pValue;
 	int value_len;
 	int result;
 
-	CHECK_GROUP_ID(pTask, group_id)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
-	PARSE_COMMON_BODY(16, pTask, nInBodyLen, namespace_len, \
+	PARSE_COMMON_BODY(20, pTask, nInBodyLen, namespace_len, \
 		pNameSpace, obj_id_len, pObjectId, key_len, key)
 
 	value_len = buff2int(key + key_len);
@@ -788,37 +823,46 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, value length: %d < 0", \
-			__LINE__, pTask->client_ip, key_len);
+			__LINE__, pTask->client_ip, value_len);
 		pTask->length = sizeof(ProtoHeader);
 		return  EINVAL;
 	}
-	if (nInBodyLen != 8 + key_len + value_len)
+	if (nInBodyLen != 20 + namespace_len + obj_id_len + key_len + value_len)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 8 + key_len + value_len);
+			nInBodyLen, 20 + namespace_len + obj_id_len + \
+			key_len + value_len);
 		pTask->length = sizeof(ProtoHeader);
 		return  EINVAL;
 	}
-	pValue = pTask->data + sizeof(ProtoHeader) + 8 + key_len;
+	pValue = key + key_len;
+
+	if (op_type == FDHT_OP_TYPE_SOURCE_SET)
+	{
+		timestamp = time(NULL);
+	}
+	else
+	{
+		timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp);
+	}
+	int2buff(expires, pValue);
+	value_len += 4;
 
 	pTask->length = sizeof(ProtoHeader);
 
-	result = db_set(g_db_list[group_id], key, key_len, pValue, value_len);
+	FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
+                        key_len, key, full_key, full_key_len, p)
+
+	result = db_set(g_db_list[group_id], full_key, full_key_len, \
+			pValue, value_len);
 	if (result == 0)
 	{
-		time_t timestamp;
-		if (op_type == FDHT_OP_TYPE_SOURCE_SET)
-		{
-			timestamp = time(NULL);
-		}
-		else
-		{
-			timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp);
-		}
-		fdht_binlog_write(timestamp, op_type, key, key_len, \
-					pValue, value_len);
+		memcpy(((ProtoHeader *)pTask->data)->expires, pValue, 4);
+
+		fdht_binlog_write(timestamp, op_type, key_hash_code, expires, \
+				full_key, full_key_len, pValue, value_len);
 	}
 
 	return result;
@@ -840,10 +884,13 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 	int nInBodyLen;
 	int key_len;
 	char *key;
+	int key_hash_code;
 	int group_id;
+	int timestamp;
+	int expires;
 	int result;
 
-	CHECK_GROUP_ID(pTask, group_id)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
 	nInBodyLen = pTask->length - sizeof(ProtoHeader);
 	if (nInBodyLen <= 4)
@@ -880,7 +927,8 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 		{
 			timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp);
 		}
-		fdht_binlog_write(timestamp, op_type, key, key_len, NULL, 0);
+		fdht_binlog_write(timestamp, op_type, key_hash_code, expires, \
+				key, key_len, NULL, 0);
 	}
 
 	return result;
@@ -896,42 +944,54 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 *       key:      key name
 *       incr      4 bytes big endian integer
 * response body format:
-*      none
+*      value_len: 4 bytes big endian integer
+*      value :  value_len bytes
 */
 static int deal_cmd_inc(struct task_info *pTask)
 {
 	int nInBodyLen;
 	char *key;
 	int key_len;
+	int key_hash_code;
 	int group_id;
+	int timestamp;
+	int expires;
 	int namespace_len;
 	char *pNameSpace;
 	int obj_id_len;
 	char *pObjectId;
+	int full_key_len;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
-	int inc;
 	char value[32];
 	int value_len;
+	int inc;
+	char *p;  //tmp var
 	int result;
 
-	CHECK_GROUP_ID(pTask, group_id)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
 	PARSE_COMMON_BODY(16, pTask, nInBodyLen, namespace_len, \
 		pNameSpace, obj_id_len, pObjectId, key_len, key)
 
 	inc = buff2int(key + key_len);
 
+	FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
+                        key_len, key, full_key, full_key_len, p)
+
 	value_len = sizeof(value) - 1;
-	result = db_inc(g_db_list[group_id], key, key_len, inc, \
-			value, &value_len);
+	result = db_inc_ex(g_db_list[group_id], full_key, full_key_len, inc, \
+			value, &value_len, expires);
 	if (result == 0)
 	{
 		fdht_binlog_write(time(NULL), FDHT_OP_TYPE_SOURCE_SET, \
-				key, key_len, value, value_len);
+				key_hash_code, expires, full_key, full_key_len,\
+				value, value_len);
 
+		value_len -= 4;  //skip expires
 		pTask->length = sizeof(ProtoHeader) + 4 + value_len;
 		int2buff(value_len, pTask->data + sizeof(ProtoHeader));
-		memcpy(pTask->data+sizeof(ProtoHeader)+4, value, value_len);
+		memcpy(((ProtoHeader *)pTask->data)->expires, value, 4);
+		memcpy(pTask->data+sizeof(ProtoHeader)+4, value+4, value_len);
 	}
 	else
 	{

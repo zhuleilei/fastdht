@@ -41,6 +41,9 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len);
 int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	const int inc, char *pValue, int *value_len);
 
+int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+	const int inc, char *pValue, int *value_len, const int timeout);
+
 #ifdef __cplusplus
 }
 #endif

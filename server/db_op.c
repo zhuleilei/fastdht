@@ -310,3 +310,52 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	return result;
 }
 
+int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+	const int inc, char *pValue, int *value_len, const int expires)
+{
+	int64_t n;
+	int result;
+	DBT key;
+	DBT value;
+
+	g_server_stat.total_inc_count++;
+
+	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
+               	&pValue, value_len)) != 0)
+	{
+		return result;
+	}
+
+	pValue[*value_len] = '\0';
+	n = strtoll(pValue+4, NULL, 10);
+	n += inc;
+
+	if (expires != FDHT_EXPIRES_NONE)
+	{
+		int2buff(expires, pValue);
+	}
+
+	*value_len = 4 + sprintf(pValue+4, INT64_PRINTF_FORMAT, n);
+
+	memset(&key, 0, sizeof(key));
+	memset(&value, 0, sizeof(value));
+
+	key.data = (char *)pKey;
+	key.size = key_len;
+
+	value.data = (char *)pValue;
+	value.size = *value_len;
+
+	if ((result=pDBInfo->db->put(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"db_put fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+		return EFAULT;
+	}
+
+	g_server_stat.success_inc_count++;
+	return result;
+}
+
