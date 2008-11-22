@@ -23,9 +23,33 @@ extern "C" {
 #define FDHT_MAX_NAMESPACE_LEN	 64
 #define FDHT_MAX_OBJECT_ID_LEN	128
 #define FDHT_MAX_SUB_KEY_LEN	128
+#define FDHT_FULL_KEY_SEPERATOR	'\x1'
 
-#define FDHT_MAX_FULL_KEY_LEN    (FDHT_MAX_NAMESPACE_LEN + \
-				FDHT_MAX_OBJECT_ID_LEN + FDHT_MAX_SUB_KEY_LEN)
+#define FDHT_EXPIRES_NEVER	 0  //never timeout
+#define FDHT_EXPIRES_NONE	-1  //invalid timeout, should ignore
+
+#define FDHT_MAX_FULL_KEY_LEN    (FDHT_MAX_NAMESPACE_LEN + 1 + \
+			FDHT_MAX_OBJECT_ID_LEN + 1 + FDHT_MAX_SUB_KEY_LEN)
+
+#define FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
+			key_len, key, full_key, full_key_len, p) \
+	p = full_key; \
+	if (namespace_len > 0) \
+	{ \
+		memcpy(p, pNameSpace, namespace_len); \
+		p += namespace_len; \
+	} \
+	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
+	if (obj_id_len > 0) \
+	{ \
+		memcpy(p, pObjectId, obj_id_len); \
+		p += obj_id_len; \
+	} \
+	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
+	memcpy(p, key, key_len); \
+	p += key_len; \
+	full_key_len = p - full_key;
+	
 
 typedef struct
 {

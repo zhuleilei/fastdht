@@ -198,7 +198,7 @@ int fdht_connect_server(FDHTServerInfo *pServer)
 }
 
 int fdht_client_set(FDHTServerInfo *pServer, const time_t timestamp, \
-	const int prot_cmd, const int group_id, \
+	const time_t expires, const int prot_cmd, const int key_hash_code, \
 	const char *pKey, const int key_len, \
 	const char *pValue, const int value_len)
 {
@@ -209,8 +209,9 @@ int fdht_client_set(FDHTServerInfo *pServer, const time_t timestamp, \
 
 	memset(&header, 0, sizeof(header));
 	header.cmd = prot_cmd;
-	int2buff(timestamp, header.timestamp);
-	int2buff(group_id, header.group_id);
+	int2buff((int)timestamp, header.timestamp);
+	int2buff((int)expires, header.expires);
+	int2buff(key_hash_code, header.key_hash_code);
 	int2buff(8 + key_len + value_len, header.pkg_len);
 
 	if ((result=tcpsenddata(pServer->sock, &header, \
@@ -293,7 +294,7 @@ int fdht_client_set(FDHTServerInfo *pServer, const time_t timestamp, \
 }
 
 int fdht_client_delete(FDHTServerInfo *pServer, const time_t timestamp, \
-	const int prot_cmd, const int group_id, \
+	const int prot_cmd, const int key_hash_code, \
 	const char *pKey, const int key_len)
 {
 	int result;
@@ -304,7 +305,7 @@ int fdht_client_delete(FDHTServerInfo *pServer, const time_t timestamp, \
 	memset(&header, 0, sizeof(header));
 	header.cmd = prot_cmd;
 	int2buff(timestamp, header.timestamp);
-	int2buff(group_id, header.group_id);
+	int2buff(key_hash_code, header.key_hash_code);
 	int2buff(4 + key_len, header.pkg_len);
 
 	if ((result=tcpsenddata(pServer->sock, &header, \

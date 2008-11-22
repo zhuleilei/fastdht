@@ -50,9 +50,10 @@ typedef struct
 {
 	time_t timestamp;
 	char op_type;
+	int key_hash_code;  //key hash code
 	BinField key;
 	BinField value;
-	//time_t expire;  //key expire, 0 for never expired
+	time_t expires;  //key expires, 0 for never expired
 } BinLogRecord;
 
 extern int g_binlog_fd;
@@ -63,6 +64,7 @@ extern int g_fdht_sync_thread_count;
 int fdht_sync_init();
 int fdht_sync_destroy();
 int fdht_binlog_write(const time_t timestamp, const char op_type, \
+		const int key_hash_code, const time_t expires, \
 		const char *pKey, const int key_len, \
 		const char *pValue, const int value_len);
 

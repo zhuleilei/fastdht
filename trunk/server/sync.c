@@ -76,6 +76,8 @@ static int fdht_binlog_fsync(const bool bNeedLock);
 
 
 
+#define BINLOG_FIX_FIELDS_LENGTH  5 * 10 + 1 + 6 * 1
+
 #define CALC_RECORD_LENGTH(key_len, value_len)  BINLOG_FIX_FIELDS_LENGTH + \
 			key_len + 1 + value_len + 1
 /**
@@ -229,23 +231,19 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 static int fdht_sync_set(FDHTServerInfo *pDestServer, \
 			const BinLogRecord *pRecord)
 {
-	int group_id;
-
-	group_id = PJWHash(pRecord->key.data,pRecord->key.length)%g_group_count;
+	int expires;
+	expires = buff2int(pRecord->value.data);
 	return fdht_client_set(pDestServer, pRecord->timestamp, \
-		FDHT_PROTO_CMD_SYNC_SET, group_id, \
+		expires, FDHT_PROTO_CMD_SYNC_SET, pRecord->key_hash_code, \
 		pRecord->key.data, pRecord->key.length, \
-		pRecord->value.data, pRecord->value.length);
+		pRecord->value.data+4, pRecord->value.length-4);
 }
 
 static int fdht_sync_del(FDHTServerInfo *pDestServer, \
 			const BinLogRecord *pRecord)
 {
-	int group_id;
-
-	group_id = PJWHash(pRecord->key.data,pRecord->key.length)%g_group_count;
 	return fdht_client_delete(pDestServer, pRecord->timestamp, \
-		FDHT_PROTO_CMD_SYNC_DEL, group_id, \
+		FDHT_PROTO_CMD_SYNC_DEL, pRecord->key_hash_code, \
 		pRecord->key.data, pRecord->key.length);
 }
 
@@ -954,8 +952,6 @@ static int rewind_to_prev_rec_end(BinLogReader *pReader, \
 	return 0;
 }
 
-#define BINLOG_FIX_FIELDS_LENGTH  3 * 10 + 1 + 4 * 1
-
 static int fdht_binlog_fsync(const bool bNeedLock)
 {
 	int result;
@@ -1038,15 +1034,17 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 
 
 static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
+		const int key_hash_code, const time_t expires, \
 		const char *pKey, const int key_len, \
 		const char *pValue, const int value_len)
 {
-	char buff[64];
+	char buff[128];
 	int write_bytes;
 	int result;
 
-	write_bytes = sprintf(buff, "%10d %c %10d %10d ", \
+	write_bytes = sprintf(buff, "%10d %c %10d %10d %10d %10d ", \
 			(int)timestamp, op_type, \
+			key_hash_code, (int)expires, \
 			key_len, value_len);
 	if (write(g_binlog_fd, buff, write_bytes) != write_bytes)
 	{
@@ -1137,6 +1135,7 @@ static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
 }
 
 int fdht_binlog_write(const time_t timestamp, const char op_type, \
+		const int key_hash_code, const time_t expires, \
 		const char *pKey, const int key_len, \
 		const char *pValue, const int value_len)
 {
@@ -1156,7 +1155,8 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 	if (record_len >= sizeof(binlog_write_cache_buff))
 	{
 		write_ret = fdht_binlog_direct_write(timestamp, op_type, \
-				pKey, key_len, pValue, value_len);
+				key_hash_code, expires, pKey, key_len, \
+				pValue, value_len);
 		if ((result=pthread_mutex_unlock(&sync_thread_lock)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -1180,8 +1180,8 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 	}
 
 	pbinlog_write_cache_current += sprintf(pbinlog_write_cache_current, \
-			"%10d %c %10d %10d ", (int)timestamp, op_type, \
-			key_len, value_len);
+		"%10d %c %10d %10d %10d %10d ", (int)timestamp, op_type, \
+		key_hash_code, (int)expires, key_len, value_len);
 
 	memcpy(pbinlog_write_cache_current, pKey, key_len);
 	pbinlog_write_cache_current += key_len;
@@ -1275,14 +1275,15 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	}
 
 	*(buff + read_bytes) = '\0';
-	if ((nItem=sscanf(buff, "%10d %c %10d %10d ", \
+	if ((nItem=sscanf(buff, "%10d %c %10d %10d %10d %10d ", \
 			(int *)&(pRecord->timestamp), &(pRecord->op_type), \
-			&(pRecord->key.length), &(pRecord->value.length))) != 4)
+			&(pRecord->key_hash_code), (int *)&(pRecord->expires), \
+			&(pRecord->key.length), &(pRecord->value.length))) != 6)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"data format invalid, binlog file: %s, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
-			"read item: %d != 4", \
+			"read item: %d != 6", \
 			__LINE__, get_binlog_readable_filename(pReader, NULL),\
 			pReader->binlog_offset, nItem);
 		return ENOENT;
