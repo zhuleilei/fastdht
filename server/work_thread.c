@@ -364,8 +364,8 @@ static int deal_task(struct task_info *pTask)
 		return  EINVAL; \
 	} \
 
-#define PARSE_COMMON_BODY(min_body_len, pTask, nInBodyLen, namespace_len, \
-		pNameSpace, obj_id_len, pObjectId, key_len, key) \
+#define PARSE_COMMON_BODY(min_body_len, pTask, nInBodyLen, key_info, \
+		pNameSpace, pObjectId, pKey) \
 	nInBodyLen = pTask->length - sizeof(ProtoHeader); \
 	if (nInBodyLen <= min_body_len) \
 	{ \
@@ -376,75 +376,90 @@ static int deal_task(struct task_info *pTask)
 		return EINVAL; \
 	} \
  \
-	namespace_len = buff2int(pTask->data + sizeof(ProtoHeader)); \
-	if (namespace_len < 0 || namespace_len > FDHT_MAX_NAMESPACE_LEN) \
+	key_info.namespace_len = buff2int(pTask->data + sizeof(ProtoHeader)); \
+	if (key_info.namespace_len < 0 || \
+		key_info.namespace_len > FDHT_MAX_NAMESPACE_LEN) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, invalid namespace length: %d", \
-			__LINE__, pTask->client_ip, namespace_len); \
+			__LINE__, pTask->client_ip, key_info.namespace_len); \
 		pTask->length = sizeof(ProtoHeader); \
 		return EINVAL; \
 	} \
-	if (nInBodyLen <= min_body_len + namespace_len) \
+	if (nInBodyLen <= min_body_len + key_info.namespace_len) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d <= %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, min_body_len + namespace_len); \
+			nInBodyLen, min_body_len + key_info.namespace_len); \
 		pTask->length = sizeof(ProtoHeader); \
 		return EINVAL; \
 	} \
 	pNameSpace = pTask->data + sizeof(ProtoHeader) + 4; \
+	if (key_info.namespace_len > 0) \
+	{ \
+		memcpy(key_info.szNameSpace,pNameSpace,key_info.namespace_len);\
+	} \
  \
-	obj_id_len = buff2int(pNameSpace + namespace_len); \
-	if (obj_id_len < 0 || obj_id_len > FDHT_MAX_OBJECT_ID_LEN) \
+	key_info.obj_id_len = buff2int(key_info.szNameSpace + \
+					key_info.namespace_len); \
+	if (key_info.obj_id_len < 0 || \
+		key_info.obj_id_len > FDHT_MAX_OBJECT_ID_LEN) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, invalid object length: %d", \
-			__LINE__, pTask->client_ip, obj_id_len); \
+			__LINE__, pTask->client_ip, key_info.obj_id_len); \
 		pTask->length = sizeof(ProtoHeader); \
 		return EINVAL; \
 	} \
-	if (nInBodyLen <= min_body_len + namespace_len + obj_id_len) \
+	if (nInBodyLen <= min_body_len + key_info.namespace_len + \
+			key_info.obj_id_len) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d <= %d", \
 			__LINE__, pTask->client_ip, nInBodyLen, \
-			min_body_len + namespace_len + obj_id_len); \
+			min_body_len + key_info.namespace_len + \
+			key_info.obj_id_len); \
 		pTask->length = sizeof(ProtoHeader); \
 		return EINVAL; \
 	} \
-	pObjectId = pNameSpace + namespace_len + 4; \
+	pObjectId = pNameSpace + key_info.namespace_len + 4; \
+	if (key_info.obj_id_len > 0) \
+	{ \
+		memcpy(key_info.szObjectId, pObjectId, key_info.obj_id_len); \
+	} \
  \
-	key_len = buff2int(pObjectId + obj_id_len); \
-	if (key_len < 0 || key_len > FDHT_MAX_SUB_KEY_LEN) \
+	key_info.key_len = buff2int(key_info.szObjectId + key_info.obj_id_len); \
+	if (key_info.key_len < 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, invalid key length: %d", \
-			__LINE__, pTask->client_ip, key_len); \
+			__LINE__, pTask->client_ip, key_info.key_len); \
 		pTask->length = sizeof(ProtoHeader); \
 		return EINVAL; \
 	} \
-	if (nInBodyLen < min_body_len + namespace_len + obj_id_len + key_len) \
+	if (nInBodyLen < min_body_len + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, min_body_len + namespace_len + \
-			obj_id_len + key_len); \
+			nInBodyLen, min_body_len + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len); \
 		pTask->length = sizeof(ProtoHeader); \
 		return EINVAL; \
 	} \
-	key = pObjectId + obj_id_len + 4;
+	pKey = pObjectId + key_info.obj_id_len + 4; \
+	memcpy(key_info.szKey, pKey, key_info.key_len); \
 
 
 /**
 * request body format:
-*       namespace_len:  4 bytes big endian integer
+*       key_info.namespace_len:  4 bytes big endian integer
 *       namespace: can be emtpy
-*       obj_id_len:  4 bytes big endian integer
+*       key_info.obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
-*       key_len:  4 bytes big endian integer
+*       key_info.key_len:  4 bytes big endian integer
 *       key:      key name
 * response body format:
 *       value_len:  4 bytes big endian integer
@@ -453,40 +468,39 @@ static int deal_task(struct task_info *pTask)
 static int deal_cmd_get(struct task_info *pTask)
 {
 	int nInBodyLen;
-	int key_len;
-	char *key;
+	FDHTKeyInfo key_info;
 	int key_hash_code;
 	int group_id;
 	int timestamp;
 	int expires;
-	int namespace_len;
 	char *pNameSpace;
-	int obj_id_len;
 	char *pObjectId;
-	int full_key_len;
+	char *pKey;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	char *pValue;
 	char *p;  //tmp var
+	int full_key_len;
 	int value_len;
 	int result;
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
-	PARSE_COMMON_BODY(12, pTask, nInBodyLen, namespace_len, \
-		pNameSpace, obj_id_len, pObjectId, key_len, key)
+	PARSE_COMMON_BODY(12, pTask, nInBodyLen, key_info, pNameSpace, \
+			pObjectId, pKey)
 
-	if (nInBodyLen != 12 + namespace_len + obj_id_len + key_len)
+	if (nInBodyLen != 12 + key_info.namespace_len + key_info.obj_id_len + \
+				key_info.key_len)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 12 + namespace_len + obj_id_len + key_len);
+			nInBodyLen, 12 + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len);
 		pTask->length = sizeof(ProtoHeader);
 		return EINVAL;
 	}
 
-	FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
-                        key_len, key, full_key, full_key_len, p)
+	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	pValue = NULL;
 	if ((result=db_get(g_db_list[group_id], full_key, full_key_len, \
@@ -781,11 +795,11 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 
 /**
 * request body format:
-*       namespace_len:  4 bytes big endian integer
+*       key_info.namespace_len:  4 bytes big endian integer
 *       namespace: can be emtpy
-*       obj_id_len:  4 bytes big endian integer
+*       key_info.obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
-*       key_len:  4 bytes big endian integer
+*       key_info.key_len:  4 bytes big endian integer
 *       key:      key name
 *       pad:      4 bytes
 *       value_len:  4 bytes big endian integer
@@ -796,18 +810,16 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 static int deal_cmd_set(struct task_info *pTask, byte op_type)
 {
 	int nInBodyLen;
-	int key_len;
-	char *key;
+	FDHTKeyInfo key_info;
 	int group_id;
 	int key_hash_code;
 	time_t timestamp;
 	time_t expires;
-	int namespace_len;
 	char *pNameSpace;
-	int obj_id_len;
 	char *pObjectId;
-	int full_key_len;
+	char *pKey;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	int full_key_len;
 	char *p;  //tmp var
 	char *pValue;
 	int value_len;
@@ -815,10 +827,10 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
-	PARSE_COMMON_BODY(20, pTask, nInBodyLen, namespace_len, \
-		pNameSpace, obj_id_len, pObjectId, key_len, key)
+	PARSE_COMMON_BODY(20, pTask, nInBodyLen, key_info, pNameSpace, \
+			pObjectId, pKey)
 
-	value_len = buff2int(key + key_len);
+	value_len = buff2int(pKey + key_info.key_len);
 	if (value_len < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -827,33 +839,30 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 		pTask->length = sizeof(ProtoHeader);
 		return  EINVAL;
 	}
-	if (nInBodyLen != 20 + namespace_len + obj_id_len + key_len + value_len)
+	if (nInBodyLen != 20 + key_info.namespace_len + key_info.obj_id_len + \
+			key_info.key_len + value_len)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 20 + namespace_len + obj_id_len + \
-			key_len + value_len);
+			nInBodyLen, 20 + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len + value_len);
 		pTask->length = sizeof(ProtoHeader);
 		return  EINVAL;
 	}
-	pValue = key + key_len;
+	pValue = pKey + key_info.key_len;
 
 	if (op_type == FDHT_OP_TYPE_SOURCE_SET)
 	{
 		timestamp = time(NULL);
 	}
-	else
-	{
-		timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp);
-	}
+
 	int2buff(expires, pValue);
 	value_len += 4;
 
 	pTask->length = sizeof(ProtoHeader);
 
-	FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
-                        key_len, key, full_key, full_key_len, p)
+	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	result = db_set(g_db_list[group_id], full_key, full_key_len, \
 			pValue, value_len);
@@ -862,7 +871,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 		memcpy(((ProtoHeader *)pTask->data)->expires, pValue, 4);
 
 		fdht_binlog_write(timestamp, op_type, key_hash_code, expires, \
-				full_key, full_key_len, pValue, value_len);
+				&key_info, pValue+4, value_len-4);
 	}
 
 	return result;
@@ -882,53 +891,48 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 static int deal_cmd_del(struct task_info *pTask, byte op_type)
 {
 	int nInBodyLen;
-	int key_len;
-	char *key;
+	FDHTKeyInfo key_info;
 	int key_hash_code;
 	int group_id;
 	int timestamp;
 	int expires;
+	char *pNameSpace;
+	char *pObjectId;
+	char *pKey;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	int full_key_len;
 	int result;
+	char *p;
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
-	nInBodyLen = pTask->length - sizeof(ProtoHeader);
-	if (nInBodyLen <= 4)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d <= 4", \
-			__LINE__, pTask->client_ip, nInBodyLen);
-		pTask->length = sizeof(ProtoHeader);
-		return  EINVAL;
-	}
+	PARSE_COMMON_BODY(12, pTask, nInBodyLen, key_info, pNameSpace, \
+			pObjectId, pKey)
 
-	key_len = buff2int(pTask->data + sizeof(ProtoHeader));
-	if (nInBodyLen != 4 + key_len)
+	if (nInBodyLen != 12 + key_info.namespace_len + key_info.obj_id_len + \
+			key_info.key_len)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 4 + key_len);
+			nInBodyLen, 12 + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len);
 		pTask->length = sizeof(ProtoHeader);
 		return  EINVAL;
 	}
-	key = pTask->data + sizeof(ProtoHeader) + 4;
+
+	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	pTask->length = sizeof(ProtoHeader);
-	result = db_delete(g_db_list[group_id], key, key_len);
+	result = db_delete(g_db_list[group_id], full_key, full_key_len);
 	if (result == 0)
 	{
-		time_t timestamp;
 		if (op_type == FDHT_OP_TYPE_SOURCE_DEL)
 		{
 			timestamp = time(NULL);
 		}
-		else
-		{
-			timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp);
-		}
 		fdht_binlog_write(timestamp, op_type, key_hash_code, expires, \
-				key, key_len, NULL, 0);
+				&key_info, NULL, 0);
 	}
 
 	return result;
@@ -936,11 +940,11 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 
 /**
 * request body format:
-*       namespace_len:  4 bytes big endian integer
+*       key_info.namespace_len:  4 bytes big endian integer
 *       namespace: can be emtpy
-*       obj_id_len:  4 bytes big endian integer
+*       key_info.obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
-*       key_len:  4 bytes big endian integer
+*       key_info.key_len:  4 bytes big endian integer
 *       key:      key name
 *       incr      4 bytes big endian integer
 * response body format:
@@ -950,19 +954,17 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 static int deal_cmd_inc(struct task_info *pTask)
 {
 	int nInBodyLen;
-	char *key;
-	int key_len;
+	FDHTKeyInfo key_info;
 	int key_hash_code;
 	int group_id;
 	int timestamp;
-	int expires;
-	int namespace_len;
+	time_t expires;
 	char *pNameSpace;
-	int obj_id_len;
 	char *pObjectId;
-	int full_key_len;
+	char *pKey;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	char value[32];
+	int full_key_len;
 	int value_len;
 	int inc;
 	char *p;  //tmp var
@@ -970,24 +972,35 @@ static int deal_cmd_inc(struct task_info *pTask)
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
-	PARSE_COMMON_BODY(16, pTask, nInBodyLen, namespace_len, \
-		pNameSpace, obj_id_len, pObjectId, key_len, key)
+	PARSE_COMMON_BODY(16, pTask, nInBodyLen, key_info, pNameSpace, \
+			pObjectId, pKey)
+	if (nInBodyLen != 16 + key_info.namespace_len + key_info.obj_id_len + \
+			key_info.key_len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, 16 + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len);
+		pTask->length = sizeof(ProtoHeader);
+		return  EINVAL;
+	}
 
-	inc = buff2int(key + key_len);
+	inc = buff2int(pKey + key_info.key_len);
 
-	FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
-                        key_len, key, full_key, full_key_len, p)
+	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	value_len = sizeof(value) - 1;
 	result = db_inc_ex(g_db_list[group_id], full_key, full_key_len, inc, \
 			value, &value_len, expires);
 	if (result == 0)
 	{
-		fdht_binlog_write(time(NULL), FDHT_OP_TYPE_SOURCE_SET, \
-				key_hash_code, expires, full_key, full_key_len,\
-				value, value_len);
-
 		value_len -= 4;  //skip expires
+		expires = (time_t)buff2int(value);
+		fdht_binlog_write(time(NULL), FDHT_OP_TYPE_SOURCE_SET, \
+				key_hash_code, expires, &key_info, \
+				value+4, value_len);
+
 		pTask->length = sizeof(ProtoHeader) + 4 + value_len;
 		int2buff(value_len, pTask->data + sizeof(ProtoHeader));
 		memcpy(((ProtoHeader *)pTask->data)->expires, value, 4);
