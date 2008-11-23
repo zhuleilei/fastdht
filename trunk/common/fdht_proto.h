@@ -34,6 +34,27 @@
 
 typedef int fdht_pkg_size_t;
 
+#define PACK_BODY_UNTIL_KEY(pKeyInfo, p) \
+	int2buff(pKeyInfo->namespace_len, p); \
+	p += 4; \
+	if (pKeyInfo->namespace_len > 0) \
+	{ \
+		memcpy(p, pKeyInfo->szNameSpace, pKeyInfo->namespace_len); \
+		p += pKeyInfo->namespace_len; \
+	} \
+	int2buff(pKeyInfo->obj_id_len, p);  \
+	p += 4; \
+	if (pKeyInfo->obj_id_len> 0) \
+	{ \
+		memcpy(p, pKeyInfo->szObjectId, pKeyInfo->obj_id_len); \
+		p += pKeyInfo->obj_id_len; \
+	} \
+	int2buff(pKeyInfo->key_len, p); \
+	p += 4; \
+	memcpy(p, pKeyInfo->szKey, pKeyInfo->key_len); \
+	p += pKeyInfo->key_len; \
+
+
 typedef struct
 {
 	char pkg_len[FDHT_PROTO_PKG_LEN_SIZE];  //body length
@@ -75,12 +96,10 @@ void fdht_disconnect_server(FDHTServerInfo *pServer);
 
 int fdht_client_set(FDHTServerInfo *pServer, const time_t timestamp, \
 	const time_t expires, const int prot_cmd, const int key_hash_code, \
-	const char *pKey, const int key_len, \
-	const char *pValue, const int value_len);
+	FDHTKeyInfo *pKeyInfo, const char *pValue, const int value_len);
 
 int fdht_client_delete(FDHTServerInfo *pServer, const time_t timestamp, \
-	const int prot_cmd, const int key_hash_code, \
-	const char *pKey, const int key_len);
+	const int prot_cmd, const int key_hash_code, FDHTKeyInfo *pKeyInfo);
 
 int fdht_client_heart_beat(FDHTServerInfo *pServer);
 

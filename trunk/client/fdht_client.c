@@ -157,60 +157,108 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 	return NULL;
 }
 
-int fdht_get(const char *pKey, const int key_len, \
+#define CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code) \
+	if (pKeyInfo->namespace_len > FDHT_MAX_NAMESPACE_LEN) \
+	{ \
+		fprintf(stderr, "namespace length: %d exceeds, " \
+			"max length:  %d\n", \
+			pKeyInfo->namespace_len, FDHT_MAX_NAMESPACE_LEN); \
+		return EINVAL; \
+	} \
+ \
+	if (pKeyInfo->obj_id_len > FDHT_MAX_OBJECT_ID_LEN) \
+	{ \
+		fprintf(stderr, "object ID length: %d exceeds, " \
+			"max length: %d\n", \
+			pKeyInfo->obj_id_len, FDHT_MAX_OBJECT_ID_LEN); \
+		return EINVAL; \
+	} \
+ \
+	if (pKeyInfo->key_len > FDHT_MAX_SUB_KEY_LEN) \
+	{ \
+		fprintf(stderr, "key length: %d exceeds, max length: %d\n", \
+			pKeyInfo->key_len, FDHT_MAX_SUB_KEY_LEN); \
+		return EINVAL; \
+	} \
+ \
+	if (pKeyInfo->namespace_len == 0 && pKeyInfo->obj_id_len == 0) \
+	{ \
+		hash_key_len = pKeyInfo->key_len; \
+		memcpy(hash_key, pKeyInfo->szKey, pKeyInfo->key_len); \
+	} \
+	else if (pKeyInfo->namespace_len > 0 && pKeyInfo->obj_id_len > 0) \
+	{ \
+		hash_key_len = pKeyInfo->namespace_len+1+pKeyInfo->obj_id_len; \
+		memcpy(hash_key,pKeyInfo->szNameSpace,pKeyInfo->namespace_len);\
+		*(hash_key + pKeyInfo->namespace_len)=FDHT_FULL_KEY_SEPERATOR; \
+		memcpy(hash_key + pKeyInfo->namespace_len + 1, \
+			pKeyInfo->szObjectId, pKeyInfo->obj_id_len); \
+	} \
+	else \
+	{ \
+		fprintf(stderr, "invalid namespace length: %d and " \
+				"object ID length: %d\n", \
+				pKeyInfo->namespace_len, pKeyInfo->obj_id_len); \
+		return EINVAL; \
+	} \
+ \
+	key_hash_code = PJWHash(hash_key, hash_key_len); \
+
+/**
+* request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
+*       key_len:  4 bytes big endian integer
+*       key:      key name
+* response body format:
+*       value_len:  4 bytes big endian integer
+*       value:      value buff
+*/
+int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		char **ppValue, int *value_len)
 {
 	int result;
-	ProtoHeader header;
-	char buff[16];
+	ProtoHeader *pHeader;
+	bool new_connection;
+	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
+	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16];
 	char *in_buff;
 	int in_bytes;
 	int group_id;
+	int hash_key_len;
+	int key_hash_code;
 	FDHTServerInfo *pServer;
-	bool new_connection;
-	int hash_code;
+	char *p;
 
-	hash_code = PJWHash(pKey, key_len);
-	group_id = hash_code % g_group_array.count;
+	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
+	group_id = key_hash_code % g_group_array.count;
 	pServer = get_readable_connection(g_group_array.groups + group_id, \
-                	hash_code, &new_connection, &result);
+                	key_hash_code, &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
 	}
 
-	//printf("get group_id=%d\n", group_id);
+	printf("get group_id=%d\n", group_id);
 
-	memset(&header, 0, sizeof(header));
-	header.cmd = FDHT_PROTO_CMD_GET;
-	int2buff(group_id, header.group_id);
-	int2buff(4 + key_len, header.pkg_len);
+	memset(buff, 0, sizeof(buff));
+	pHeader = (ProtoHeader *)buff;
+
+	pHeader->cmd = FDHT_PROTO_CMD_GET;
+	int2buff((int)time(NULL), pHeader->timestamp);
+	int2buff((int)expires, pHeader->expires);
+	int2buff(key_hash_code, pHeader->key_hash_code);
+	int2buff(12 + pKeyInfo->namespace_len + pKeyInfo->obj_id_len + \
+		pKeyInfo->key_len, pHeader->pkg_len);
 
 	in_buff = NULL;
 	while (1)
 	{
-		if ((result=tcpsenddata(pServer->sock, &header, \
-			sizeof(header), g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		int2buff(key_len, buff);
-		if ((result=tcpsenddata(pServer->sock, buff, 4, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+		p = buff + sizeof(ProtoHeader);
+		PACK_BODY_UNTIL_KEY(pKeyInfo, p)
+		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -283,27 +331,30 @@ int fdht_get(const char *pKey, const int key_len, \
 	return result;
 }
 
-int fdht_set(const char *pKey, const int key_len, \
-	const char *pValue, const int value_len)
+int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
+		const char *pValue, const int value_len)
 {
 	int result;
-	int group_id;
-	FDHTServerInfo *pServer;
 	bool new_connection;
-	int hash_code;
+	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
+	int group_id;
+	int hash_key_len;
+	int key_hash_code;
+	FDHTServerInfo *pServer;
 
-	hash_code = PJWHash(pKey, key_len);
-	group_id = hash_code % g_group_array.count;
+	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
+	group_id = key_hash_code % g_group_array.count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
-                	hash_code, &new_connection, &result);
+                	key_hash_code, &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
 	}
 
-	//printf("set group_id=%d\n", group_id);
-	result = fdht_client_set(pServer, time(NULL), FDHT_PROTO_CMD_SET, \
-			group_id, pKey, key_len, pValue, value_len);
+	printf("set group_id=%d\n", group_id);
+	result = fdht_client_set(pServer, time(NULL), expires, \
+			FDHT_PROTO_CMD_SET, key_hash_code, \
+			pKeyInfo, pValue, value_len);
 
 	if (new_connection)
 	{
@@ -314,70 +365,63 @@ int fdht_set(const char *pKey, const int key_len, \
 	return result;
 }
 
-int fdht_inc(const char *pKey, const int key_len, \
-		const int increase, char *pValue, int *value_len)
+/**
+* request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
+*       key_len:  4 bytes big endian integer
+*       key:      key name
+*       incr      4 bytes big endian integer
+* response body format:
+*      value_len: 4 bytes big endian integer
+*      value :  value_len bytes
+*/
+int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
+		char *pValue, int *value_len)
 {
 	int result;
-	ProtoHeader header;
-	char buff[32];
+	ProtoHeader *pHeader;
+	bool new_connection;
+	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
+	char buff[FDHT_MAX_FULL_KEY_LEN + 32];
 	char *in_buff;
 	int in_bytes;
 	int group_id;
+	int hash_key_len;
+	int key_hash_code;
 	FDHTServerInfo *pServer;
-	bool new_connection;
-	int hash_code;
+	char *p;
 
-	hash_code = PJWHash(pKey, key_len);
-	group_id = hash_code % g_group_array.count;
+	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
+	group_id = key_hash_code % g_group_array.count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
-                	hash_code, &new_connection, &result);
+                	key_hash_code, &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
 	}
 
-	//printf("inc group_id=%d\n", group_id);
+	printf("inc group_id=%d\n", group_id);
 
-	memset(&header, 0, sizeof(header));
-	header.cmd = FDHT_PROTO_CMD_INC;
-	int2buff(group_id, header.group_id);
-	int2buff(8 + key_len, header.pkg_len);
+	memset(buff, 0, sizeof(buff));
+	pHeader = (ProtoHeader *)buff;
+
+	pHeader->cmd = FDHT_PROTO_CMD_INC;
+	int2buff((int)time(NULL), pHeader->timestamp);
+	int2buff((int)expires, pHeader->expires);
+	int2buff(key_hash_code, pHeader->key_hash_code);
+	int2buff(16 + pKeyInfo->namespace_len + pKeyInfo->obj_id_len + \
+		pKeyInfo->key_len, pHeader->pkg_len);
 
 	while (1)
 	{
-		if ((result=tcpsenddata(pServer->sock, &header, \
-			sizeof(header), g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		int2buff(key_len, buff);
-		if ((result=tcpsenddata(pServer->sock, buff, 4, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
-			g_network_timeout)) != 0)
-		{
-			logError("send data to server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
-			break;
-		}
-
-		int2buff(increase, buff);
-		if ((result=tcpsenddata(pServer->sock, buff, 4, \
+		p = buff + sizeof(ProtoHeader);
+		PACK_BODY_UNTIL_KEY(pKeyInfo, p)
+		int2buff(increase, p);
+		p += 4;
+		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -428,26 +472,28 @@ int fdht_inc(const char *pKey, const int key_len, \
 	return result;
 }
 
-int fdht_delete(const char *pKey, const int key_len)
+int fdht_delete(FDHTKeyInfo *pKeyInfo)
 {
 	int result;
-	int group_id;
 	FDHTServerInfo *pServer;
 	bool new_connection;
-	int hash_code;
+	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
+	int group_id;
+	int hash_key_len;
+	int key_hash_code;
 
-	hash_code = PJWHash(pKey, key_len);
-	group_id = hash_code % g_group_array.count;
+	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
+	group_id = key_hash_code % g_group_array.count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
-                	hash_code, &new_connection, &result);
+                	key_hash_code , &new_connection, &result);
 	if (pServer == NULL)
 	{
 		return result;
 	}
 
-	//printf("del group_id=%d\n", group_id);
+	printf("del group_id=%d\n", group_id);
 	result = fdht_client_delete(pServer, time(NULL), FDHT_PROTO_CMD_DEL, \
-			group_id, pKey, key_len);
+			key_hash_code, pKeyInfo);
 
 	if (new_connection)
 	{

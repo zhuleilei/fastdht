@@ -27,16 +27,19 @@ extern GroupArray g_group_array;
 int fdht_client_init(const char *filename);
 void fdht_client_destroy();
 
-int fdht_get(const char *pKey, const int key_len, \
+#define fdht_get(pKeyInfo, ppValue, value_len) \
+	fdht_get_ex(pKeyInfo, FDHT_EXPIRES_NONE, ppValue, value_len)
+
+int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		char **ppValue, int *value_len);
 
-int fdht_set(const char *pKey, const int key_len, \
-	const char *pValue, const int value_len);
+int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
+		const char *pValue, const int value_len);
 
-int fdht_inc(const char *pKey, const int key_len, \
-		const int increase, char *pValue, int *value_len);
+int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
+		char *pValue, int *value_len);
 
-int fdht_delete(const char *pKey, const int key_len);
+int fdht_delete(FDHTKeyInfo *pKeyInfo);
 
 #ifdef __cplusplus
 }
