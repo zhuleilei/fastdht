@@ -31,23 +31,22 @@ extern "C" {
 #define FDHT_MAX_FULL_KEY_LEN    (FDHT_MAX_NAMESPACE_LEN + 1 + \
 			FDHT_MAX_OBJECT_ID_LEN + 1 + FDHT_MAX_SUB_KEY_LEN)
 
-#define FDHT_PACK_FULL_KEY(namespace_len, pNameSpace, obj_id_len, pObjectId, \
-			key_len, key, full_key, full_key_len, p) \
+#define FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p) \
 	p = full_key; \
-	if (namespace_len > 0) \
+	if (key_info.namespace_len > 0) \
 	{ \
-		memcpy(p, pNameSpace, namespace_len); \
-		p += namespace_len; \
+		memcpy(p, key_info.szNameSpace, key_info.namespace_len); \
+		p += key_info.namespace_len; \
 	} \
 	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
-	if (obj_id_len > 0) \
+	if (key_info.obj_id_len > 0) \
 	{ \
-		memcpy(p, pObjectId, obj_id_len); \
-		p += obj_id_len; \
+		memcpy(p, key_info.szObjectId, key_info.obj_id_len); \
+		p += key_info.obj_id_len; \
 	} \
 	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
-	memcpy(p, key, key_len); \
-	p += key_len; \
+	memcpy(p, key_info.szKey, key_info.key_len); \
+	p += key_info.key_len; \
 	full_key_len = p - full_key;
 	
 
