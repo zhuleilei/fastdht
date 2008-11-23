@@ -53,6 +53,16 @@ extern "C" {
 
 typedef struct
 {
+	int namespace_len;
+	int obj_id_len;
+	int key_len;
+	char szNameSpace[FDHT_MAX_NAMESPACE_LEN + 1];
+	char szObjectId[FDHT_MAX_OBJECT_ID_LEN + 1];
+	char szKey[FDHT_MAX_SUB_KEY_LEN + 1];
+} FDHTKeyInfo;
+
+typedef struct
+{
 	int sock;
 	int port;
 	char ip_addr[IP_ADDRESS_SIZE];

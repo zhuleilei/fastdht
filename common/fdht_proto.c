@@ -197,59 +197,43 @@ int fdht_connect_server(FDHTServerInfo *pServer)
 	return 0;
 }
 
+/**
+* request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
+*       key_len:  4 bytes big endian integer
+*       key:      key name
+*       value_len:  4 bytes big endian integer
+*       value:      value buff
+* response body format:
+*      none
+*/
 int fdht_client_set(FDHTServerInfo *pServer, const time_t timestamp, \
 	const time_t expires, const int prot_cmd, const int key_hash_code, \
-	const char *pKey, const int key_len, \
-	const char *pValue, const int value_len)
+	FDHTKeyInfo *pKeyInfo, const char *pValue, const int value_len)
 {
 	int result;
-	ProtoHeader header;
-	char buff[16];
+	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16];
+	ProtoHeader *pHeader;
 	int in_bytes;
+	char *p;
 
-	memset(&header, 0, sizeof(header));
-	header.cmd = prot_cmd;
-	int2buff((int)timestamp, header.timestamp);
-	int2buff((int)expires, header.expires);
-	int2buff(key_hash_code, header.key_hash_code);
-	int2buff(8 + key_len + value_len, header.pkg_len);
+	memset(buff, 0, sizeof(buff));
+	pHeader = (ProtoHeader *)buff;
+	pHeader->cmd = prot_cmd;
+	int2buff((int)timestamp, pHeader->timestamp);
+	int2buff((int)expires, pHeader->expires);
+	int2buff(key_hash_code, pHeader->key_hash_code);
+	int2buff(16 + pKeyInfo->namespace_len + pKeyInfo->obj_id_len + \
+		pKeyInfo->key_len + value_len, pHeader->pkg_len);
 
-	if ((result=tcpsenddata(pServer->sock, &header, \
-		sizeof(header), g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	int2buff(key_len, buff);
-	if ((result=tcpsenddata(pServer->sock, buff, 4, \
-		g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
-		g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	int2buff(value_len, buff);
-	if ((result=tcpsenddata(pServer->sock, buff, 4, \
+	p = buff + sizeof(ProtoHeader);
+	PACK_BODY_UNTIL_KEY(pKeyInfo, p)
+	int2buff(value_len, p);
+	p += 4;
+	if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
 		g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -293,45 +277,38 @@ int fdht_client_set(FDHTServerInfo *pServer, const time_t timestamp, \
 	return 0;
 }
 
+/**
+* request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
+*       key_len:  4 bytes big endian integer
+*       key:      key name
+* response body format:
+*      none
+*/
 int fdht_client_delete(FDHTServerInfo *pServer, const time_t timestamp, \
-	const int prot_cmd, const int key_hash_code, \
-	const char *pKey, const int key_len)
+	const int prot_cmd, const int key_hash_code, FDHTKeyInfo *pKeyInfo)
 {
 	int result;
-	ProtoHeader header;
-	char buff[16];
+	ProtoHeader *pHeader;
+	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16];
 	int in_bytes;
+	char *p;
 
-	memset(&header, 0, sizeof(header));
-	header.cmd = prot_cmd;
-	int2buff(timestamp, header.timestamp);
-	int2buff(key_hash_code, header.key_hash_code);
-	int2buff(4 + key_len, header.pkg_len);
+	memset(buff, 0, sizeof(buff));
+	pHeader = (ProtoHeader *)buff;
+	pHeader->cmd = prot_cmd;
+	int2buff(timestamp, pHeader->timestamp);
+	int2buff(key_hash_code, pHeader->key_hash_code);
+	int2buff(12 + pKeyInfo->namespace_len + pKeyInfo->obj_id_len + \
+		pKeyInfo->key_len, pHeader->pkg_len);
 
-	if ((result=tcpsenddata(pServer->sock, &header, \
-		sizeof(header), g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
+	p = buff + sizeof(ProtoHeader);
+	PACK_BODY_UNTIL_KEY(pKeyInfo, p)
 
-	int2buff(key_len, buff);
-	if ((result=tcpsenddata(pServer->sock, buff, 4, \
-		g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
-
-	if ((result=tcpsenddata(pServer->sock, (char *)pKey, key_len, \
+	if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
 		g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \

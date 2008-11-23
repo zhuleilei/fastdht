@@ -26,8 +26,8 @@ int main(int argc, char *argv[])
 {
 	char *conf_filename;
 	int result;
-	int key_len;
-	char key[32];
+	int expires;
+	FDHTKeyInfo key_info;
 	char szValue[32];
 	int value_len;
 
@@ -54,20 +54,23 @@ int main(int argc, char *argv[])
 	}
 
 	srand(time(NULL));
-	key_len = sprintf(key, "k%d", rand());
+
+	expires = 0;
+	memset(&key_info, 0, sizeof(key_info));
+	key_info.key_len = sprintf(key_info.szKey, "k%d", rand());
 
 	while (1)
 	{
 		char *value;
 		value_len = sprintf(szValue, "%d", rand());
 
-		if ((result=fdht_set(key, key_len, szValue, value_len)) != 0)
+		if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
 		{
 			break;
 		}
 
 		value_len = sizeof(szValue);
-		if ((result=fdht_inc(key, key_len, 100, \
+		if ((result=fdht_inc(&key_info, expires, 100, \
 				szValue, &value_len)) != 0)
 		{
 			break;
@@ -75,7 +78,7 @@ int main(int argc, char *argv[])
 
 		/*
 		value = NULL;
-		if ((result=fdht_get(key, key_len, &value, &value_len)) != 0)
+		if ((result=fdht_get(&key_info, expires, &value, &value_len)) != 0)
 		{
 			break;
 		}
@@ -86,7 +89,7 @@ int main(int argc, char *argv[])
 		//free(value);
 
 		/*
-		if ((result=fdht_delete(key, key_len)) != 0)
+		if ((result=fdht_delete(&key_info)) != 0)
 		{
 			break;
 		}
