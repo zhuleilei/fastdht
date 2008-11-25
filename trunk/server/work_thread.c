@@ -401,8 +401,7 @@ static int deal_task(struct task_info *pTask)
 		memcpy(key_info.szNameSpace,pNameSpace,key_info.namespace_len);\
 	} \
  \
-	key_info.obj_id_len = buff2int(key_info.szNameSpace + \
-					key_info.namespace_len); \
+	key_info.obj_id_len = buff2int(pNameSpace + key_info.namespace_len); \
 	if (key_info.obj_id_len < 0 || \
 		key_info.obj_id_len > FDHT_MAX_OBJECT_ID_LEN) \
 	{ \
@@ -429,7 +428,7 @@ static int deal_task(struct task_info *pTask)
 		memcpy(key_info.szObjectId, pObjectId, key_info.obj_id_len); \
 	} \
  \
-	key_info.key_len = buff2int(key_info.szObjectId + key_info.obj_id_len); \
+	key_info.key_len = buff2int(pObjectId + key_info.obj_id_len); \
 	if (key_info.key_len < 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
@@ -801,7 +800,6 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 *       object_id: the object id (can be empty)
 *       key_info.key_len:  4 bytes big endian integer
 *       key:      key name
-*       pad:      4 bytes
 *       value_len:  4 bytes big endian integer
 *       value:      value buff
 * response body format:
@@ -827,7 +825,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
 
-	PARSE_COMMON_BODY(20, pTask, nInBodyLen, key_info, pNameSpace, \
+	PARSE_COMMON_BODY(16, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
 
 	value_len = buff2int(pKey + key_info.key_len);
@@ -839,13 +837,13 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 		pTask->length = sizeof(ProtoHeader);
 		return  EINVAL;
 	}
-	if (nInBodyLen != 20 + key_info.namespace_len + key_info.obj_id_len + \
+	if (nInBodyLen != 16 + key_info.namespace_len + key_info.obj_id_len + \
 			key_info.key_len + value_len)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 20 + key_info.namespace_len + \
+			nInBodyLen, 16 + key_info.namespace_len + \
 			key_info.obj_id_len + key_info.key_len + value_len);
 		pTask->length = sizeof(ProtoHeader);
 		return  EINVAL;
