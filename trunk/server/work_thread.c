@@ -38,7 +38,7 @@
 #include "db_op.h"
 #include "sync.h"
 
-#define SYNC_REQ_WAIT_SECONDS	60 * 60
+#define SYNC_REQ_WAIT_SECONDS	60
 
 static pthread_mutex_t work_thread_mutex;
 static pthread_cond_t work_thread_cond;
