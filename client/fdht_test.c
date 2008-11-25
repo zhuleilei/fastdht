@@ -57,12 +57,16 @@ int main(int argc, char *argv[])
 
 	expires = 0;
 	memset(&key_info, 0, sizeof(key_info));
+	key_info.namespace_len = sprintf(key_info.szNameSpace, "bbs");
+	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", rand());
 	key_info.key_len = sprintf(key_info.szKey, "k%d", rand());
 
 	while (1)
 	{
 		char *value;
 		value_len = sprintf(szValue, "%d", rand());
+
+		printf("original value=%s\n", szValue);
 
 		if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
 		{
@@ -76,24 +80,24 @@ int main(int argc, char *argv[])
 			break;
 		}
 
-		/*
+		printf("value_len: %d\n", value_len);
+		printf("value: %s\n", szValue);
+
 		value = NULL;
-		if ((result=fdht_get(&key_info, expires, &value, &value_len)) != 0)
+		if ((result=fdht_get(&key_info, &value, &value_len)) != 0)
 		{
 			break;
 		}
-		*/
 
 		printf("value_len: %d\n", value_len);
-		printf("value: %s\n", szValue);
-		//free(value);
+		printf("value: %s\n", value);
+		free(value);
 
-		/*
 		if ((result=fdht_delete(&key_info)) != 0)
 		{
 			break;
 		}
-		*/
+
 		break;
 	}
 
