@@ -35,8 +35,6 @@
 #include "func.h"
 #include "sync.h"
 
-bool bReloadFlag = false;
-
 static void sigQuitHandler(int sig);
 static void sigHupHandler(int sig);
 static void sigUsrHandler(int sig);
@@ -202,7 +200,6 @@ static void sigQuitHandler(int sig)
 
 static void sigHupHandler(int sig)
 {
-	bReloadFlag = true;
 }
 
 static void sigUsrHandler(int sig)
