@@ -175,6 +175,7 @@ static void client_sock_write(int sock, short event, void *arg)
 	pTask->offset += bytes;
 	if (pTask->offset >= pTask->length)
 	{
+		//event_del(&pTask->ev);
 		recv_queue_push(pTask);  //persistent connection
 		g_send_count++;
 		return;
@@ -193,19 +194,33 @@ static void client_sock_write(int sock, short event, void *arg)
 static void send_notify_read(int sock, short event, void *arg)
 {
 	struct task_info *pTask;
-	char buff[1];
+	char buff[1024];
+	int bytes;
 
-	if (read(send_fds[0], buff, 1) < 0)
+	while (1)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"call read failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
-	}
+		if ((bytes=read(send_fds[0], buff, sizeof(buff))) < 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"call read failed, " \
+				"errno: %d, error info: %s", \
+				__LINE__, errno, strerror(errno));
+			break;
+		}
+		else if (bytes == 0)
+		{
+			break;
+		}
 
-	if (*buff == '\0')  //quit
-	{
-		event_del(&ev_notify);
+		if (!g_continue_flag && memchr(buff, '\0', bytes) != NULL)//quit
+		{
+			event_del(&ev_notify);
+		}
+
+		if (bytes < sizeof(buff))
+		{
+			break;
+		}
 	}
 
 	while ((pTask = send_queue_pop()) != NULL)

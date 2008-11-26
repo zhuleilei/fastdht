@@ -241,7 +241,7 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		return result;
 	}
 
-	printf("get group_id=%d\n", group_id);
+	//printf("get group_id=%d\n", group_id);
 
 	memset(buff, 0, sizeof(buff));
 	pHeader = (ProtoHeader *)buff;
@@ -351,7 +351,7 @@ int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		return result;
 	}
 
-	printf("set group_id=%d\n", group_id);
+	//printf("set group_id=%d\n", group_id);
 	result = fdht_client_set(pServer, time(NULL), expires, \
 			FDHT_PROTO_CMD_SET, key_hash_code, \
 			pKeyInfo, pValue, value_len);
@@ -403,7 +403,7 @@ int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
 		return result;
 	}
 
-	printf("inc group_id=%d\n", group_id);
+	//printf("inc group_id=%d\n", group_id);
 
 	memset(buff, 0, sizeof(buff));
 	pHeader = (ProtoHeader *)buff;
@@ -491,7 +491,7 @@ int fdht_delete(FDHTKeyInfo *pKeyInfo)
 		return result;
 	}
 
-	printf("del group_id=%d\n", group_id);
+	//printf("del group_id=%d\n", group_id);
 	result = fdht_client_delete(pServer, time(NULL), FDHT_PROTO_CMD_DEL, \
 			key_hash_code, pKeyInfo);
 
