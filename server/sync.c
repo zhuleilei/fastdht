@@ -40,7 +40,7 @@
 #define INIT_ITEM_SYNC_DONE_TIMESTAMP	"sync_done_timestamp"
 
 
-#define SYNC_BINLOG_FILE_MAX_SIZE	(2 * 1024 * 1024 * 1024 - 1)
+#define SYNC_BINLOG_FILE_MAX_SIZE	(2 * 1023 * 1024 * 1024)
 #define SYNC_BINLOG_FILE_PREFIX		"binlog"
 #define SYNC_BINLOG_INDEX_FILENAME	SYNC_BINLOG_FILE_PREFIX".index"
 #define SYNC_MARK_FILE_EXT		".mark"
@@ -340,7 +340,11 @@ static int open_next_writable_binlog()
 {
 	char full_filename[MAX_PATH_SIZE];
 
-	fdht_sync_destroy();
+	if (g_binlog_fd >= 0)
+	{
+		close(g_binlog_fd);
+		g_binlog_fd = -1;
+	}
 
 	get_writable_binlog_filename(full_filename);
 	if (fileExists(full_filename))
@@ -610,6 +614,7 @@ int fdht_sync_init()
 int fdht_sync_destroy()
 {
 	int result;
+
 	if (g_binlog_fd >= 0)
 	{
 		fdht_binlog_fsync(true);
