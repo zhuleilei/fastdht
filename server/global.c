@@ -18,7 +18,7 @@ int g_server_port = FDHT_SERVER_DEFAULT_PORT;
 int g_max_connections = DEFAULT_MAX_CONNECTONS;
 int g_max_threads = 5;
 int g_max_pkg_size = FDHT_MAX_PKG_SIZE;
-int g_min_buff_size = 4 * 1024;
+int g_min_buff_size = 64 * 1024;
 int g_heart_beat_interval = DEFAULT_NETWORK_TIMEOUT / 2;
 
 pthread_mutex_t g_storage_thread_lock;

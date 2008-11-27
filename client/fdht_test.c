@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	int result;
 	int expires;
 	FDHTKeyInfo key_info;
-	char szValue[32];
+	char szValue[256];
 	int value_len;
 
 	printf("This is FastDHT client test program v%d.%d\n" \
@@ -64,9 +64,10 @@ int main(int argc, char *argv[])
 	while (1)
 	{
 		char *value;
+		//memset(szValue, '1', sizeof(szValue));
 		value_len = sprintf(szValue, "%d", rand());
 
-		printf("original value=%s\n", szValue);
+		printf("original value=%s(%d)\n", szValue, value_len);
 
 		if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
 		{
@@ -83,15 +84,17 @@ int main(int argc, char *argv[])
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", szValue);
 
-		value = NULL;
+		value = szValue;
+		value_len = sizeof(szValue);
 		if ((result=fdht_get(&key_info, &value, &value_len)) != 0)
 		{
+			printf("result=%d\n", result);
 			break;
 		}
 
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", value);
-		free(value);
+		//free(value);
 
 		if ((result=fdht_delete(&key_info)) != 0)
 		{

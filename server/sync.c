@@ -65,7 +65,7 @@ static pthread_mutex_t sync_thread_lock;
 /* save sync thread ids */
 static pthread_t *sync_tids = NULL;
 
-static char binlog_write_cache_buff[256 * 1024];
+static char binlog_write_cache_buff[1024 * 1024];
 static char *pbinlog_write_cache_current = binlog_write_cache_buff;
 
 static int fdht_write_to_mark_file(BinLogReader *pReader);
@@ -1384,17 +1384,22 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	
 	if (pRecord->value.length + 1 > pRecord->value.size)
 	{
+		p = pRecord->value.data;
 		pRecord->value.size = pRecord->value.length + 1024;
-		pRecord->value.data = (char *)realloc(pRecord->value.data, \
-						pRecord->value.size);
+		pRecord->value.data = (char *)malloc(pRecord->value.size);
 		if (pRecord->value.data == NULL)
 		{
 			logError("file: "__FILE__", line: %d, " \
-				"realloc %d bytes fail, " \
+				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", \
 				pRecord->value.size, errno, strerror(errno));
+
+			
+			pRecord->value.data = p;
 			return errno != 0 ? errno : ENOMEM;
 		}
+
+		free(p);
 	}
 
 	read_bytes = read(pReader->binlog_fd, pRecord->value.data, \
@@ -1802,7 +1807,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 	if (sync_tids == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"malloc %d bytes fail, " \
+			"realloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, sizeof(pthread_t) * \
 			g_fdht_sync_thread_count, \

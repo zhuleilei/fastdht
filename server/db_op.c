@@ -212,6 +212,11 @@ static int _db_do_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		{
 			return ENOENT;
 		}
+		else if (result == DB_BUFFER_SMALL)
+		{
+			*size = value.size;
+			return ENOSPC;
+		}
 		else
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -279,12 +284,19 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
-		return result;
-	}
+		if (result != ENOSPC)
+		{
+			return result;
+		}
 
-	pValue[*value_len] = '\0';
-	n = strtoll(pValue, NULL, 10);
-	n += inc;
+		n = inc;
+	}
+	else
+	{
+		pValue[*value_len] = '\0';
+		n = strtoll(pValue, NULL, 10);
+		n += inc;
+	}
 
 	*value_len = sprintf(pValue, INT64_PRINTF_FORMAT, n);
 
@@ -323,12 +335,19 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
-		return result;
-	}
+		if (result != ENOSPC)
+		{
+			return result;
+		}
 
-	pValue[*value_len] = '\0';
-	n = strtoll(pValue+4, NULL, 10);
-	n += inc;
+		n = inc;
+	}
+	else
+	{
+		pValue[*value_len] = '\0';
+		n = strtoll(pValue+4, NULL, 10);
+		n += inc;
+	}
 
 	if (expires != FDHT_EXPIRES_NONE)
 	{
