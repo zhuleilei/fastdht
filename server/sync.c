@@ -40,11 +40,11 @@
 #define INIT_ITEM_SYNC_DONE_TIMESTAMP	"sync_done_timestamp"
 
 
-#define SYNC_BINLOG_FILE_MAX_SIZE	1024 * 1024 * 1024
+#define SYNC_BINLOG_FILE_MAX_SIZE	(2 * 1024 * 1024 * 1024 - 1)
 #define SYNC_BINLOG_FILE_PREFIX		"binlog"
 #define SYNC_BINLOG_INDEX_FILENAME	SYNC_BINLOG_FILE_PREFIX".index"
 #define SYNC_MARK_FILE_EXT		".mark"
-#define SYNC_BINLOG_FILE_EXT_FMT	".%03d"
+#define SYNC_BINLOG_FILE_EXT_FMT	".%05d"
 #define SYNC_DIR_NAME			"sync"
 #define MARK_ITEM_BINLOG_FILE_INDEX	"binlog_index"
 #define MARK_ITEM_BINLOG_FILE_OFFSET	"binlog_offset"
