@@ -273,57 +273,61 @@ static int init_pthread_cond()
 static int deal_task(struct task_info *pTask)
 {
 	ProtoHeader *pHeader;
+	int result;
 
-	pHeader = (ProtoHeader *)pTask->data;
-	switch(pHeader->cmd)
+	switch(((ProtoHeader *)pTask->data)->cmd)
 	{
 		case FDHT_PROTO_CMD_GET:
-			pHeader->status = deal_cmd_get(pTask);
+			result = deal_cmd_get(pTask);
 			break;
 		case FDHT_PROTO_CMD_SET:
-			pHeader->status = deal_cmd_set(pTask, \
+			result = deal_cmd_set(pTask, \
 					FDHT_OP_TYPE_SOURCE_SET);
 			break;
 		case FDHT_PROTO_CMD_SYNC_SET:
-			pHeader->status = deal_cmd_set(pTask, \
+			result = deal_cmd_set(pTask, \
 					FDHT_OP_TYPE_REPLICA_SET);
 			break;
 		case FDHT_PROTO_CMD_INC:
-			pHeader->status = deal_cmd_inc(pTask);
+			result = deal_cmd_inc(pTask);
 			break;
 		case FDHT_PROTO_CMD_DEL:
-			pHeader->status = deal_cmd_del(pTask, \
+			result = deal_cmd_del(pTask, \
 					FDHT_OP_TYPE_SOURCE_DEL);
 			break;
 		case FDHT_PROTO_CMD_SYNC_DEL:
-			pHeader->status = deal_cmd_del(pTask, \
+			result = deal_cmd_del(pTask, \
 					FDHT_OP_TYPE_REPLICA_DEL);
 			break;
 		case FDHT_PROTO_CMD_HEART_BEAT:
 			pTask->length = sizeof(ProtoHeader);
-			pHeader->status = 0;
+			result = 0;
 			break;
 		case FDHT_PROTO_CMD_QUIT:
 			close(pTask->ev.ev_fd);
 			free_queue_push(pTask);
 			return 0;
 		case FDHT_PROTO_CMD_SYNC_REQ:
-			pHeader->status = deal_cmd_sync_req(pTask);
+			result = deal_cmd_sync_req(pTask);
 			break;
 		case FDHT_PROTO_CMD_SYNC_NOTIFY:
-			pHeader->status = deal_cmd_sync_done(pTask);
+			result = deal_cmd_sync_done(pTask);
 			break;
 		default:
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, invalid cmd: 0x%02X", \
-				__LINE__, pTask->client_ip, pHeader->cmd);
-			pHeader->status = EINVAL;
+				__LINE__, pTask->client_ip, \
+				((ProtoHeader *)pTask->data)->cmd);
+
 			pTask->length = sizeof(ProtoHeader);
+			result = EINVAL;
 			break;
 	}
 
+	pHeader = (ProtoHeader *)pTask->data;
 	//printf("client ip: %s, cmd=%d, resp pkg_len=%d\n", pTask->client_ip, pHeader->cmd, pTask->length - sizeof(ProtoHeader));
 
+	pHeader->status = result;
 	int2buff((int)time(NULL), pHeader->timestamp);
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(ProtoHeader), pHeader->pkg_len);
@@ -501,12 +505,48 @@ static int deal_cmd_get(struct task_info *pTask)
 
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
-	pValue = NULL;
+	pValue = pTask->data + sizeof(ProtoHeader);
+	value_len = pTask->size - sizeof(ProtoHeader);
 	if ((result=db_get(g_db_list[group_id], full_key, full_key_len, \
                	&pValue, &value_len)) != 0)
 	{
-		pTask->length = sizeof(ProtoHeader);
-		return result;
+		if (result == ENOSPC)
+		{
+			char *pTemp;
+
+			pTemp = (char *)pTask->data;
+			pTask->size = sizeof(ProtoHeader) + value_len;
+			pTask->data = malloc(pTask->size);
+			if (pTask->data == NULL)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"malloc %d bytes failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, pTask->size, \
+					errno, strerror(errno));
+
+				pTask->data = pTemp;  //restore old data
+				pTask->length = sizeof(ProtoHeader);
+				return ENOMEM;
+			}
+			else
+			{
+				free(pTemp);
+			}
+
+			pValue = pTask->data + sizeof(ProtoHeader);
+			if ((result=db_get(g_db_list[group_id], full_key, \
+				full_key_len, &pValue, &value_len)) != 0)
+			{
+				pTask->length = sizeof(ProtoHeader);
+				return result;
+			}
+		}
+		else
+		{
+			pTask->length = sizeof(ProtoHeader);
+			return result;
+		}
 	}
 
 	if (expires != FDHT_EXPIRES_NONE)
@@ -518,30 +558,8 @@ static int deal_cmd_get(struct task_info *pTask)
 
 	value_len -= 4;
 	pTask->length = sizeof(ProtoHeader) + 4 + value_len;
-	if (pTask->length > pTask->size)
-	{
-		char *pTemp;
-		pTemp = pTask->data;
-		pTask->size = pTask->length;
-		pTask->data = realloc(pTask->data, pTask->size);
-		if (pTask->data == NULL)
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"malloc failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, errno, strerror(errno));
-
-			pTask->data = pTemp;  //restore old data
-			pTask->length = sizeof(ProtoHeader);
-			return ENOMEM;
-		}
-	}
-
 	memcpy(((ProtoHeader *)pTask->data)->expires, pValue, 4);
-
 	int2buff(value_len, pTask->data+sizeof(ProtoHeader));
-	memcpy(pTask->data+sizeof(ProtoHeader)+4, pValue+4, value_len);
-	free(pValue);
 
 	return 0;
 }

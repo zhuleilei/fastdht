@@ -224,8 +224,8 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	bool new_connection;
 	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
 	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16];
-	char *in_buff;
 	int in_bytes;
+	int vlen;
 	int group_id;
 	int hash_key_len;
 	int key_hash_code;
@@ -253,7 +253,6 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	int2buff(12 + pKeyInfo->namespace_len + pKeyInfo->obj_id_len + \
 		pKeyInfo->key_len, pHeader->pkg_len);
 
-	in_buff = NULL;
 	while (1)
 	{
 		p = buff + sizeof(ProtoHeader);
@@ -268,13 +267,8 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 			break;
 		}
 
-		if ((result=fdht_recv_response(pServer, &in_buff, \
-			0, &in_bytes)) != 0)
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
 		{
-			logError("recv data from server %s:%d fail, " \
-				"errno: %d, error info: %s", \
-				pServer->ip_addr, pServer->port, \
-				result, strerror(result));
 			break;
 		}
 
@@ -286,20 +280,42 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 			break;
 		}
 
+		if ((result=tcprecvdata(pServer->sock, buff, \
+			4, g_network_timeout)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"server: %s:%d, recv data fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, pServer->ip_addr, \
+				pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		vlen = buff2int(buff);
+		if (vlen != in_bytes - 4)
+		{
+			logError("server %s:%d reponse bytes: %d " \
+				"is not correct, %d != %d", pServer->ip_addr, \
+				pServer->port, in_bytes, vlen, in_bytes - 4);
+			result = EINVAL;
+			break;
+		}
+
 		if (*ppValue != NULL)
 		{
-			if (in_bytes - 4 >= *value_len)
+			if (vlen >= *value_len)
 			{
 				*value_len = 0;
 				result = ENOSPC;
 				break;
 			}
 
-			*value_len = in_bytes - 4;
+			*value_len = vlen;
 		}
 		else
 		{
-			*value_len = in_bytes - 4;
+			*value_len = vlen;
 			*ppValue = (char *)malloc(*value_len + 1);
 			if (*ppValue == NULL)
 			{
@@ -312,7 +328,18 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 			}
 		}
 
-		memcpy(*ppValue, in_buff + 4, *value_len);
+		if ((result=tcprecvdata(pServer->sock, *ppValue, \
+			*value_len, g_network_timeout)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"server: %s:%d, recv data fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, pServer->ip_addr, \
+				pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
 		*(*ppValue + *value_len) = '\0';
 		break;
 	}
@@ -321,11 +348,6 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	{
 		fdht_quit(pServer);
 		fdht_disconnect_server(pServer);
-	}
-
-	if (in_buff != NULL)
-	{
-		free(in_buff);
 	}
 
 	return result;
