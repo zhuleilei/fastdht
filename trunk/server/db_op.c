@@ -151,6 +151,27 @@ int db_destroy(DBInfo *pDBInfo)
 	return 0;
 }
 
+int db_sync(DBInfo *pDBInfo)
+{
+	int result;
+	if (pDBInfo->db != NULL)
+	{
+		if ((result=pDBInfo->db->sync(pDBInfo->db, 0)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"db_sync fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, result, db_strerror(result));
+		}
+	}
+	else
+	{
+		result = 0;
+	}
+
+	return result;
+}
+
 int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	const char *pValue, const int value_len)
 {

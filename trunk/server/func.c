@@ -568,6 +568,22 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 		*/
 
+		g_sync_log_buff_interval = iniGetIntValue( \
+				"sync_log_buff_interval", items, nItemCount, \
+				SYNC_LOG_BUFF_DEF_INTERVAL);
+		if (g_sync_log_buff_interval <= 0)
+		{
+			g_sync_log_buff_interval = SYNC_LOG_BUFF_DEF_INTERVAL;
+		}
+
+		g_sync_db_interval = iniGetIntValue( \
+				"sync_db_interval", items, nItemCount, \
+				DEFAULT_SYNC_DB_INVERVAL);
+		if (g_sync_db_interval <= 0)
+		{
+			g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
+		}
+
 		logInfo("FastDHT v%d.%d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -579,7 +595,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"db_type=%s, " \
 			"db_prefix=%s, " \
 			"cache_size=%d MB, sync_wait_msec=%dms, "  \
-			"allow_ip_count=%d", \
+			"allow_ip_count=%d, sync_log_buff_interval=%ds, " \
+			"sync_db_interval=%ds", \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_network_timeout, \
@@ -587,7 +604,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_max_threads, g_max_pkg_size / 1024, \
 			*db_type == DB_BTREE ? "btree" : "hash", \
 			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
-			g_sync_wait_usec / 1000, g_allow_ip_count);
+			g_sync_wait_usec / 1000, g_allow_ip_count, \
+			g_sync_log_buff_interval, g_sync_db_interval);
 
 		break;
 	}
@@ -791,6 +809,19 @@ void fdht_func_destroy()
 	{
 		free(g_group_servers);
 		g_group_servers = NULL;
+	}
+}
+
+void fdht_sync_dbs(void *args)
+{
+	int i;
+
+	for (i=0; i<g_db_count; i++)
+	{
+		if (g_db_list[i] != NULL)
+		{
+			db_sync(g_db_list[i]);
+		}
 	}
 }
 

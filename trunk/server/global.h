@@ -26,6 +26,7 @@ extern "C" {
 
 #define FDHT_MAX_LOCAL_IP_ADDRS     4
 #define DEFAULT_SYNC_WAIT_MSEC    100
+#define DEFAULT_SYNC_DB_INVERVAL  300
 
 
 extern bool g_continue_flag;
@@ -40,6 +41,8 @@ extern int g_heart_beat_interval;
 extern pthread_mutex_t g_storage_thread_lock;
 extern int g_thread_count;
 extern int g_sync_wait_usec;
+extern int g_sync_log_buff_interval;
+extern int g_sync_db_interval;
 
 extern struct timeval g_network_tv;
 
