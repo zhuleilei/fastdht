@@ -1396,7 +1396,7 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"malloc %d bytes fail, " \
-				"errno: %d, error info: %s", \
+				"errno: %d, error info: %s", __LINE__, \
 				pRecord->value.size, errno, strerror(errno));
 
 			
