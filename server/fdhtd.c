@@ -28,6 +28,7 @@
 #include "global.h"
 #include "ini_file_reader.h"
 #include "sockopt.h"
+#include "sched_thread.h"
 #include "task_queue.h"
 #include "recv_thread.h"
 #include "send_thread.h"
@@ -35,11 +36,14 @@
 #include "func.h"
 #include "sync.h"
 
+static pthread_t schedule_tid;
 static void sigQuitHandler(int sig);
 static void sigHupHandler(int sig);
 static void sigUsrHandler(int sig);
 
 static int create_sock_io_threads(int server_sock);
+
+#define SCHEDULE_ENTRIES_COUNT 2
 
 int main(int argc, char *argv[])
 {
@@ -49,6 +53,8 @@ int main(int argc, char *argv[])
 	int result;
 	int sock;
 	struct sigaction act;
+	ScheduleEntry scheduleEntries[SCHEDULE_ENTRIES_COUNT];
+	ScheduleArray scheduleArray;
 
 	memset(bind_addr, 0, sizeof(bind_addr));
 	if (argc < 2)
@@ -156,11 +162,34 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
+	scheduleArray.entries = scheduleEntries;
+	scheduleArray.count = SCHEDULE_ENTRIES_COUNT;
+
+	memset(scheduleEntries, 0, sizeof(scheduleEntries));
+	scheduleEntries[0].id = 1;
+	scheduleEntries[0].interval = g_sync_log_buff_interval;
+	scheduleEntries[0].task_func = log_sync_func;
+	scheduleEntries[0].func_args = NULL;
+
+	scheduleEntries[1].id = 2;
+	scheduleEntries[1].interval = g_sync_db_interval;
+	scheduleEntries[1].task_func = fdht_sync_dbs;
+	scheduleEntries[1].func_args = NULL;
+	if ((result=sched_start(&scheduleArray, &schedule_tid)) != 0)
+	{
+		work_thread_destroy();
+		fdht_func_destroy();
+		return result;
+	}
+
+	log_set_cache(true);
+
 	if ((result=create_sock_io_threads(sock)) != 0)
 	{
 		fdht_terminate();
 		work_thread_destroy();
 		fdht_func_destroy();
+		log_destory();
 		return result;
 	}
 
@@ -178,6 +207,7 @@ int main(int argc, char *argv[])
 	fdht_func_destroy();
 
 	logInfo("exit nomally.\n");
+	log_destory();
 	
 	return 0;
 }
@@ -186,6 +216,7 @@ static void sigQuitHandler(int sig)
 {
 	if (g_continue_flag)
 	{
+		pthread_kill(schedule_tid, SIGINT);
 		fdht_terminate();
 		logCrit("file: "__FILE__", line: %d, " \
 			"catch signal %d, program exiting...", \

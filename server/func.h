@@ -36,6 +36,7 @@ int fdht_terminate();
 int fdht_func_init(const char *filename, char *bind_addr, const int addr_size);
 void fdht_func_destroy();
 
+void fdht_sync_dbs(void *args);
 int group_cmp_by_ip_and_port(const void *p1, const void *p2);
 
 #ifdef __cplusplus
