@@ -141,7 +141,6 @@ static void client_sock_write(int sock, short event, void *arg)
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
 
-		g_send_count++;
 		return;
 	}
 
@@ -157,7 +156,6 @@ static void client_sock_write(int sock, short event, void *arg)
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
-		g_send_count++;
 		return;
 	}
 	else if (bytes == 0)
@@ -168,16 +166,13 @@ static void client_sock_write(int sock, short event, void *arg)
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
-		g_send_count++;
 		return;
 	}
 
 	pTask->offset += bytes;
 	if (pTask->offset >= pTask->length)
 	{
-		//event_del(&pTask->ev);
 		recv_queue_push(pTask);  //persistent connection
-		g_send_count++;
 		return;
 	}
 
@@ -215,6 +210,7 @@ static void send_notify_read(int sock, short event, void *arg)
 		if (!g_continue_flag && memchr(buff, '\0', bytes) != NULL)//quit
 		{
 			event_del(&ev_notify);
+			//event_base_loopbreak(send_event_base);
 		}
 
 		if (bytes < sizeof(buff))

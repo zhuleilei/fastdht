@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	memset(bind_addr, 0, sizeof(bind_addr));
 	if (argc < 2)
 	{
-		printf("Usage: %s <config_file>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <config_file>\n", argv[0]);
 		return 1;
 	}
 
@@ -155,7 +155,6 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	printf("queue count1: %d\n", free_queue_count() + recv_queue_count()); 
 	if ((result=work_thread_init()) != 0)
 	{
 		fdht_func_destroy();
@@ -193,14 +192,12 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	printf("queue count2: %d\n", free_queue_count() + recv_queue_count()); 
-
 	pthread_mutex_destroy(&g_storage_thread_lock);
 
 	work_thread_destroy();
 
 	task_queue_destroy();
-	printf("queue count3: %d\n", free_queue_count() + recv_queue_count()); 
+
 	close(sock);
 
 	fdht_sync_destroy();
@@ -221,11 +218,14 @@ static void sigQuitHandler(int sig)
 		logCrit("file: "__FILE__", line: %d, " \
 			"catch signal %d, program exiting...", \
 			__LINE__, sig);
-		printf("g_conn_count: %d, g_recv_count: %d, g_send_count=%d\n", 
-			g_conn_count, g_recv_count, g_send_count);
+
+		/*
+		//printf("free queue count: %d, recv queue count: %d, " \
+			"work queue count=%d, send queue count=%d\n", \
+			free_queue_count(), recv_queue_count(),  \
+			work_queue_count(), send_queue_count());
 		fflush(stdout);
-		printf("free queue count: %d, task queue count: %d\n", free_queue_count(), recv_queue_count()); 
-		fflush(stdout);
+		*/
 	}
 }
 
