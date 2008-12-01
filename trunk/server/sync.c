@@ -1234,6 +1234,10 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	int read_bytes;
 	int full_key_len;
 	int nItem;
+	time_t *ptTimestamp;
+	time_t *ptExpires;
+	int *piTimestamp;
+	int *piExpires;
 
 	memset(pRecord, 0, sizeof(BinLogRecord));
 	*record_length = 0;
@@ -1299,9 +1303,13 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	}
 
 	*(buff + read_bytes) = '\0';
+	ptTimestamp = &(pRecord->timestamp);
+	ptExpires = &(pRecord->expires);
+	piTimestamp = (int *)ptTimestamp;
+	piExpires = (int *)ptExpires;
 	if ((nItem=sscanf(buff, "%10d %c %10d %10d %4d %4d %4d %10d ", \
-			(int *)&(pRecord->timestamp), &(pRecord->op_type), \
-			&(pRecord->key_hash_code), (int *)&(pRecord->expires), \
+			piTimestamp, &(pRecord->op_type), \
+			&(pRecord->key_hash_code), piExpires, \
 			&(pRecord->key_info.namespace_len), \
 			&(pRecord->key_info.obj_id_len), \
 			&(pRecord->key_info.key_len), \

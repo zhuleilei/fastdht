@@ -326,7 +326,7 @@ static char *fdht_get_stat_filename(const void *pArg, char *full_filename)
 
 static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		const int addr_size, int **group_ids, int *group_count, \
-		DBType *db_type, u_int64_t *nCacheSize, \
+		DBType *db_type, int64_t *nCacheSize, \
 		char *db_file_prefix)
 {
 	char *pBasePath;
@@ -340,7 +340,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	IniItemInfo *items;
 	int nItemCount;
 	int result;
-	u_int64_t max_pkg_size;
+	int64_t max_pkg_size;
 	GroupArray groupArray;
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
@@ -710,7 +710,7 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	int max_group_id;
 	int i;
 	DBType db_type;
-	u_int64_t nCacheSize;
+	int64_t nCacheSize;
 	char db_file_prefix[DB_FILE_PREFIX_MAX_SIZE];
 	char db_filename[DB_FILE_PREFIX_MAX_SIZE+8];
 
