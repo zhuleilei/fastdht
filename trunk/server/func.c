@@ -326,7 +326,7 @@ static char *fdht_get_stat_filename(const void *pArg, char *full_filename)
 
 static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		const int addr_size, int **group_ids, int *group_count, \
-		DBType *db_type, int64_t *nCacheSize, \
+		DBType *db_type, int64_t *nCacheSize, int *page_size, \
 		char *db_file_prefix)
 {
 	char *pBasePath;
@@ -336,7 +336,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char *pRunByGroup;
 	char *pRunByUser;
 	char *pCacheSize;
+	char *pPageSize;
 	char *pMaxPkgSize;
+	int64_t nPageSize;
 	IniItemInfo *items;
 	int nItemCount;
 	int result;
@@ -521,6 +523,25 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
+		nPageSize = 4 * 1024;
+		pPageSize = iniGetStrValue("page_size", items, nItemCount);
+		if (pPageSize != NULL && \
+			(result=parse_bytes(pPageSize, 1, &nPageSize)) != 0)
+		{
+			break;
+		}
+
+		if ((nPageSize < 512) || (nPageSize > 64 * 1024))
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"page_size: %d is invalid, " \
+				"which < %d or > %d!", \
+				__LINE__, nPageSize, 512, 64 * 1024);
+			result = EINVAL;
+			break;
+		}
+		*page_size = (int)nPageSize;
+
 		pDbFilePrefix = iniGetStrValue("db_prefix", items, nItemCount);
 		if (pDbFilePrefix == NULL || *pDbFilePrefix == '\0')
 		{
@@ -594,7 +615,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"max_pkg_size=%d KB, " \
 			"db_type=%s, " \
 			"db_prefix=%s, " \
-			"cache_size=%d MB, sync_wait_msec=%dms, "  \
+			"cache_size=%d MB, page_size=%d, " \
+			"sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d, sync_log_buff_interval=%ds, " \
 			"sync_db_interval=%ds", \
 			g_version.major, g_version.minor, \
@@ -604,7 +626,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_max_threads, g_max_pkg_size / 1024, \
 			*db_type == DB_BTREE ? "btree" : "hash", \
 			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
-			g_sync_wait_usec / 1000, g_allow_ip_count, \
+			*page_size, g_sync_wait_usec / 1000, g_allow_ip_count, \
 			g_sync_log_buff_interval, g_sync_db_interval);
 
 		break;
@@ -710,13 +732,14 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	int max_group_id;
 	int i;
 	DBType db_type;
+	int page_size;
 	int64_t nCacheSize;
 	char db_file_prefix[DB_FILE_PREFIX_MAX_SIZE];
 	char db_filename[DB_FILE_PREFIX_MAX_SIZE+8];
 
 	result = fdht_load_from_conf_file(filename, bind_addr, \
 		addr_size, &group_ids, &group_count, 
-		&db_type, &nCacheSize, db_file_prefix);
+		&db_type, &nCacheSize, &page_size, db_file_prefix);
 	if (result != 0)
 	{
 		return result;
@@ -768,8 +791,8 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 		snprintf(db_filename, sizeof(db_filename), "%s%03d", \
 			db_file_prefix, *pGroupId);
 		if ((result=db_init(g_db_list[*pGroupId], db_type, \
-				nCacheSize / g_db_count, g_base_path, \
-				db_filename)) != 0)
+				nCacheSize / g_db_count, page_size, \
+				g_base_path, db_filename)) != 0)
 		{
 			break;
 		}

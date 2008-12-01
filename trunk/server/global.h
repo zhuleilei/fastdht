@@ -46,10 +46,6 @@ extern int g_sync_db_interval;
 
 extern struct timeval g_network_tv;
 
-extern int g_conn_count;
-extern int g_recv_count;
-extern int g_send_count;
-
 extern FDHTServerStat g_server_stat;
 
 extern int g_group_count;

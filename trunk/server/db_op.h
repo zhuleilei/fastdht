@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
-	const char *base_path, const char *filename);
+	const u_int32_t page_size, const char *base_path, const char *filename);
 int db_destroy(DBInfo *pDBInfo);
 
 int db_sync(DBInfo *pDBInfo);

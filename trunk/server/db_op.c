@@ -20,7 +20,7 @@ static void db_errcall(const DB_ENV *dbenv, const char *errpfx, const char *msg)
 }
 
 int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
-	const char *base_path, const char *filename)
+	const u_int32_t page_size, const char *base_path, const char *filename)
 {
 #define _DB_BLOCK_BYTES   (256 * 1024 * 1024)
 	int result;
@@ -93,10 +93,18 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	if ((result=pDBInfo->env->open(pDBInfo->env, base_path, \
-		DB_CREATE | DB_INIT_MPOOL | DB_INIT_LOG | DB_THREAD, 0644)) != 0)
+		DB_CREATE | DB_INIT_MPOOL | DB_INIT_LOCK| DB_THREAD, 0644))!=0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"env->open fail, errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+		return result;
+	}
+
+	if ((result=pDBInfo->env->set_flags(pDBInfo->env, DB_TXN_NOSYNC, 1))!=0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"env->set_flags fail, errno: %d, error info: %s", \
 			__LINE__, result, db_strerror(result));
 		return result;
 	}
@@ -105,6 +113,14 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_create fail, errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+		return result;
+	}
+
+	if ((result=pDBInfo->db->set_pagesize(pDBInfo->db, page_size)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"db->set_pagesize, errno: %d, error info: %s", \
 			__LINE__, result, db_strerror(result));
 		return result;
 	}

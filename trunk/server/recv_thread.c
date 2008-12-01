@@ -223,8 +223,6 @@ static void server_sock_read(int sock, short event, void *arg)
 			"event_add fail.", __LINE__);
 		return;
 	}
-
-	g_conn_count++;
 }
 
 static void client_sock_read(int sock, short event, void *arg)
@@ -243,7 +241,6 @@ static void client_sock_read(int sock, short event, void *arg)
 
 		close(pTask->ev.ev_fd);
 		free_queue_push(pTask);
-		g_recv_count++;
 		return;
 	}
 
@@ -274,13 +271,11 @@ static void client_sock_read(int sock, short event, void *arg)
 
 			close(pTask->ev.ev_fd);
 			free_queue_push(pTask);
-			g_recv_count++;
 			return;
 		}
 	}
 
 	bytes = recv(sock, pTask->data + pTask->offset, recv_bytes, 0);
-	g_recv_count++;
 	if (bytes < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -380,6 +375,7 @@ static void recv_notify_read(int sock, short event, void *arg)
 		{
 			event_del(&ev_sock_server);
 			event_del(&ev_notify);
+			event_base_loopbreak(recv_event_base);
 		}
 
 		if (bytes < sizeof(buff))

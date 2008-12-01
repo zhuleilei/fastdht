@@ -1,0 +1,212 @@
+Copy right 2009 Happy Fish / YuQing
+
+FastDHT may be copied only under the terms of the GNU General
+Public License V3, which may be found in the FastDHT source kit.
+Please visit the FastDHT Home Page for more detail.
+Google code: http://code.google.com/p/fastdht/
+Chinese language: http://fastdht.csource.com/
+
+#step 1. download FastDHT source package and unpack it
+tar xzf FastDHT_v1.x.tar.gz
+#for example:
+tar xzf FastDHT_v1.0.tar.gz
+
+#step 2. enter the FastDHT dir
+cd FastDHT
+
+#step 3. make all
+./make.sh
+
+#step 4. make install
+./make.sh install
+
+#step 5. edit/modify the config file
+
+#step 6. run server program
+/usr/local/bin/fdhtd <conf_filename>
+
+#step 7. run test program
+#run the client test program:
+/usr/local/bin/fdht_test <conf_filename>
+#for example
+/usr/local/bin/fdht_test conf/fdht_client.conf
+
+
+server config file sample:
+###start of server config###
+disabled=false
+bind_addr=
+port=11411
+network_timeout=60
+base_path=/home/yuqing/fastdht
+
+# max concurrent connect count
+# default value is 256
+max_connections=1024
+
+# work thread count, should <= max_connections
+# default value is 256
+max_threads=32
+
+# max communication package size
+# bytes unit can be one of follows:
+### G or g for gigabyte(GB)
+### M or m for megabyte(MB)
+### K or k for kilobyte(KB)
+### no unit for byte(B)
+# default value is 64KB
+max_pkg_size=128KB
+
+# the db filename prefix
+db_prefix = db
+
+# BDB cache size
+# bytes unit can be one of follows:
+### G or g for gigabyte(GB)
+### M or m for megabyte(MB)
+### K or k for kilobyte(KB)
+### no unit for byte(B)
+# default value is 16MB
+cache_size = 64MB
+
+# BDB page size. The minimum page size is 512 bytes, the maximum page size is 
+# 64K bytes, and the page size must be a power-of-two
+# bytes unit can be one of follows:
+### K or k for kilobyte(KB)
+### no unit for byte(B)
+# default value is 4KB
+page_size = 4096
+
+# DBD DB type, case insensitive, value can be:
+# btree: BTREE type (default)
+# hash: HASH table
+db_type = btree
+
+#standard log level as syslog, case insensitive, value list:
+### emerg for emergency
+### alert
+### crit for critical
+### error
+### warn for warning
+### notice
+### info (default)
+### debug
+log_level=info
+
+# unix group name to run this program, 
+# not set (empty) means run by the group of current user
+run_by_group=
+
+# unix username to run this program,
+# not set (empty) means run by current user
+run_by_user=
+
+# allow_hosts can ocur more than once, host can be hostname or ip address,
+# "*" means match all ip addresses, can use range like this: 10.0.1.[1-15,20] or
+# host[01-08,20-25].domain.com, for example:
+# allow_hosts=10.0.1.[1-15,20]
+# allow_hosts=host[01-08,20-25].domain.com
+allow_hosts=*
+
+# sync log buff to disk every interval seconds
+# default value is 10 seconds
+sync_log_buff_interval=10
+
+# sync db to disk every interval seconds
+# default value is 300 seconds
+sync_db_interval=300
+
+#include fdht_servers.conf
+
+###end of server config###
+
+
+Item detail
+1. common items
+---------------------------------------------------
+|  item name            |  type  | default | Must |
+---------------------------------------------------
+| group_count           | int    |         |  Y   |
+---------------------------------------------------
+| group#                | string |         |  Y   |
+---------------------------------------------------
+| network_timeout       | int    | 30(s)   |  N   |
+---------------------------------------------------
+
+memo:
+   * group#: # based 0, from 0 to group_count - 1, 
+     value format: hostname:port
+     each group can have more than one value(host:port)
+
+2. server items
+---------------------------------------------------
+|  item name            |  type  | default | Must |
+---------------------------------------------------
+| base_path             | string |         |  Y   |
+---------------------------------------------------
+| db_prefix             | string |         |  Y   |
+---------------------------------------------------
+| disabled              | boolean| false   |  N   |
+---------------------------------------------------
+| bind_addr             | string |         |  N   |
+---------------------------------------------------
+| port                  | int    | 24000   |  N   |
+---------------------------------------------------
+| max_connections       | int    | 256     |  N   |
+---------------------------------------------------
+| max_threads           | int    | 256     |  N   |
+---------------------------------------------------
+| max_pkg_size          | string | 64KB    |  N   |
+---------------------------------------------------
+| cache_size            | string | 16MB    |  N   |
+---------------------------------------------------
+| page_size             | string |  4KB    |  N   |
+---------------------------------------------------
+| db_type               | string | btree   |  N   |
+---------------------------------------------------
+| log_level             | string | info    |  N   |
+---------------------------------------------------
+| run_by_group          | string |         |  N   |
+---------------------------------------------------
+| run_by_user           | string |         |  N   |
+---------------------------------------------------
+| allow_hosts           | string |   *     |  N   |
+---------------------------------------------------
+| sync_log_buff_interval| int    |  10(s)  |  N   |
+---------------------------------------------------
+| sync_db_interval      | int    | 300(s)  |  N   |
+---------------------------------------------------
+
+memo:
+   * base_path is the base path of sub dirs: 
+     data and logs. base_path must exist and it's sub dirs will 
+     be automatically created if not exist.
+       $base_path/data: store data files
+       $base_path/logs: store log files
+   * log_level is the standard log level as syslog, case insensitive
+     # emerg: for emergency
+     # alert
+     # crit: for critical
+     # error
+     # warn: for warning
+     # notice
+     # info
+     # debug
+   * allow_hosts can ocur more than once, host can be hostname or ip address,
+     "*" means match all ip addresses, can use range like this: 10.0.1.[1-15,20]
+      or host[01-08,20-25].domain.com, for example:
+        allow_hosts=10.0.1.[1-15,20]
+        allow_hosts=host[01-08,20-25].domain.com
+
+
+3. client items
+---------------------------------------------------
+|  item name            |  type  | default | Must |
+---------------------------------------------------
+| base_path             | string |         |  Y   |
+---------------------------------------------------
+
+memo:
+   * base_path is the base path of sub dirs: logs. 
+     base_path must exist.
+

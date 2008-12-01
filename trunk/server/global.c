@@ -29,10 +29,6 @@ int g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
 
 struct timeval g_network_tv = {DEFAULT_NETWORK_TIMEOUT, 0};
 
-int g_conn_count = 0;
-int g_recv_count = 0;
-int g_send_count = 0;
-
 FDHTServerStat g_server_stat;
 
 int g_group_count = 0;
