@@ -1152,9 +1152,13 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 	record_len = CALC_RECORD_LENGTH(pKeyInfo, value_len);
 	if (record_len >= sizeof(binlog_write_cache_buff))
 	{
+		if ((write_ret=fdht_binlog_fsync(false)) == 0)  //sync to disk
+		{
 		write_ret = fdht_binlog_direct_write(timestamp, op_type, \
 				key_hash_code, expires, pKeyInfo, \
 				pValue, value_len);
+		}
+
 		if ((result=pthread_mutex_unlock(&sync_thread_lock)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -1709,7 +1713,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 
 			++reader.scan_row_count;
 			reader.binlog_offset += record_len;
-			if (reader.sync_row_count % 1000 == 0)
+			if (reader.scan_row_count % 10000 == 0)
 			{
 				if (fdht_write_to_mark_file(&reader) != 0)
 				{
