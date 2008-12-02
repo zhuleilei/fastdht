@@ -26,7 +26,7 @@ HEADER_FILES = ../common/common_define.h ../common/fdht_global.h \
 
 ALL_OBJS = $(STATIC_OBJS) $(SHARED_OBJS)
 
-ALL_PRGS = fdht_test
+ALL_PRGS = fdht_test fdht_test_set
 ALL_LIBS = libfdhtclient.so.1
 
 all: $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)
@@ -44,7 +44,7 @@ install:
 	cp -f $(ALL_PRGS) /usr/local/bin
 	cp -f $(ALL_LIBS) /usr/local/lib/
 	cp -f $(HEADER_FILES) /usr/local/include/
-	ln -s /usr/local/lib/libfdhtclient.so.1 /usr/local/lib/libfdhtclient.so
+	ln -fs /usr/local/lib/libfdhtclient.so.1 /usr/local/lib/libfdhtclient.so
 clean:
 	rm -f $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)
 

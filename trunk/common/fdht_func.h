@@ -34,6 +34,11 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 		GroupArray *pGroupArray);
 void fdht_free_group_array(GroupArray *pGroupArray);
 
+int fdht_connect_all_servers(GroupArray *pGroupArray, \
+			int *success_count, int *fail_count);
+
+void fdht_disconnect_all_servers(GroupArray *pGroupArray);
+
 #ifdef __cplusplus
 }
 #endif

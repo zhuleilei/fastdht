@@ -151,12 +151,14 @@ int main(int argc, char *argv[])
 
 	if ((result=task_queue_init()) != 0)
 	{
+		g_continue_flag = false;
 		fdht_func_destroy();
 		return result;
 	}
 
 	if ((result=work_thread_init()) != 0)
 	{
+		g_continue_flag = false;
 		fdht_func_destroy();
 		return result;
 	}
@@ -176,6 +178,7 @@ int main(int argc, char *argv[])
 	scheduleEntries[1].func_args = NULL;
 	if ((result=sched_start(&scheduleArray, &schedule_tid)) != 0)
 	{
+		g_continue_flag = false;
 		work_thread_destroy();
 		fdht_func_destroy();
 		return result;
