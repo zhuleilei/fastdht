@@ -118,8 +118,16 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 	FDHTServerInfo *pServer;
 	FDHTServerInfo *pEnd;
 	int server_index;
+	int new_hash_code;
 
-	server_index = hash_code % pServerArray->count;
+	new_hash_code = (hash_code << 16) | (hash_code >> 16);
+	if (new_hash_code < 0)
+	{
+		new_hash_code &= 0x7FFFFFFF;
+	}
+	server_index = new_hash_code % pServerArray->count;
+
+	//printf("server_index=%d\n", server_index);
 	pEnd = pServerArray->servers + pServerArray->count;
 	for (pServer = pServerArray->servers + server_index; \
 		pServer<pEnd; pServer++)
@@ -203,6 +211,10 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 	} \
  \
 	key_hash_code = PJWHash(hash_key, hash_key_len); \
+	if (key_hash_code < 0) \
+	{ \
+		key_hash_code &= 0x7FFFFFFF; \
+	} \
 
 /**
 * request body format:
