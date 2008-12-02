@@ -6,26 +6,37 @@ Please visit the FastDHT Home Page for more detail.
 Google code: http://code.google.com/p/fastdht/
 Chinese language: http://fastdht.csource.com/
 
-#step 1. download FastDHT source package and unpack it
-tar xzf FastDHT_v1.x.tar.gz
-#for example:
+#step 1. install libevent
+# download libevent-1.4.8-stable.tar.gz from website 
+# http://monkey.org/~provos/libevent/
+tar xzf libevent-1.4.8-stable.tar.gz
+cd libevent-1.4.8-stable
+./configure --prefix=/usr
+make; make install
+
+#step 2. install Berkeley DB
+# download db-4.7.25.tar.gz from website 
+# http://www.oracle.com/technology/software/products/berkeley-db/index.html
+tar xzf db-4.7.25.tar.gz
+cd db-4.7.25/build_unix
+../dist/configure --prefix=/usr
+make; make install
+
+#step 3. install FastDHT
+# download FastDHT from website
+# http://code.google.com/p/fastdht/downloads/list
+# then unpack the source package as:
+# tar xzf FastDHT_v1.x.tar.gz
 tar xzf FastDHT_v1.0.tar.gz
-
-#step 2. enter the FastDHT dir
 cd FastDHT
+./make.sh; ./make.sh install
 
-#step 3. make all
-./make.sh
+#step 4. edit/modify the config file
 
-#step 4. make install
-./make.sh install
-
-#step 5. edit/modify the config file
-
-#step 6. run server program
+#step 5. run server program
 /usr/local/bin/fdhtd <conf_filename>
 
-#step 7. run test program
+#step 6. run test program
 #run the client test program:
 /usr/local/bin/fdht_test <conf_filename>
 #for example

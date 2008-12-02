@@ -486,7 +486,7 @@ void fdht_free_group_array(GroupArray *pGroupArray)
 	}
 }
 
-int fdht_connect_all_servers(GroupArray *pGroupArray, \
+int fdht_connect_all_servers(GroupArray *pGroupArray, const bool bNoDelay, \
 			int *success_count, int *fail_count)
 {
 	ServerArray *pServerArray;
@@ -525,6 +525,10 @@ int fdht_connect_all_servers(GroupArray *pGroupArray, \
 			else
 			{
 				(*success_count)++;
+				if (bNoDelay)
+				{
+					tcpsetnodelay(pServerInfo->sock);
+				}
 			}
 		}
 	}
