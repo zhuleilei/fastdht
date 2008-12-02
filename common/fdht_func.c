@@ -25,6 +25,7 @@
 #include "sockopt.h"
 #include "shared_func.h"
 #include "ini_file_reader.h"
+#include "fdht_proto.h"
 #include "fdht_func.h"
 
 int fdfs_split_ids(const char *szIds, int **ppIds, int *id_count)
@@ -482,6 +483,91 @@ void fdht_free_group_array(GroupArray *pGroupArray)
 
 		free(pGroupArray->groups);
 		pGroupArray->groups = NULL;
+	}
+}
+
+int fdht_connect_all_servers(GroupArray *pGroupArray, \
+			int *success_count, int *fail_count)
+{
+	ServerArray *pServerArray;
+	ServerArray *pArrayEnd;
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+	int conn_result;
+	int result;
+
+	*success_count = 0;
+	*fail_count = 0;
+	if (pGroupArray->groups == NULL)
+	{
+		return ENOENT;
+	}
+
+	result = 0;
+	pArrayEnd = pGroupArray->groups + pGroupArray->count;
+	for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
+		 pServerArray++)
+	{
+		if (pServerArray->servers == NULL)
+		{
+			continue;
+		}
+
+		pServerEnd = pServerArray->servers+pServerArray->count;
+		for (pServerInfo=pServerArray->servers; \
+			pServerInfo<pServerEnd; pServerInfo++)
+		{
+			if ((conn_result=fdht_connect_server(pServerInfo)) != 0)
+			{
+				result = conn_result;
+				(*fail_count)++;
+			}
+			else
+			{
+				(*success_count)++;
+			}
+		}
+	}
+
+	if (result != 0)
+	{
+		return result;
+	}
+	else
+	{
+		return  *success_count > 0 ? 0: ENOENT;
+	}
+}
+
+void fdht_disconnect_all_servers(GroupArray *pGroupArray)
+{
+	ServerArray *pServerArray;
+	ServerArray *pArrayEnd;
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+
+	if (pGroupArray->groups != NULL)
+	{
+		pArrayEnd = pGroupArray->groups + pGroupArray->count;
+		for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
+			 pServerArray++)
+		{
+			if (pServerArray->servers == NULL)
+			{
+				continue;
+			}
+
+			pServerEnd = pServerArray->servers+pServerArray->count;
+			for (pServerInfo=pServerArray->servers; \
+				pServerInfo<pServerEnd; pServerInfo++)
+			{
+				if (pServerInfo->sock > 0)
+				{
+					close(pServerInfo->sock);
+					pServerInfo->sock = -1;
+				}
+			}
+		}
 	}
 }
 
