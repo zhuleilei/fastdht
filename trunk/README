@@ -1,10 +1,10 @@
 Copyright (C) 2008 Happy Fish / YuQing
 
-FastDFS may be copied only under the terms of the GNU General
-Public License V3, which may be found in the FastDFS source kit.
-Please visit the FastDFS Home Page for more detail.
-English language: http://english.csource.org/
-Chinese language: http://www.csource.org/
+FastDHT may be copied only under the terms of the GNU General
+Public License V3, which may be found in the FastDHT source kit.
+Please visit the FastDHT Home Page for more detail.
+Google code: http://code.google.com/p/fastdht/
+Chinese language: http://fastdht.csource.com/
 
 fastdht is high performance distributed hash system.
 Storage use Berkeley DB, and network IO use libevent.
