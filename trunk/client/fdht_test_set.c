@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
 	char szValue[100];
 	int value_len;
 	int i;
-	int flags;
 
 	printf("This is FastDHT client test program v%d.%d\n" \
 "\nCopyright (C) 2008, Happy Fish / YuQing\n" \
@@ -75,7 +74,7 @@ int main(int argc, char *argv[])
 		szValue[i] = (char)rand();
 	}
 
-	if ((result=fdht_connect_all_servers(&g_group_array, 
+	if ((result=fdht_connect_all_servers(&g_group_array, true, \
 			&conn_success_count, &conn_fail_count)) != 0)
 	{
 		printf("fdht_connect_all_servers fail, " \
@@ -83,16 +82,6 @@ int main(int argc, char *argv[])
 			result, strerror(result));
 		return result;
 	}
-
-        flags = 1;
-        result = setsockopt(g_group_array.groups[0].servers->sock, IPPROTO_TCP, TCP_NODELAY, (char *)&flags, sizeof(flags));
-        if (result < 0)
-        {
-                printf("file: "__FILE__", line: %d, " \
-                        "setsockopt failed, errno: %d, error info: %s.", \
-                        __LINE__, errno, strerror(errno));
-                return errno != 0 ? errno : ENOMEM;
-        }
 
 	for (i=1; i<=200000; i++)
 	{
