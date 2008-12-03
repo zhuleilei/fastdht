@@ -515,8 +515,7 @@ static int deal_cmd_get(struct task_info *pTask)
 			char *pTemp;
 
 			pTemp = (char *)pTask->data;
-			pTask->size = sizeof(ProtoHeader) + value_len;
-			pTask->data = malloc(pTask->size);
+			pTask->data = malloc(sizeof(ProtoHeader) + value_len);
 			if (pTask->data == NULL)
 			{
 				logError("file: "__FILE__", line: %d, " \
@@ -529,10 +528,9 @@ static int deal_cmd_get(struct task_info *pTask)
 				pTask->length = sizeof(ProtoHeader);
 				return ENOMEM;
 			}
-			else
-			{
-				free(pTemp);
-			}
+
+			free(pTemp);
+			pTask->size = sizeof(ProtoHeader) + value_len;
 
 			pValue = pTask->data + sizeof(ProtoHeader);
 			if ((result=db_get(g_db_list[group_id], full_key, \

@@ -9,7 +9,7 @@
 #ifndef _SCHED_THREAD_H_
 #define _SCHED_THREAD_H_
 
-#include "fdfs_define.h"
+#include "common_define.h"
 
 typedef void (*TaskFunc) (void *args);
 

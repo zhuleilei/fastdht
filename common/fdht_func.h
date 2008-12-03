@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-int fdfs_split_ids(const char *szIds, int **ppIds, int *id_count);
+int fdht_split_ids(const char *szIds, int **ppIds, int *id_count);
 
 int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 		GroupArray *pGroupArray);

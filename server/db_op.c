@@ -215,6 +215,8 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		return EFAULT;
 	}
 
+	//printf("pKey=%08X, key.data=%08X\n", (int)pKey, (int)key.data);
+	//printf("pValue=%08X, value.data=%08X\n", (int)pValue,(int)value.data);
 	g_server_stat.success_set_count++;
 	return result;
 }
