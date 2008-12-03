@@ -28,7 +28,7 @@
 #include "fdht_proto.h"
 #include "fdht_func.h"
 
-int fdfs_split_ids(const char *szIds, int **ppIds, int *id_count)
+int fdht_split_ids(const char *szIds, int **ppIds, int *id_count)
 {
 	char *pBuff;
 	char *pNumStart;

@@ -258,8 +258,7 @@ static void client_sock_read(int sock, short event, void *arg)
 		char *pTemp;
 
 		pTemp = pTask->data;
-		pTask->size += recv_bytes;
-		pTask->data = realloc(pTask->data, pTask->size);
+		pTask->data = realloc(pTask->data, pTask->size + recv_bytes);
 		if (pTask->data == NULL)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -273,6 +272,8 @@ static void client_sock_read(int sock, short event, void *arg)
 			free_queue_push(pTask);
 			return;
 		}
+
+		pTask->size += recv_bytes;
 	}
 
 	bytes = recv(sock, pTask->data + pTask->offset, recv_bytes, 0);
