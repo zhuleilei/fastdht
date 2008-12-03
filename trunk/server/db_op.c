@@ -126,7 +126,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	if ((result=pDBInfo->db->open(pDBInfo->db, NULL, filename, NULL, \
-		type, DB_CREATE | DB_THREAD, 0644)) != 0)
+		type, DB_CREATE | DB_THREAD /*| DB_AUTO_COMMIT*/, 0644)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db->open fail, errno: %d, error info: %s", \
@@ -185,6 +185,22 @@ int db_sync(DBInfo *pDBInfo)
 		result = 0;
 	}
 
+	return result;
+}
+
+int db_memp_trickle(DBInfo *pDBInfo)
+{
+	int result;
+	int nwrotep;
+	if ((result=pDBInfo->env->memp_trickle(pDBInfo->env, 60, &nwrotep)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"memp_trickle fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+	}
+
+	logInfo("memp_trickle %d%%, real write %d%%", 60, nwrotep);
 	return result;
 }
 
