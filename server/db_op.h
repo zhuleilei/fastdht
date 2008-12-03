@@ -34,6 +34,8 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 int db_destroy(DBInfo *pDBInfo);
 
 int db_sync(DBInfo *pDBInfo);
+int db_memp_trickle(DBInfo *pDBInfo);
+
 int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		char **ppValue, int *size);
 int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
