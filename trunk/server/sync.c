@@ -1243,7 +1243,6 @@ static int fdht_binlog_read(BinLogReader *pReader, \
 	int *piTimestamp;
 	int *piExpires;
 
-	memset(pRecord, 0, sizeof(BinLogRecord));
 	*record_length = 0;
 	while (1)
 	{
@@ -1479,10 +1478,10 @@ static int fdht_binlog_reader_skip(BinLogReader *pReader)
 		{
 			if (result == ENOENT)
 			{
-				return 0;
+				result = 0;
 			}
 
-			return result;
+			break;
 		}
 
 		if (record.timestamp >= pReader->until_timestamp)
@@ -1493,6 +1492,11 @@ static int fdht_binlog_reader_skip(BinLogReader *pReader)
 		}
 
 		pReader->binlog_offset += record_len;
+	}
+
+	if (record.value.data != NULL)
+	{
+		free(record.value.data);
 	}
 
 	return result;
