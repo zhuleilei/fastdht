@@ -93,7 +93,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	if ((result=pDBInfo->env->open(pDBInfo->env, base_path, \
-		DB_CREATE | DB_INIT_MPOOL | DB_INIT_LOCK| DB_THREAD, 0644))!=0)
+		DB_CREATE | DB_INIT_MPOOL /*| DB_INIT_LOCK*/ | DB_THREAD, 0644))!=0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"env->open fail, errno: %d, error info: %s", \
