@@ -26,19 +26,20 @@
 #include "func.h"
 #include "db_recovery.h"
 
-#define LOCAL_DB_SYNC_MARK_FILENAME	"local_db_sync_mark.dat"
+#define LOCAL_DB_SYNC_MARK_FILENAME	"db_recovery_mark.dat"
 #define MARK_ITEM_BINLOG_FILE_INDEX	"binlog_index"
 #define MARK_ITEM_BINLOG_FILE_OFFSET	"binlog_offset"
 #define MARK_ITEM_START_TIME		"start_time"
 #define MARK_ITEM_SYNC_TIME_USED	"time_used"
+#define MARK_ITEM_WRITTEN_PAGES		"written_pages"
 
-static int fdht_db_sync_mark_fd = -1;
+static int fdht_db_recovery_mark_fd = -1;
 
-static char *fdht_get_db_sync_mark_filename(const void *pArg, \
+static char *fdht_get_db_recovery_mark_filename(const void *pArg, \
 			char *full_filename);
-static int fdht_write_to_db_sync_mark_file(const time_t timestamp, \
+static int fdht_write_to_db_recovery_mark_file(const time_t timestamp, \
 		const int binlog_index, const int64_t binlog_offset, \
-		const int time_used_ms);
+		const int written_pages, const int time_used_ms);
 static int fdht_recover_data(const int start_binlog_index, \
 		const int64_t start_binlog_offset);
 
@@ -51,9 +52,14 @@ int fdht_db_recovery_init()
 	char *pValue;
 	int synced_binlog_index;
 	int64_t synced_binlog_offset;
+	bool bMarkFileExists;
+	bool bRecovery;
+	time_t start_time;
+	struct timeval tvStart;
+	struct timeval tvEnd;
 
-	fdht_get_db_sync_mark_filename(NULL, full_filename);
-	if (fileExists(full_filename))
+	fdht_get_db_recovery_mark_filename(NULL, full_filename);
+	if ((bMarkFileExists=fileExists(full_filename)))
 	{
 		if ((result=iniLoadItems(full_filename, \
 				&items, &nItemCount)) != 0)
@@ -100,8 +106,8 @@ int fdht_db_recovery_init()
 		synced_binlog_offset = 0;
 	}
 
-	fdht_db_sync_mark_fd = open(full_filename, O_WRONLY | O_CREAT, 0644);
-	if (fdht_db_sync_mark_fd < 0)
+	fdht_db_recovery_mark_fd = open(full_filename, O_WRONLY | O_CREAT, 0644);
+	if (fdht_db_recovery_mark_fd < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"open local db sync mark file \"%s\" fail, " \
@@ -111,15 +117,32 @@ int fdht_db_recovery_init()
 		return errno != 0 ? errno : ENOENT;
 	}
 
-	printf("synced_binlog_index=%d, synced_binlog_offset=%lld\n", synced_binlog_index, synced_binlog_offset);
+	gettimeofday(&tvStart, NULL);
+	start_time = tvStart.tv_sec;
+
 	if ((synced_binlog_index < g_binlog_index) || \
 		(synced_binlog_offset < g_binlog_file_size))
 	{
-		return fdht_recover_data(synced_binlog_index, \
+		bRecovery = true;
+		result = fdht_recover_data(synced_binlog_index, \
 					synced_binlog_offset);
 	}
+	else
+	{
+		bRecovery = false;
+		result = 0;
+	}
 
-	return 0;
+	if (result == 0 && (!bMarkFileExists || bRecovery))
+	{
+		gettimeofday(&tvEnd, NULL);
+		result = fdht_write_to_db_recovery_mark_file(start_time, \
+			g_binlog_index, g_binlog_file_size, 0, \
+			1000 * (tvEnd.tv_sec - tvStart.tv_sec) + \
+			(tvEnd.tv_usec - tvStart.tv_usec) / 1000);
+	}
+
+	return result;
 }
 
 void fdht_memp_trickle_dbs(void *args)
@@ -158,17 +181,18 @@ void fdht_memp_trickle_dbs(void *args)
 		}
 	}
 
-	if (fail_count == 0 && total_written_pages > 0)
+	if ((fail_count == 0) && (total_written_pages > 0))
 	{
 		gettimeofday(&tvEnd, NULL);
-		fdht_write_to_db_sync_mark_file(start_time, \
+		fdht_write_to_db_recovery_mark_file(start_time, \
 			current_binlog_index, current_binlog_offset, \
+			total_written_pages, \
 			1000 * (tvEnd.tv_sec - tvStart.tv_sec) + \
 			(tvEnd.tv_usec - tvStart.tv_usec) / 1000);
 	}
 }
 
-static char *fdht_get_db_sync_mark_filename(const void *pArg, \
+static char *fdht_get_db_recovery_mark_filename(const void *pArg, \
 			char *full_filename)
 {
 	static char buff[MAX_PATH_SIZE];
@@ -184,9 +208,9 @@ static char *fdht_get_db_sync_mark_filename(const void *pArg, \
 	return full_filename;
 }
 
-static int fdht_write_to_db_sync_mark_file(const time_t timestamp, \
+static int fdht_write_to_db_recovery_mark_file(const time_t timestamp, \
 		const int binlog_index, const int64_t binlog_offset, \
-		const int time_used_ms)
+		const int written_pages, const int time_used_ms)
 {
 	char buff[256];
 	char date_buff[32];
@@ -195,16 +219,18 @@ static int fdht_write_to_db_sync_mark_file(const time_t timestamp, \
 	len = sprintf(buff, \
 		"%s=%d\n"  \
 		"%s="INT64_PRINTF_FORMAT"\n"  \
+		"%s=%d\n"  \
 		"%s=%s\n"  \
 		"%s=%d ms\n",  \
 		MARK_ITEM_BINLOG_FILE_INDEX, binlog_index, \
 		MARK_ITEM_BINLOG_FILE_OFFSET, binlog_offset, \
+		MARK_ITEM_WRITTEN_PAGES, written_pages, \
 		MARK_ITEM_START_TIME, formatDatetime(timestamp, \
 			"%Y-%m-%d %H:%M:%S", date_buff, sizeof(date_buff)), \
 		MARK_ITEM_SYNC_TIME_USED, time_used_ms);
 
-	return fdht_write_to_fd(fdht_db_sync_mark_fd, \
-			fdht_get_db_sync_mark_filename, NULL, buff, len);
+	return fdht_write_to_fd(fdht_db_recovery_mark_fd, \
+			fdht_get_db_recovery_mark_filename, NULL, buff, len);
 }
 
 #define CHECK_GROUP_ID(pRecord, group_id) \
@@ -292,7 +318,6 @@ static int fdht_recover_data(const int start_binlog_index, \
 	memset(&reader, 0, sizeof(BinLogReader));
 	memset(&record, 0, sizeof(BinLogRecord));
 
-	printf("local_host_ip_count=%d\n", g_local_host_ip_count);
 	pEnd = g_local_host_ip_addrs + \
 		IP_ADDRESS_SIZE * g_local_host_ip_count;
         for (p=g_local_host_ip_addrs; p<pEnd; p+=IP_ADDRESS_SIZE)
@@ -308,7 +333,7 @@ static int fdht_recover_data(const int start_binlog_index, \
 	reader.binlog_index = start_binlog_index;
 	reader.binlog_offset = start_binlog_offset;
 	reader.binlog_fd = -1;
-	reader.mark_fd = fdht_db_sync_mark_fd;
+	reader.mark_fd = fdht_db_recovery_mark_fd;
 	if ((result=fdht_open_readable_binlog(&reader)) != 0)
 	{
 		return result;
