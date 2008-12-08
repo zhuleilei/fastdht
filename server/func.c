@@ -22,6 +22,7 @@
 #include "task_queue.h"
 #include "recv_thread.h"
 #include "send_thread.h"
+#include "sync.h"
 #include "func.h"
 
 #define DB_FILE_PREFIX_MAX_SIZE  32
@@ -832,45 +833,6 @@ void fdht_func_destroy()
 	{
 		free(g_group_servers);
 		g_group_servers = NULL;
-	}
-}
-
-void fdht_sync_dbs(void *args)
-{
-	int i;
-
-	for (i=0; i<g_db_count; i++)
-	{
-		if (g_db_list[i] != NULL)
-		{
-			db_sync(g_db_list[i]);
-		}
-	}
-}
-
-void fdht_memp_trickle_dbs(void *args)
-{
-	int i;
-
-	for (i=0; i<g_db_count; i++)
-	{
-		if (g_db_list[i] != NULL)
-		{
-			db_memp_trickle(g_db_list[i]);
-		}
-	}
-}
-
-void fdht_memp_sync_dbs(void *args)
-{
-	int i;
-
-	for (i=0; i<g_db_count; i++)
-	{
-		if (g_db_list[i] != NULL)
-		{
-			db_memp_sync(g_db_list[i]);
-		}
 	}
 }
 

@@ -58,6 +58,7 @@ typedef struct
 
 extern int g_binlog_fd;
 extern int g_binlog_index;
+extern off_t g_binlog_file_size;
 
 extern int g_fdht_sync_thread_count;
 
@@ -66,6 +67,10 @@ int fdht_sync_destroy();
 int fdht_binlog_write(const time_t timestamp, const char op_type, \
 		const int key_hash_code, const time_t expires, \
 		FDHTKeyInfo *pKeyInfo, const char *pValue, const int value_len);
+
+int fdht_binlog_read(BinLogReader *pReader, \
+		BinLogRecord *pRecord, int *record_length);
+int fdht_open_readable_binlog(BinLogReader *pReader);
 
 int write_to_sync_ini_file();
 int kill_fdht_sync_threads();

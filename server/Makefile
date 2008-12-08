@@ -13,7 +13,7 @@ SHARED_OBJS = ../common/hash.o  ../common/chain.o \
               ../common/fdht_global.o ../common/fdht_func.o \
               ../common/fdht_proto.o \
               global.o task_queue.o recv_thread.o send_thread.o db_op.o \
-              func.o work_thread.o sync.o
+              func.o work_thread.o sync.o db_recovery.o
 
 ALL_OBJS = $(SHARED_OBJS)
 
