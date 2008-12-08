@@ -150,6 +150,12 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
+	if ((result=fdht_db_recovery_init()) != 0)
+	{
+		fdht_func_destroy();
+		return result;
+	}
+
 	if ((result=task_queue_init()) != 0)
 	{
 		g_continue_flag = false;
@@ -204,7 +210,14 @@ int main(int argc, char *argv[])
 
 	close(sock);
 
+	while (g_schedule_flag) //waiting for schedule thread exit
+	{
+		sleep(1);
+	}
+
 	fdht_sync_destroy();
+	fdht_memp_trickle_dbs(NULL);
+
 	fdht_func_destroy();
 
 	logInfo("exit nomally.\n");

@@ -35,6 +35,8 @@ extern "C" {
 #endif
 
 extern bool g_continue_flag;
+extern bool g_schedule_flag;
+
 int sched_start(ScheduleArray *pScheduleArray, pthread_t *ptid);
 
 #ifdef __cplusplus

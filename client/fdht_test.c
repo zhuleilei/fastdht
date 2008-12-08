@@ -61,9 +61,13 @@ int main(int argc, char *argv[])
 	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", rand());
 	key_info.key_len = sprintf(key_info.szKey, "k%d", rand());
 
+	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", 123456);
+	key_info.key_len = sprintf(key_info.szKey, "k%d", 978654);
 	while (1)
 	{
 		char *value;
+
+		/*
 		//memset(szValue, '1', sizeof(szValue));
 		value_len = sprintf(szValue, "%d", rand());
 
@@ -83,6 +87,7 @@ int main(int argc, char *argv[])
 
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", szValue);
+		*/
 
 		value = szValue;
 		value_len = sizeof(szValue);
@@ -94,13 +99,13 @@ int main(int argc, char *argv[])
 
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", value);
-		//free(value);
 
+		/*
 		if ((result=fdht_delete(&key_info)) != 0)
 		{
 			break;
 		}
-
+		*/
 		break;
 	}
 
