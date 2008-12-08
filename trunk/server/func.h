@@ -38,6 +38,8 @@ void fdht_func_destroy();
 
 void fdht_sync_dbs(void *args);
 void fdht_memp_trickle_dbs(void *args);
+void fdht_memp_sync_dbs(void *args);
+
 int group_cmp_by_ip_and_port(const void *p1, const void *p2);
 
 #ifdef __cplusplus
