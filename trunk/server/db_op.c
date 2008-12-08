@@ -209,11 +209,10 @@ int db_memp_sync(DBInfo *pDBInfo)
 	return result;
 }
 
-int db_memp_trickle(DBInfo *pDBInfo)
+int db_memp_trickle(DBInfo *pDBInfo, int *nwrotep)
 {
 	int result;
-	int nwrotep;
-	if ((result=pDBInfo->env->memp_trickle(pDBInfo->env, 100, &nwrotep)) != 0)
+	if ((result=pDBInfo->env->memp_trickle(pDBInfo->env, 100, nwrotep)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"memp_trickle fail, " \
@@ -221,7 +220,7 @@ int db_memp_trickle(DBInfo *pDBInfo)
 			__LINE__, result, db_strerror(result));
 	}
 
-	logInfo("memp_trickle %d%%, real write %d pages", 100, nwrotep);
+	//logInfo("memp_trickle %d%%, real write %d pages", 100, *nwrotep);
 	return result;
 }
 
@@ -341,6 +340,12 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
 			"db_del fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, result, db_strerror(result));
+		if (result == DB_NOTFOUND)
+		{
+			result = ENOENT;
+		}
+
+		return result;
 	}
 
 	g_server_stat.success_delete_count++;

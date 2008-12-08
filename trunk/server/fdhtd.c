@@ -35,6 +35,7 @@
 #include "work_thread.h"
 #include "func.h"
 #include "sync.h"
+#include "db_recovery.h"
 
 static pthread_t schedule_tid;
 static void sigQuitHandler(int sig);
@@ -174,7 +175,7 @@ int main(int argc, char *argv[])
 
 	scheduleEntries[1].id = 2;
 	scheduleEntries[1].interval = g_sync_db_interval;
-	scheduleEntries[1].task_func = fdht_memp_trickle_dbs /*fdht_memp_sync_dbs*/;
+	scheduleEntries[1].task_func = fdht_memp_trickle_dbs;
 	scheduleEntries[1].func_args = NULL;
 	if ((result=sched_start(&scheduleArray, &schedule_tid)) != 0)
 	{
