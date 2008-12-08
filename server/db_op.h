@@ -35,6 +35,7 @@ int db_destroy(DBInfo *pDBInfo);
 
 int db_sync(DBInfo *pDBInfo);
 int db_memp_trickle(DBInfo *pDBInfo);
+int db_memp_sync(DBInfo *pDBInfo);
 
 int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		char **ppValue, int *size);

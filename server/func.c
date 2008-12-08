@@ -861,6 +861,19 @@ void fdht_memp_trickle_dbs(void *args)
 	}
 }
 
+void fdht_memp_sync_dbs(void *args)
+{
+	int i;
+
+	for (i=0; i<g_db_count; i++)
+	{
+		if (g_db_list[i] != NULL)
+		{
+			db_memp_sync(g_db_list[i]);
+		}
+	}
+}
+
 int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 		const void *pArg, const char *buff, const int len)
 {

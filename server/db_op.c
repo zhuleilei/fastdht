@@ -93,7 +93,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	if ((result=pDBInfo->env->open(pDBInfo->env, base_path, \
-		DB_CREATE | DB_INIT_MPOOL /*| DB_INIT_LOCK*/ | DB_THREAD, 0644))!=0)
+		DB_CREATE | DB_INIT_MPOOL | DB_THREAD, 0644))!=0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"env->open fail, errno: %d, error info: %s", \
@@ -126,7 +126,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	if ((result=pDBInfo->db->open(pDBInfo->db, NULL, filename, NULL, \
-		type, DB_CREATE | DB_THREAD /*| DB_AUTO_COMMIT*/, 0644)) != 0)
+		type, DB_CREATE | DB_THREAD, 0644)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db->open fail, errno: %d, error info: %s", \
@@ -188,11 +188,32 @@ int db_sync(DBInfo *pDBInfo)
 	return result;
 }
 
+int db_memp_sync(DBInfo *pDBInfo)
+{
+	int result;
+	if (pDBInfo->db != NULL)
+	{
+		if ((result=pDBInfo->env->memp_sync(pDBInfo->env, NULL)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"db_memp_sync fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, result, db_strerror(result));
+		}
+	}
+	else
+	{
+		result = 0;
+	}
+
+	return result;
+}
+
 int db_memp_trickle(DBInfo *pDBInfo)
 {
 	int result;
 	int nwrotep;
-	if ((result=pDBInfo->env->memp_trickle(pDBInfo->env, 60, &nwrotep)) != 0)
+	if ((result=pDBInfo->env->memp_trickle(pDBInfo->env, 100, &nwrotep)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"memp_trickle fail, " \
@@ -200,7 +221,7 @@ int db_memp_trickle(DBInfo *pDBInfo)
 			__LINE__, result, db_strerror(result));
 	}
 
-	logInfo("memp_trickle %d%%, real write %d%%", 60, nwrotep);
+	logInfo("memp_trickle %d%%, real write %d pages", 100, nwrotep);
 	return result;
 }
 

@@ -43,7 +43,7 @@ static void sigUsrHandler(int sig);
 
 static int create_sock_io_threads(int server_sock);
 
-#define SCHEDULE_ENTRIES_COUNT 3
+#define SCHEDULE_ENTRIES_COUNT 2
 
 int main(int argc, char *argv[])
 {
@@ -174,13 +174,8 @@ int main(int argc, char *argv[])
 
 	scheduleEntries[1].id = 2;
 	scheduleEntries[1].interval = g_sync_db_interval;
-	scheduleEntries[1].task_func = fdht_sync_dbs;
+	scheduleEntries[1].task_func = fdht_memp_trickle_dbs /*fdht_memp_sync_dbs*/;
 	scheduleEntries[1].func_args = NULL;
-
-	scheduleEntries[2].id = 3;
-	scheduleEntries[2].interval = 30;
-	scheduleEntries[2].task_func = fdht_memp_trickle_dbs;
-	scheduleEntries[2].func_args = NULL;
 	if ((result=sched_start(&scheduleArray, &schedule_tid)) != 0)
 	{
 		g_continue_flag = false;
