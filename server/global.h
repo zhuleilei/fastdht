@@ -25,9 +25,6 @@ extern "C" {
 #endif
 
 #define FDHT_MAX_LOCAL_IP_ADDRS     4
-#define DEFAULT_SYNC_WAIT_MSEC    100
-#define DEFAULT_SYNC_DB_INVERVAL  300
-
 
 extern bool g_continue_flag;
 

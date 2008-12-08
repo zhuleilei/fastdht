@@ -446,10 +446,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_max_threads = iniGetIntValue("max_threads", \
-				items, nItemCount, DEFAULT_MAX_CONNECTONS);
+				items, nItemCount, FDHT_DEFAULT_MAX_THREADS);
 		if (g_max_threads <= 0)
 		{
-			g_max_threads = DEFAULT_MAX_CONNECTONS;
+			g_max_threads = FDHT_DEFAULT_MAX_THREADS;
 		}
 
 		pMaxPkgSize = iniGetStrValue("max_pkg_size", \
@@ -517,7 +517,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		pCacheSize = iniGetStrValue("cache_size", items, nItemCount);
 		if (pCacheSize == NULL)
 		{
-			*nCacheSize = 16 * 1024 * 1024;
+			*nCacheSize = 64 * 1024 * 1024;
 		}
 		else if ((result=parse_bytes(pCacheSize, 1, nCacheSize)) != 0)
 		{
@@ -606,7 +606,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
 		}
 
-		logInfo("FastDHT v%d.%d, base_path=%s, " \
+		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
 			"network_timeout=%d, "\

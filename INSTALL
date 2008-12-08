@@ -26,8 +26,8 @@ make; make install
 # download FastDHT from website
 # http://code.google.com/p/fastdht/downloads/list
 # then unpack the source package as:
-# tar xzf FastDHT_v1.x.tar.gz
-tar xzf FastDHT_v1.0.tar.gz
+# tar xzf FastDHT_v1.xx.tar.gz
+tar xzf FastDHT_v1.00.tar.gz
 cd FastDHT
 ./make.sh; ./make.sh install
 
@@ -56,8 +56,8 @@ base_path=/home/yuqing/fastdht
 max_connections=256
 
 # work thread count, should <= max_connections
-# default value is 32
-max_threads=32
+# default value is 64
+max_threads=64
 
 # max communication package size
 # bytes unit can be one of follows:
@@ -124,8 +124,8 @@ allow_hosts=*
 sync_log_buff_interval=10
 
 # sync db to disk every interval seconds
-# default value is 300 seconds
-sync_db_interval=300
+# default value is 30 seconds
+sync_db_interval=30
 
 #include fdht_servers.conf
 
@@ -185,7 +185,7 @@ memo:
 ---------------------------------------------------
 | sync_log_buff_interval| int    |  10(s)  |  N   |
 ---------------------------------------------------
-| sync_db_interval      | int    | 300(s)  |  N   |
+| sync_db_interval      | int    |  30(s)  |  N   |
 ---------------------------------------------------
 
 memo:
