@@ -1,4 +1,30 @@
 
 Version 1.00  2008-12-08
-  * first version
+  * fix memory leak in sync.c
+  * function enhancement: db recovery when the daemon starts
+
+Version 0.90  2008-12-02
+  * use memp_trickle to sync data to BDB file periodically
+  * fix bug: mod(%) result maybe < 0
+  * sockopt.h / .c add function tcpsetnodelay
+  * bug fixed: realloc size and reasign
+  * add client set test program: fdht_test_set.c
+  * add Makefile.in and make.sh
+  * pipe read more bytes once
+
+Version 0.80  2008-11-24
+  * add namespace and object ID
+  * add expires (timeout)
+  * add binlog write buff to increase performance
+
+Version 0.50  2008-10-22
+  * support data sync
+
+Version 0.20  2008-09-27
+  * framework is done:
+    # implement db functions such as get, set, inc and del
+    # implement asynchronous IO use libevent
+
+Version 0.10  2008-09-08
+  * first version, only implement queue management
 

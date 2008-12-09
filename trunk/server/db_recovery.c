@@ -234,8 +234,8 @@ static int fdht_write_to_db_recovery_mark_file(const time_t timestamp, \
 }
 
 #define CHECK_GROUP_ID(pRecord, group_id) \
-	group_id = pRecord->key_hash_code % g_group_count; \
-	if (group_id < 0 || group_id >= g_db_count) \
+	group_id = ((unsigned int)pRecord->key_hash_code) % g_group_count; \
+	if (group_id >= g_db_count) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"invalid group_id: %d, " \
@@ -251,7 +251,6 @@ static int fdht_write_to_db_recovery_mark_file(const time_t timestamp, \
 			__LINE__, group_id); \
 		return  EINVAL; \
 	} \
-
 
 static int recover_cmd_set(BinLogRecord *pRecord, BinField *pFullValue)
 {

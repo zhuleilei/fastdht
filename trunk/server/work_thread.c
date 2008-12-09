@@ -348,8 +348,8 @@ static int deal_task(struct task_info *pTask)
 			expires = time(NULL) + (expires - timestamp); \
 		} \
 	} \
-	group_id = key_hash_code % g_group_count; \
-	if (group_id < 0 || group_id >= g_db_count) \
+	group_id = ((unsigned int)key_hash_code) % g_group_count; \
+	if (group_id >= g_db_count) \
 	{ \
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, invalid group_id: %d, " \
