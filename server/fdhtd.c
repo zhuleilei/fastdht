@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 	}
 
 	fdht_sync_destroy();
-	fdht_memp_trickle_dbs(NULL);
+	fdht_memp_trickle_dbs((void *)1);
 
 	fdht_func_destroy();
 

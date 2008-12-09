@@ -181,7 +181,8 @@ void fdht_memp_trickle_dbs(void *args)
 		}
 	}
 
-	if ((fail_count == 0) && (total_written_pages > 0))
+	if (((fail_count == 0) && (total_written_pages > 0)) || \
+		(args != NULL && (int)args == 1))
 	{
 		gettimeofday(&tvEnd, NULL);
 		fdht_write_to_db_recovery_mark_file(start_time, \

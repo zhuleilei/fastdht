@@ -2,6 +2,7 @@
 Version 1.00  2008-12-08
   * fix memory leak in sync.c
   * function enhancement: db recovery when the daemon starts
+  * pass (void *)1 to memp_trickle before exit
 
 Version 0.90  2008-12-02
   * use memp_trickle to sync data to BDB file periodically
