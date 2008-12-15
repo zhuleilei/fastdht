@@ -345,6 +345,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	int result;
 	int64_t max_pkg_size;
 	GroupArray groupArray;
+	char sz_sync_db_time_base[16];
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
 	{
@@ -606,6 +607,25 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
 		}
 
+		
+		if ((result=get_time_item_from_conf(items, nItemCount, \
+			"sync_db_time_base", &g_sync_db_time_base, \
+			TIME_NONE, TIME_NONE)) != 0)
+		{
+			break;
+		}
+
+		if (g_sync_db_time_base.hour == TIME_NONE)
+		{
+			strcpy(sz_sync_db_time_base, "current time");
+		}
+		else
+		{
+			sprintf(sz_sync_db_time_base, "%d:%d", \
+				g_sync_db_time_base.hour, \
+				g_sync_db_time_base.minute);
+		}
+
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -619,7 +639,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"cache_size=%d MB, page_size=%d, " \
 			"sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d, sync_log_buff_interval=%ds, " \
-			"sync_db_interval=%ds", \
+			"sync_db_time_base=%s, sync_db_interval=%ds", \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_network_timeout, \
@@ -628,7 +648,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			*db_type == DB_BTREE ? "btree" : "hash", \
 			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
 			*page_size, g_sync_wait_usec / 1000, g_allow_ip_count, \
-			g_sync_log_buff_interval, g_sync_db_interval);
+			g_sync_log_buff_interval, sz_sync_db_time_base, \
+			g_sync_db_interval);
 
 		break;
 	}

@@ -175,11 +175,15 @@ int main(int argc, char *argv[])
 
 	memset(scheduleEntries, 0, sizeof(scheduleEntries));
 	scheduleEntries[0].id = 1;
+	scheduleEntries[0].time_base.hour = TIME_NONE;
+	scheduleEntries[0].time_base.minute = TIME_NONE;
 	scheduleEntries[0].interval = g_sync_log_buff_interval;
 	scheduleEntries[0].task_func = log_sync_func;
 	scheduleEntries[0].func_args = NULL;
 
 	scheduleEntries[1].id = 2;
+	scheduleEntries[1].time_base.hour = g_sync_db_time_base.hour;
+	scheduleEntries[1].time_base.minute = g_sync_db_time_base.minute;
 	scheduleEntries[1].interval = g_sync_db_interval;
 	scheduleEntries[1].task_func = fdht_memp_trickle_dbs;
 	scheduleEntries[1].func_args = NULL;

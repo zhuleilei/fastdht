@@ -39,6 +39,7 @@ extern pthread_mutex_t g_storage_thread_lock;
 extern int g_thread_count;
 extern int g_sync_wait_usec;
 extern int g_sync_log_buff_interval;
+extern TimeInfo g_sync_db_time_base;
 extern int g_sync_db_interval;
 
 extern struct timeval g_network_tv;
