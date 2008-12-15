@@ -191,6 +191,8 @@ void fdht_memp_trickle_dbs(void *args)
 			1000 * (tvEnd.tv_sec - tvStart.tv_sec) + \
 			(tvEnd.tv_usec - tvStart.tv_usec) / 1000);
 	}
+
+	logInfo("db_sync total_written_pages=%d", total_written_pages);
 }
 
 static char *fdht_get_db_recovery_mark_filename(const void *pArg, \
