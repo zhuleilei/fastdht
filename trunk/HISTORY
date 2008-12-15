@@ -1,8 +1,10 @@
 
-Version 1.00  2008-12-08
+Version 1.00  2008-12-15
   * fix memory leak in sync.c
   * function enhancement: db recovery when the daemon starts
   * pass (void *)1 to memp_trickle before exit
+  * fdhtd.conf add parameter: sync_db_time_base, change the default value of 
+    sync_db_interval to 86400 (one day)
 
 Version 0.90  2008-12-02
   * use memp_trickle to sync data to BDB file periodically

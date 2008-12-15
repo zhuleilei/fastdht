@@ -25,6 +25,7 @@ pthread_mutex_t g_storage_thread_lock;
 int g_thread_count = 0;
 int g_sync_wait_usec = DEFAULT_SYNC_WAIT_MSEC;
 int g_sync_log_buff_interval = SYNC_LOG_BUFF_DEF_INTERVAL;
+TimeInfo g_sync_db_time_base = {TIME_NONE, TIME_NONE};
 int g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
 
 struct timeval g_network_tv = {DEFAULT_NETWORK_TIMEOUT, 0};
