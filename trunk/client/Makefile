@@ -19,10 +19,13 @@ SHARED_OBJS = ../common/hash.lo ../common/chain.lo \
               ../common/fdht_global.lo ../common/fdht_proto.lo \
               ../common/fdht_func.lo fdht_client.lo
 
-HEADER_FILES = ../common/common_define.h ../common/fdht_global.h \
+HEADER_FILES = ../common/common_define.h ../common/fdht_define.h  \
+               ../common/fdht_func.h  ../common/fdht_global.h  \
+               ../common/fdht_proto.h  ../common/fdht_types.h \
                ../common/fdfs_base64.h ../common/shared_func.h \
                ../common/ini_file_reader.h ../common/_os_bits.h \
-               fdht_client.h
+               ../common/sockopt.h ../common/sched_thread.h \
+               ../common/logger.h fdht_client.h
 
 ALL_OBJS = $(STATIC_OBJS) $(SHARED_OBJS)
 
@@ -45,6 +48,7 @@ install:
 	cp -f $(ALL_LIBS) /usr/local/lib/
 	cp -f $(HEADER_FILES) /usr/local/include/
 	ln -fs /usr/local/lib/libfdhtclient.so.1 /usr/local/lib/libfdhtclient.so
+	ln -fs /usr/local/lib/libfdhtclient.so.1 /usr/lib/libfdhtclient.so
 clean:
 	rm -f $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)
 

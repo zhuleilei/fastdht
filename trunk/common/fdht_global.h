@@ -16,14 +16,9 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include "common_define.h"
 #include "fdht_define.h"
 #include "fdht_types.h"
-
-typedef struct
-{
-	char major;
-	char minor;
-} Version;
 
 #ifdef __cplusplus
 extern "C" {

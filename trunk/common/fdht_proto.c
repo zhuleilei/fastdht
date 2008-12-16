@@ -19,9 +19,10 @@
 #include "shared_func.h"
 #include "logger.h"
 #include "sockopt.h"
-#include "fdht_global.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
+
+extern int g_network_timeout;
 
 int fdht_recv_header(FDHTServerInfo *pServer, fdht_pkg_size_t *in_bytes)
 {
