@@ -21,7 +21,6 @@
 #include <errno.h>
 #include <time.h>
 #include "logger.h"
-#include "fdht_global.h"
 #include "sockopt.h"
 #include "shared_func.h"
 #include "ini_file_reader.h"

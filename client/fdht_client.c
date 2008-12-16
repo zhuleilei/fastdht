@@ -14,7 +14,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include "fdfs_base64.h"
-#include "fdht_global.h"
 #include "sockopt.h"
 #include "logger.h"
 #include "hash.h"
@@ -26,6 +25,9 @@
 #include "fdht_client.h"
 
 GroupArray g_group_array = {NULL, 0};
+
+extern int g_network_timeout;
+extern char g_base_path[MAX_PATH_SIZE];
 
 int fdht_client_init(const char *filename)
 {
