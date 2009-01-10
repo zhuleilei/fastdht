@@ -365,7 +365,7 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
-		if (result != ENOSPC)
+		if (result != ENOENT)
 		{
 			return result;
 		}
@@ -408,6 +408,7 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 {
 	int64_t n;
 	int result;
+	int old_expires;
 	DBT key;
 	DBT value;
 
@@ -416,7 +417,7 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
-		if (result != ENOSPC)
+		if (result != ENOENT)
 		{
 			return result;
 		}
@@ -425,9 +426,18 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	}
 	else
 	{
-		pValue[*value_len] = '\0';
-		n = strtoll(pValue+4, NULL, 10);
-		n += inc;
+		old_expires = buff2int(pValue);
+		if (old_expires != FDHT_EXPIRES_NEVER && \
+			old_expires < time(NULL)) //expired
+		{
+			n = inc;
+		}
+		else
+		{
+			pValue[*value_len] = '\0';
+			n = strtoll(pValue+4, NULL, 10);
+			n += inc;
+		}
 	}
 
 	if (expires != FDHT_EXPIRES_NONE)

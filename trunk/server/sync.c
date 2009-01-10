@@ -603,9 +603,12 @@ int fdht_sync_init()
 		return result;
 	}
 
-	if ((result=create_sync_threads()) != 0)
+	if (g_write_to_binlog_flag)
 	{
-		return result;
+		if ((result=create_sync_threads()) != 0)
+		{
+			return result;
+		}
 	}
 
 	return 0;
@@ -804,10 +807,10 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 				items, nItemCount, -1);
 		pReader->need_sync_old = iniGetBoolValue(   \
 				MARK_ITEM_NEED_SYNC_OLD, \
-				items, nItemCount);
+				items, nItemCount, false);
 		pReader->sync_old_done = iniGetBoolValue(  \
 				MARK_ITEM_SYNC_OLD_DONE, \
-				items, nItemCount);
+				items, nItemCount, false);
 		pReader->until_timestamp = iniGetIntValue( \
 				MARK_ITEM_UNTIL_TIMESTAMP, \
 				items, nItemCount, -1);
