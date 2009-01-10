@@ -337,15 +337,15 @@ static int deal_task(struct task_info *pTask)
 	return 0;
 }
 
-#define CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires) \
+#define CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires) \
 	key_hash_code = buff2int(((ProtoHeader *)pTask->data)->key_hash_code); \
 	timestamp = buff2int(((ProtoHeader *)pTask->data)->timestamp); \
-	expires = buff2int(((ProtoHeader *)pTask->data)->expires); \
+	new_expires = buff2int(((ProtoHeader *)pTask->data)->expires); \
 	if (timestamp > 0) \
 	{ \
-		if (expires > 0)  \
+		if (new_expires > 0)  \
 		{ \
-			expires = time(NULL) + (expires - timestamp); \
+			new_expires = time(NULL) + (new_expires - timestamp); \
 		} \
 	} \
 	group_id = ((unsigned int)key_hash_code) % g_group_count; \
@@ -475,7 +475,8 @@ static int deal_cmd_get(struct task_info *pTask)
 	int key_hash_code;
 	int group_id;
 	int timestamp;
-	int expires;
+	int old_expires;
+	int new_expires;
 	char *pNameSpace;
 	char *pObjectId;
 	char *pKey;
@@ -486,7 +487,7 @@ static int deal_cmd_get(struct task_info *pTask)
 	int value_len;
 	int result;
 
-	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY(12, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
@@ -547,9 +548,16 @@ static int deal_cmd_get(struct task_info *pTask)
 		}
 	}
 
-	if (expires != FDHT_EXPIRES_NONE)
+	old_expires = buff2int(pValue);
+	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < time(NULL))
 	{
-		int2buff(expires, pValue);
+		pTask->length = sizeof(ProtoHeader);
+		return ENOENT;
+	}
+
+	if (new_expires != FDHT_EXPIRES_NONE)
+	{
+		int2buff(new_expires, pValue);
 		result = db_set(g_db_list[group_id], full_key, full_key_len, \
 			pValue, value_len);
 	}
@@ -828,7 +836,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	int group_id;
 	int key_hash_code;
 	time_t timestamp;
-	time_t expires;
+	time_t new_expires;
 	char *pNameSpace;
 	char *pObjectId;
 	char *pKey;
@@ -839,7 +847,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	int value_len;
 	int result;
 
-	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY(16, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
@@ -871,7 +879,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 		timestamp = time(NULL);
 	}
 
-	int2buff(expires, pValue);
+	int2buff(new_expires, pValue);
 	value_len += 4;
 
 	pTask->length = sizeof(ProtoHeader);
@@ -884,8 +892,11 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	{
 		memcpy(((ProtoHeader *)pTask->data)->expires, pValue, 4);
 
-		fdht_binlog_write(timestamp, op_type, key_hash_code, expires, \
-				&key_info, pValue+4, value_len-4);
+		if (g_write_to_binlog_flag)
+		{
+			fdht_binlog_write(timestamp, op_type, key_hash_code, \
+				new_expires, &key_info, pValue+4, value_len-4);
+		}
 	}
 
 	return result;
@@ -909,7 +920,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 	int key_hash_code;
 	int group_id;
 	int timestamp;
-	int expires;
+	int new_expires;
 	char *pNameSpace;
 	char *pObjectId;
 	char *pKey;
@@ -918,7 +929,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 	int result;
 	char *p;
 
-	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY(12, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
@@ -941,12 +952,15 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 	result = db_delete(g_db_list[group_id], full_key, full_key_len);
 	if (result == 0)
 	{
-		if (op_type == FDHT_OP_TYPE_SOURCE_DEL)
+		if (g_write_to_binlog_flag)
 		{
-			timestamp = time(NULL);
+			if (op_type == FDHT_OP_TYPE_SOURCE_DEL)
+			{
+				timestamp = time(NULL);
+			}
+			fdht_binlog_write(timestamp, op_type, key_hash_code, \
+				new_expires, &key_info, NULL, 0);
 		}
-		fdht_binlog_write(timestamp, op_type, key_hash_code, expires, \
-				&key_info, NULL, 0);
 	}
 
 	return result;
@@ -972,7 +986,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 	int key_hash_code;
 	int group_id;
 	int timestamp;
-	time_t expires;
+	time_t new_expires;
 	char *pNameSpace;
 	char *pObjectId;
 	char *pKey;
@@ -984,7 +998,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 	char *p;  //tmp var
 	int result;
 
-	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, expires)
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY(16, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
@@ -1006,14 +1020,17 @@ static int deal_cmd_inc(struct task_info *pTask)
 
 	value_len = sizeof(value) - 1;
 	result = db_inc_ex(g_db_list[group_id], full_key, full_key_len, inc, \
-			value, &value_len, expires);
+			value, &value_len, new_expires);
 	if (result == 0)
 	{
 		value_len -= 4;  //skip expires
-		expires = (time_t)buff2int(value);
-		fdht_binlog_write(time(NULL), FDHT_OP_TYPE_SOURCE_SET, \
-				key_hash_code, expires, &key_info, \
+		if (g_write_to_binlog_flag)
+		{
+			new_expires = (time_t)buff2int(value);
+			fdht_binlog_write(time(NULL), FDHT_OP_TYPE_SOURCE_SET, \
+				key_hash_code, new_expires, &key_info, \
 				value+4, value_len);
+		}
 
 		pTask->length = sizeof(ProtoHeader) + 4 + value_len;
 		int2buff(value_len, pTask->data + sizeof(ProtoHeader));

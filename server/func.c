@@ -359,7 +359,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 
 	while (1)
 	{
-		if (iniGetBoolValue("disabled", items, nItemCount))
+		if (iniGetBoolValue("disabled", items, nItemCount, false))
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"conf file \"%s\" disabled=true, exit", \
@@ -626,6 +626,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				g_sync_db_time_base.minute);
 		}
 
+		g_write_to_binlog_flag = iniGetBoolValue("write_to_binlog", \
+					items, nItemCount, true);
+
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -639,7 +642,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"cache_size=%d MB, page_size=%d, " \
 			"sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d, sync_log_buff_interval=%ds, " \
-			"sync_db_time_base=%s, sync_db_interval=%ds", \
+			"sync_db_time_base=%s, sync_db_interval=%ds, " \
+			"write_to_binlog=%d", \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_network_timeout, \
@@ -649,7 +653,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
 			*page_size, g_sync_wait_usec / 1000, g_allow_ip_count, \
 			g_sync_log_buff_interval, sz_sync_db_time_base, \
-			g_sync_db_interval);
+			g_sync_db_interval, g_write_to_binlog_flag);
 
 		break;
 	}
