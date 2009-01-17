@@ -25,6 +25,7 @@
 #include "fdht_client.h"
 
 GroupArray g_group_array = {NULL, 0};
+bool g_keep_alive = false;
 
 extern int g_network_timeout;
 extern char g_base_path[MAX_PATH_SIZE];
@@ -79,19 +80,21 @@ int fdht_client_init(const char *filename)
 			g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
 		}
 
+		g_keep_alive = iniGetBoolValue("keep_alive", \
+				items, nItemCount, false);
+
 		if ((result=fdht_load_groups(items, nItemCount, \
 				&g_group_array)) != 0)
 		{
 			break;
 		}
 
-#ifdef __DEBUG__
-		fprintf(stderr, "base_path=%s, " \
-			"network_timeout=%d, "\
-			"group_count=%d\n", \
-			g_base_path, g_network_timeout, \
+		logInfo("file: "__FILE__", line: %d, " \
+			"base_path=%s, " \
+			"network_timeout=%d, keep_alive=%d, "\
+			"group_count=%d", __LINE__, \
+			g_base_path, g_network_timeout, g_keep_alive, \
 			g_group_array.count);
-#endif
 
 		break;
 	}
@@ -257,6 +260,7 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	pHeader = (ProtoHeader *)buff;
 
 	pHeader->cmd = FDHT_PROTO_CMD_GET;
+	pHeader->keep_alive = g_keep_alive;
 	int2buff((int)time(NULL), pHeader->timestamp);
 	int2buff((int)expires, pHeader->expires);
 	int2buff(key_hash_code, pHeader->key_hash_code);
@@ -356,7 +360,11 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 
 	if (new_connection)
 	{
-		fdht_quit(pServer);
+		if (g_keep_alive)
+		{
+			//fdht_quit(pServer);
+			printf("fdht_quit=%d\n", fdht_quit(pServer));
+		}
 		fdht_disconnect_server(pServer);
 	}
 
@@ -384,13 +392,17 @@ int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	}
 
 	//printf("set group_id=%d\n", group_id);
-	result = fdht_client_set(pServer, time(NULL), expires, \
+	result = fdht_client_set(pServer, g_keep_alive, time(NULL), expires, \
 			FDHT_PROTO_CMD_SET, key_hash_code, \
 			pKeyInfo, pValue, value_len);
 
 	if (new_connection)
 	{
-		fdht_quit(pServer);
+		if (g_keep_alive)
+		{
+			//fdht_quit(pServer);
+			printf("fdht_quit=%d\n", fdht_quit(pServer));
+		}
 		fdht_disconnect_server(pServer);
 	}
 
@@ -441,6 +453,7 @@ int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
 	pHeader = (ProtoHeader *)buff;
 
 	pHeader->cmd = FDHT_PROTO_CMD_INC;
+	pHeader->keep_alive = g_keep_alive;
 	int2buff((int)time(NULL), pHeader->timestamp);
 	int2buff((int)expires, pHeader->expires);
 	int2buff(key_hash_code, pHeader->key_hash_code);
@@ -497,7 +510,11 @@ int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
 
 	if (new_connection)
 	{
-		fdht_quit(pServer);
+		if (g_keep_alive)
+		{
+			//fdht_quit(pServer);
+			printf("fdht_quit=%d\n", fdht_quit(pServer));
+		}
 		fdht_disconnect_server(pServer);
 	}
 
@@ -524,12 +541,16 @@ int fdht_delete(FDHTKeyInfo *pKeyInfo)
 	}
 
 	//printf("del group_id=%d\n", group_id);
-	result = fdht_client_delete(pServer, time(NULL), FDHT_PROTO_CMD_DEL, \
-			key_hash_code, pKeyInfo);
+	result = fdht_client_delete(pServer, g_keep_alive, time(NULL), \
+			FDHT_PROTO_CMD_DEL, key_hash_code, pKeyInfo);
 
 	if (new_connection)
 	{
-		fdht_quit(pServer);
+		if (g_keep_alive)
+		{
+			//fdht_quit(pServer);
+			printf("fdht_quit=%d\n", fdht_quit(pServer));
+		}
 		fdht_disconnect_server(pServer);
 	}
 

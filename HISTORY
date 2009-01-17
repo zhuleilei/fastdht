@@ -1,4 +1,9 @@
 
+Version 1.02  2009-01-17
+  * protocol header add field: keep_alive to support persistent connection
+  * fdhtd.conf add item: write_to_binlog to enable or disable replication
+  * return ENOENT (key not exist) when the key expires
+
 Version 1.01  2008-12-15
   * fdhtd.conf add parameter: sync_db_time_base, change the default value of 
     sync_db_interval to 86400 (one day)
