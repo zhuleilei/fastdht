@@ -22,6 +22,8 @@
 extern "C" {
 #endif
 
+typedef void* (*MallocFunc)(size_t size);
+
 extern GroupArray g_group_array;
 extern bool g_keep_alive;
 
@@ -29,10 +31,13 @@ int fdht_client_init(const char *filename);
 void fdht_client_destroy();
 
 #define fdht_get(pKeyInfo, ppValue, value_len) \
-	fdht_get_ex(pKeyInfo, FDHT_EXPIRES_NONE, ppValue, value_len)
+	fdht_get_ex1(pKeyInfo, FDHT_EXPIRES_NONE, ppValue, value_len, malloc)
 
-int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
-		char **ppValue, int *value_len);
+#define fdht_get_ex(pKeyInfo, expires, ppValue, value_len) \
+	fdht_get_ex1(pKeyInfo, expires, ppValue, value_len, malloc)
+
+int fdht_get_ex1(FDHTKeyInfo *pKeyInfo, const time_t expires, \
+		char **ppValue, int *value_len, MallocFunc malloc_func);
 
 int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		const char *pValue, const int value_len);

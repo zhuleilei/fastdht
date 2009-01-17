@@ -231,8 +231,8 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 *       value_len:  4 bytes big endian integer
 *       value:      value buff
 */
-int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
-		char **ppValue, int *value_len)
+int fdht_get_ex1(FDHTKeyInfo *pKeyInfo, const time_t expires, \
+		char **ppValue, int *value_len, MallocFunc malloc_func)
 {
 	int result;
 	ProtoHeader *pHeader;
@@ -331,7 +331,7 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		else
 		{
 			*value_len = vlen;
-			*ppValue = (char *)malloc(*value_len + 1);
+			*ppValue = (char *)malloc_func((*value_len + 1));
 			if (*ppValue == NULL)
 			{
 				*value_len = 0;

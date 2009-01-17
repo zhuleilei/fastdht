@@ -11,7 +11,10 @@ PHP_MSHUTDOWN_FUNCTION(fastdht_client);
 PHP_RSHUTDOWN_FUNCTION(fastdht_client);
 PHP_MINFO_FUNCTION(fastdht_client);
 
-ZEND_FUNCTION(fastdht_client_set_const);
+ZEND_FUNCTION(fastdht_set);
+ZEND_FUNCTION(fastdht_get);
+ZEND_FUNCTION(fastdht_inc);
+ZEND_FUNCTION(fastdht_delete);
 
 #ifdef __cplusplus
 }
