@@ -33,8 +33,8 @@ int main(int argc, char *argv[])
 {
 	char *conf_filename;
 	int result;
-	int conn_success_count;
-	int conn_fail_count;
+	int success_count;
+	int fail_count;
 	int expires;
 	FDHTKeyInfo key_info;
 	char szValue[100];
@@ -64,6 +64,9 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
+	log_init("fdht_test_set");
+	log_set_cache(false);
+
 	memset(&act, 0, sizeof(act));
 	sigemptyset(&act.sa_mask);
 	act.sa_handler = SIG_IGN;
@@ -90,7 +93,7 @@ int main(int argc, char *argv[])
 	if (g_keep_alive)
 	{
 		if ((result=fdht_connect_all_servers(&g_group_array, true, \
-			&conn_success_count, &conn_fail_count)) != 0)
+			&success_count, &fail_count)) != 0)
 		{
 			printf("fdht_connect_all_servers fail, " \
 				"error code: %d, error info: %s\n", \
@@ -99,6 +102,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	success_count = 0;
+	fail_count = 0;
 	for (i=1; i<=20000; i++)
 	{
 		key_info.key_len = sprintf(key_info.szKey, "k%015d", rand());
@@ -109,8 +114,11 @@ int main(int argc, char *argv[])
 		}
 		if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
 		{
-			printf("fdht_set result: %d\n", result);
-			break;
+			fail_count++;
+		}
+		else
+		{
+			success_count++;
 		}
 	}
 
@@ -120,6 +128,8 @@ int main(int argc, char *argv[])
 	}
 
 	fdht_client_destroy();
+
+	printf("success count=%d, fail count=%d\n", success_count, fail_count);
 
 	return result;
 }
