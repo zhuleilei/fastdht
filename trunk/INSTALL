@@ -132,6 +132,10 @@ sync_db_time_base=0:0
 # default value is 86400 seconds (sync every day)
 sync_db_interval=86400
 
+# if write to binlog file, set to 0 to disable replication
+# default value is 1
+write_to_binlog=1
+
 #include fdht_servers.conf
 
 ###end of server config###
@@ -194,6 +198,8 @@ memo:
 ---------------------------------------------------
 | sync_db_interval      | int    | 86400(s)|  N   |
 ---------------------------------------------------
+| write_to_binlog       | bool   |   1     |  N   |
+---------------------------------------------------
 
 memo:
    * base_path is the base path of sub dirs: 
@@ -223,8 +229,11 @@ memo:
 ---------------------------------------------------
 | base_path             | string |         |  Y   |
 ---------------------------------------------------
+| keep_alive            | bool   |    0    |  N   |
+---------------------------------------------------
 
 memo:
    * base_path is the base path of sub dirs: logs. 
      base_path must exist.
+   * set keep_alive to true to make persistent connection
 
