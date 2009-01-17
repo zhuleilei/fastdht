@@ -235,12 +235,28 @@ static void client_sock_read(int sock, short event, void *arg)
 
 	if (event == EV_TIMEOUT)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, recv timeout", \
-			__LINE__, pTask->client_ip);
+	
+		if (((ProtoHeader *)pTask->data)->keep_alive)
+		{
+			if (event_add(&pTask->ev, &g_network_tv) != 0)
+			{
+				close(pTask->ev.ev_fd);
+				free_queue_push(pTask);
 
-		close(pTask->ev.ev_fd);
-		free_queue_push(pTask);
+				logError("file: "__FILE__", line: %d, " \
+						"event_add fail.", __LINE__);
+			}
+		}
+		else
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, recv timeout", \
+				__LINE__, pTask->client_ip);
+
+			close(pTask->ev.ev_fd);
+			free_queue_push(pTask);
+		}
+
 		return;
 	}
 

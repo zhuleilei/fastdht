@@ -29,6 +29,7 @@
 #include "ini_file_reader.h"
 #include "sockopt.h"
 #include "task_queue.h"
+#include "fdht_proto.h"
 #include "recv_thread.h"
 
 static void send_notify_read(int sock, short event, void *arg);
@@ -172,7 +173,16 @@ static void client_sock_write(int sock, short event, void *arg)
 	pTask->offset += bytes;
 	if (pTask->offset >= pTask->length)
 	{
-		recv_queue_push(pTask);  //persistent connection
+		if (((ProtoHeader *)pTask->data)->keep_alive)
+		{
+			recv_queue_push(pTask);  //persistent connection
+		}
+		else
+		{
+			close(pTask->ev.ev_fd);
+			free_queue_push(pTask);
+		}
+
 		return;
 	}
 

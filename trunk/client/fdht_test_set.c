@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
 	FDHTKeyInfo key_info;
 	char szValue[100];
 	int value_len;
+	struct sigaction act;
 	int i;
 
 	printf("This is FastDHT client test program v%d.%d\n" \
@@ -63,6 +64,17 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
+	memset(&act, 0, sizeof(act));
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = SIG_IGN;
+	if(sigaction(SIGPIPE, &act, NULL) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call sigaction fail, errno: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
+		return errno;
+	}
+
 	srand(time(NULL));
 
 	expires = 0;
@@ -74,13 +86,17 @@ int main(int argc, char *argv[])
 		szValue[i] = (char)rand();
 	}
 
-	if ((result=fdht_connect_all_servers(&g_group_array, true, \
-			&conn_success_count, &conn_fail_count)) != 0)
+	g_keep_alive = true;
+	if (g_keep_alive)
 	{
-		printf("fdht_connect_all_servers fail, " \
-			"error code: %d, error info: %s\n", \
-			result, strerror(result));
-		return result;
+		if ((result=fdht_connect_all_servers(&g_group_array, true, \
+			&conn_success_count, &conn_fail_count)) != 0)
+		{
+			printf("fdht_connect_all_servers fail, " \
+				"error code: %d, error info: %s\n", \
+				result, strerror(result));
+			return result;
+		}
 	}
 
 	for (i=1; i<=20000; i++)
@@ -93,8 +109,14 @@ int main(int argc, char *argv[])
 		}
 		if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
 		{
+			printf("fdht_set result: %d\n", result);
 			break;
 		}
+	}
+
+	if (g_keep_alive)
+	{
+		fdht_disconnect_all_servers(&g_group_array);
 	}
 
 	fdht_client_destroy();

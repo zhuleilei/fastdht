@@ -530,6 +530,7 @@ static int deal_cmd_get(struct task_info *pTask)
 				return ENOMEM;
 			}
 
+			memcpy(pTask->data, pTemp, sizeof(ProtoHeader));
 			free(pTemp);
 			pTask->size = sizeof(ProtoHeader) + value_len;
 

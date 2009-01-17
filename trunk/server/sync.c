@@ -230,7 +230,7 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 static int fdht_sync_set(FDHTServerInfo *pDestServer, \
 			BinLogRecord *pRecord)
 {
-	return fdht_client_set(pDestServer, pRecord->timestamp, \
+	return fdht_client_set(pDestServer, 1, pRecord->timestamp, \
 		pRecord->expires, FDHT_PROTO_CMD_SYNC_SET, \
 		pRecord->key_hash_code, &(pRecord->key_info), \
 		pRecord->value.data, pRecord->value.length);
@@ -239,7 +239,7 @@ static int fdht_sync_set(FDHTServerInfo *pDestServer, \
 static int fdht_sync_del(FDHTServerInfo *pDestServer, \
 			BinLogRecord *pRecord)
 {
-	return fdht_client_delete(pDestServer, pRecord->timestamp, \
+	return fdht_client_delete(pDestServer, 1, pRecord->timestamp, \
 		FDHT_PROTO_CMD_SYNC_DEL, pRecord->key_hash_code, \
 		&(pRecord->key_info));
 }
@@ -256,6 +256,13 @@ static int fdht_sync_data(BinLogReader *pReader, \
 			BinLogRecord *pRecord)
 {
 	int result;
+
+	if (pRecord->expires != FDHT_EXPIRES_NEVER && \
+		pRecord->expires < time(NULL))  //expired
+	{
+		return 0;
+	}
+
 	switch(pRecord->op_type)
 	{
 		case FDHT_OP_TYPE_SOURCE_SET:

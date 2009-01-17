@@ -23,6 +23,7 @@ extern "C" {
 #endif
 
 extern GroupArray g_group_array;
+extern bool g_keep_alive;
 
 int fdht_client_init(const char *filename);
 void fdht_client_destroy();
@@ -36,8 +37,8 @@ int fdht_get_ex(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		const char *pValue, const int value_len);
 
-int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
-		char *pValue, int *value_len);
+int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, \
+		const int increase, char *pValue, int *value_len);
 
 int fdht_delete(FDHTKeyInfo *pKeyInfo);
 

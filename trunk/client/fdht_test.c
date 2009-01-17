@@ -21,6 +21,7 @@
 #include "fdht_types.h"
 #include "fdht_proto.h"
 #include "fdht_client.h"
+#include "fdht_func.h"
 
 int main(int argc, char *argv[])
 {
@@ -28,6 +29,8 @@ int main(int argc, char *argv[])
 	int result;
 	int expires;
 	FDHTKeyInfo key_info;
+	int conn_success_count;
+	int conn_fail_count;
 	char szValue[256];
 	int value_len;
 
@@ -53,9 +56,22 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
+	//g_keep_alive = true;
+	if (g_keep_alive)
+	{
+		if ((result=fdht_connect_all_servers(&g_group_array, true, \
+			&conn_success_count, &conn_fail_count)) != 0)
+		{
+			printf("fdht_connect_all_servers fail, " \
+				"error code: %d, error info: %s\n", \
+				result, strerror(result));
+			return result;
+		}
+	}
+
 	srand(time(NULL));
 
-	expires = 0;
+	expires = time(NULL) + 60;
 	memset(&key_info, 0, sizeof(key_info));
 	key_info.namespace_len = sprintf(key_info.szNameSpace, "bbs");
 	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", rand());
@@ -67,7 +83,6 @@ int main(int argc, char *argv[])
 	{
 		char *value;
 
-		/*
 		//memset(szValue, '1', sizeof(szValue));
 		value_len = sprintf(szValue, "%d", rand());
 
@@ -87,11 +102,10 @@ int main(int argc, char *argv[])
 
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", szValue);
-		*/
 
 		value = szValue;
 		value_len = sizeof(szValue);
-		if ((result=fdht_get(&key_info, &value, &value_len)) != 0)
+		if ((result=fdht_get_ex(&key_info, expires, &value, &value_len)) != 0)
 		{
 			printf("result=%d\n", result);
 			break;
@@ -100,15 +114,19 @@ int main(int argc, char *argv[])
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", value);
 
-		/*
 		if ((result=fdht_delete(&key_info)) != 0)
 		{
 			break;
 		}
-		*/
+
 		break;
 	}
 
+	if (g_keep_alive)
+	{
+		fdht_disconnect_all_servers(&g_group_array);
+	}
+	
 	fdht_client_destroy();
 
 	return result;
