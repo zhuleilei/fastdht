@@ -30,6 +30,7 @@
 #include "sockopt.h"
 #include "sched_thread.h"
 #include "task_queue.h"
+#include "accept_thread.h"
 #include "recv_thread.h"
 #include "send_thread.h"
 #include "work_thread.h"
@@ -38,6 +39,7 @@
 #include "db_recovery.h"
 
 static pthread_t schedule_tid;
+static pthread_t accept_tid;
 static void sigQuitHandler(int sig);
 static void sigHupHandler(int sig);
 static void sigUsrHandler(int sig);
@@ -87,11 +89,13 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
+	/*
 	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
 	{
 		fdht_func_destroy();
 		return result;
 	}
+	*/
 
 	daemon_init(true);
 	umask(0);
@@ -235,6 +239,7 @@ static void sigQuitHandler(int sig)
 	if (g_continue_flag)
 	{
 		pthread_kill(schedule_tid, SIGINT);
+		pthread_kill(accept_tid, SIGINT);
 		fdht_terminate();
 		logCrit("file: "__FILE__", line: %d, " \
 			"catch signal %d, program exiting...", \
@@ -271,6 +276,16 @@ static int create_sock_io_threads(int server_sock)
 
 	result = 0;
 
+	if ((result=pthread_create(&accept_tid, NULL, \
+		accept_thread_entrance, (void *)server_sock)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"create accept thread failed, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, strerror(result));
+		return result;
+	}
+
 	if ((result=pthread_create(&recv_tid, NULL, \
 		recv_thread_entrance, (void *)server_sock)) != 0)
 	{
@@ -289,6 +304,14 @@ static int create_sock_io_threads(int server_sock)
 			"errno: %d, error info: %s", \
 			__LINE__, result, strerror(result));
 		return result;
+	}
+
+	if ((result=pthread_join(accept_tid, NULL)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"pthread_join fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, strerror(result));
 	}
 
 	if ((result=pthread_join(recv_tid, NULL)) != 0)
