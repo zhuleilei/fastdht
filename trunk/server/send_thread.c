@@ -123,7 +123,7 @@ void *send_thread_entrance(void* arg)
 	close(send_fds[1]);
 
 	logDebug("file: "__FILE__", line: %d, " \
-		"send thead exit.", __LINE__);
+		"send thread exit.", __LINE__);
 
 	return NULL;
 }

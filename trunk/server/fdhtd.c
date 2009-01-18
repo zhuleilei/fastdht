@@ -30,7 +30,6 @@
 #include "sockopt.h"
 #include "sched_thread.h"
 #include "task_queue.h"
-#include "accept_thread.h"
 #include "recv_thread.h"
 #include "send_thread.h"
 #include "work_thread.h"

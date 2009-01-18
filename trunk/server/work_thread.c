@@ -222,9 +222,6 @@ static void *work_thread_entrance(void* arg)
 		g_done_count++;
 	}
 
-	//printf("thead exit.\n");
-	fflush(stdout);
-
 	if ((result=pthread_mutex_lock(&work_thread_mutex)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
