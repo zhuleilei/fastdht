@@ -251,8 +251,6 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		return EFAULT;
 	}
 
-	//printf("pKey=%08X, key.data=%08X\n", (int)pKey, (int)key.data);
-	//printf("pValue=%08X, value.data=%08X\n", (int)pValue,(int)value.data);
 	g_server_stat.success_set_count++;
 	return result;
 }
@@ -336,16 +334,19 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
 
 	if ((result=pDBInfo->db->del(pDBInfo->db, NULL, &key, 0)) != 0)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"db_del fail, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, db_strerror(result));
 		if (result == DB_NOTFOUND)
 		{
-			result = ENOENT;
+			return ENOENT;
 		}
-
-		return result;
+		else
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"db_del fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, result, db_strerror(result));
+	
+			return EFAULT;
+		}
 	}
 
 	g_server_stat.success_delete_count++;
