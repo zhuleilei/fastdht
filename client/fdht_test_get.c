@@ -37,7 +37,8 @@ int main(int argc, char *argv[])
 	int fail_count;
 	int expires;
 	FDHTKeyInfo key_info;
-	char szValue[100];
+	char szValue[101];
+	char *pValue;
 	int value_len;
 	struct sigaction act;
 	int i;
@@ -64,7 +65,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	log_init("fdht_test_set");
+	log_init("fdht_test_get");
 	log_set_cache(false);
 
 	memset(&act, 0, sizeof(act));
@@ -83,7 +84,7 @@ int main(int argc, char *argv[])
 	expires = 0;
 	memset(&key_info, 0, sizeof(key_info));
 
-	value_len = sizeof(szValue);
+	value_len = sizeof(szValue) - 1;
 	for (i=0; i<value_len; i++)
 	{
 		szValue[i] = (char)rand();
@@ -102,18 +103,27 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	key_info.key_len = sprintf(key_info.szKey, "k%015d", rand());
+	if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
+	{
+		return result;
+	}
+
+	pValue = szValue;
 	success_count = 0;
 	fail_count = 0;
 	for (i=1; i<=20000; i++)
 	{
-		key_info.key_len = sprintf(key_info.szKey, "k%015d", rand());
 		if (i % 10000 == 0)
 		{
 			printf("current: %d\n", i);
 			fflush(stdout);
 		}
-		if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
+
+		value_len = sizeof(szValue);
+		if ((result=fdht_get(&key_info, &pValue, &value_len)) != 0)
 		{
+			logError("fdht_get return %d", result);
 			fail_count++;
 		}
 		else

@@ -144,7 +144,7 @@ void *recv_thread_entrance(void* arg)
 	close(recv_fds[1]);
 
 	logDebug("file: "__FILE__", line: %d, " \
-		"recv thead exit.", __LINE__);
+		"recv thread exit.", __LINE__);
 
 	return NULL;
 }

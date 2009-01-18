@@ -5,7 +5,7 @@ Version 1.02  2009-01-18
   * return ENOENT (key not exist) when the key expires
   * client auto reconnect when connection is reset and keep_alive is true
   * add php client extension
-  * add README file in sub directories: client and php_client 
+  * add README file in sub directories: client and php_client
 
 Version 1.01  2008-12-15
   * fdhtd.conf add parameter: sync_db_time_base, change the default value of 
