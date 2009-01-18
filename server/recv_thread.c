@@ -82,6 +82,7 @@ void *recv_thread_entrance(void* arg)
 		return NULL;
 	}
 
+	/*
 	event_set(&ev_sock_server, (int)arg, EV_READ | EV_PERSIST, \
 		server_sock_read, &ev_sock_server);
 	if (event_base_set(recv_event_base, &ev_sock_server) != 0)
@@ -98,6 +99,7 @@ void *recv_thread_entrance(void* arg)
 		g_continue_flag = false;
 		return NULL;
 	}
+	*/
 
 	if (pipe(recv_fds) != 0)
 	{
@@ -390,7 +392,7 @@ static void recv_notify_read(int sock, short event, void *arg)
 
 		if (!g_continue_flag && memchr(buff, '\0', bytes) != NULL)
 		{
-			event_del(&ev_sock_server);
+			//event_del(&ev_sock_server);
 			event_del(&ev_notify);
 			event_base_loopbreak(recv_event_base);
 		}

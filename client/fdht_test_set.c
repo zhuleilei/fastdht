@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 		szValue[i] = (char)rand();
 	}
 
-	g_keep_alive = true;
+	//g_keep_alive = true;
 	if (g_keep_alive)
 	{
 		if ((result=fdht_connect_all_servers(&g_group_array, true, \
@@ -104,10 +104,10 @@ int main(int argc, char *argv[])
 
 	success_count = 0;
 	fail_count = 0;
-	for (i=1; i<=20000; i++)
+	for (i=1; i<=2000; i++)
 	{
 		key_info.key_len = sprintf(key_info.szKey, "k%015d", rand());
-		if (i % 10000 == 0)
+		if (i % 1000 == 0)
 		{
 			printf("current: %d\n", i);
 			fflush(stdout);
