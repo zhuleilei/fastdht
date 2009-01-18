@@ -1,0 +1,14 @@
+
+Copyright (C) 2008 Happy Fish / YuQing
+
+FastDHT client php extension may be copied only under the terms of 
+the Less GNU General Public License (LGPL).
+
+Please visit the FastDHT Home Page for more detail.
+Google code (English language): http://code.google.com/p/fastdht/
+Chinese language: http://fastdht.csource.com/
+
+In file fastdht_client.ini, item fastdht_client.config_file point to
+the FastDHT client config filename. Please read INSTALL file to know 
+about how to config FastDHT client.
+

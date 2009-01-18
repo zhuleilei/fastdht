@@ -1,10 +1,11 @@
 
-Version 1.02  2009-01-17
+Version 1.02  2009-01-18
   * protocol header add field: keep_alive to support persistent connection
   * fdhtd.conf add item: write_to_binlog to enable or disable replication
   * return ENOENT (key not exist) when the key expires
   * client auto reconnect when connection is reset and keep_alive is true
   * add php client extension
+  * add README file in sub directories: client and php_client 
 
 Version 1.01  2008-12-15
   * fdhtd.conf add parameter: sync_db_time_base, change the default value of 

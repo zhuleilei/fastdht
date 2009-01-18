@@ -16,8 +16,6 @@
 #include <fdht_func.h>
 #include <logger.h>
 
-#define FDHT_CLIENT_CONF_FILENAME  "/home/yuqing/fastdht/conf/fdht_client.conf"
-
 // Every user visible function must have an entry in fastdht_client_functions[].
 	function_entry fastdht_client_functions[] = {
 		ZEND_FE(fastdht_set, NULL)
@@ -27,7 +25,6 @@
 		{NULL, NULL, NULL}  /* Must be the last line */
 	};
 
-// {{{ fastdht_client_module_entry 
 zend_module_entry fastdht_client_module_entry = {
 	STANDARD_MODULE_HEADER,
 	"fastdht_client",
@@ -67,6 +64,7 @@ zend_module_entry fastdht_client_module_entry = {
 /*
 int fastdht_set(string namespace, string object_id, string key, 
 		string value [, int expires])
+return 0 for success, != 0 for error
 */
 ZEND_FUNCTION(fastdht_set)
 {
@@ -82,12 +80,11 @@ ZEND_FUNCTION(fastdht_set)
 	argc = ZEND_NUM_ARGS();
 	if (argc != 4 && argc != 5)
 	{
-		php_error(E_ERROR, "fastdht_set parameters count: %d != 4 or 5"
-			, argc);
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_set parameters count: %d != 4 or 5", 
+			__LINE__, argc);
 		RETURN_LONG(EINVAL);
 	}
-
-	memset(&key_info, 0, sizeof(FDHTKeyInfo));
 
 	expires = FDHT_EXPIRES_NEVER;
 	if (zend_parse_parameters(argc TSRMLS_CC, "ssss|l", &szNamespace, 
@@ -95,18 +92,21 @@ ZEND_FUNCTION(fastdht_set)
 		&szKey, &key_info.key_len, &szValue, &value_len, &expires)
 		 == FAILURE)
 	{
-		php_error(E_ERROR, "fastdht_set parameter parse error!");
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_set parameter parse error!", __LINE__);
 		RETURN_LONG(EINVAL);
 	}
 
 	FASTDHT_FILL_KEY(key_info, szNamespace, szObjectId, szKey)
 
+	/*
 	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), szKey=%s(%d), "
 		"szValue=%s(%d), expires=%ld", 
-		key_info.szNameSpace, key_info.namespace_len, 
-		key_info.szObjectId, key_info.obj_id_len, 
-		key_info.szKey, key_info.key_len,
+		szNamespace, key_info.namespace_len, 
+		szObjectId, key_info.obj_id_len, 
+		szKey, key_info.key_len,
 		szValue, value_len, expires);
+	*/
 
 	RETURN_LONG(fdht_set(&key_info, expires, szValue, value_len));
 }
@@ -114,6 +114,7 @@ ZEND_FUNCTION(fastdht_set)
 /*
 string fastdht_get(string namespace, string object_id, string key
 		[, int expires])
+return string value for success, int value (errno) for error
 */
 ZEND_FUNCTION(fastdht_get)
 {
@@ -130,27 +131,33 @@ ZEND_FUNCTION(fastdht_get)
 	argc = ZEND_NUM_ARGS();
 	if (argc != 3 && argc != 4)
 	{
-		php_error(E_ERROR, "fastdht_set parameters: %d != 3 or 4", argc);
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_get parameters: %d != 3 or 4", 
+			__LINE__, argc);
+
 		RETURN_LONG(EINVAL);
 	}
 
 	expires = FDHT_EXPIRES_NONE;
-	memset(&key_info, 0, sizeof(FDHTKeyInfo));
 	if (zend_parse_parameters(argc TSRMLS_CC, "sss|l", &szNamespace, 
 		&key_info.namespace_len, &szObjectId, &key_info.obj_id_len, 
 		&szKey, &key_info.key_len, &expires)
 		 == FAILURE)
 	{
-		php_error(E_ERROR, "fastdht_set parameter parse error!");
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_get parameter parse error!", __LINE__);
+
 		RETURN_LONG(EINVAL);
 	}
 
 	FASTDHT_FILL_KEY(key_info, szNamespace, szObjectId, szKey)
 
-	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), szKey=%s(%d), expires=%d", 
-		key_info.szNameSpace, key_info.namespace_len, 
-		key_info.szObjectId, key_info.obj_id_len, 
-		key_info.szKey, key_info.key_len, expires);
+	/*
+	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), szKey=%s(%d), expires=%ld", 
+		szNamespace, key_info.namespace_len, 
+		szObjectId, key_info.obj_id_len, 
+		szKey, key_info.key_len, expires);
+	*/
 
 	pValue = NULL;
 	value_len = 0;
@@ -166,6 +173,7 @@ ZEND_FUNCTION(fastdht_get)
 /*
 string fastdht_inc(string namespace, string object_id, string key, 
 		int increment [, int expires])
+return string value for success, int value (errno) for error
 */
 ZEND_FUNCTION(fastdht_inc)
 {
@@ -183,28 +191,34 @@ ZEND_FUNCTION(fastdht_inc)
 	argc = ZEND_NUM_ARGS();
 	if (argc != 4 && argc != 5)
 	{
-		php_error(E_ERROR, "fastdht_set parameters: %d != 4 or 5", argc);
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_inc parameters: %d != 4 or 5", 
+			__LINE__, argc);
+
 		RETURN_LONG(EINVAL);
 	}
 
 	expires = FDHT_EXPIRES_NEVER;
-	memset(&key_info, 0, sizeof(FDHTKeyInfo));
 	if (zend_parse_parameters(argc TSRMLS_CC, "sssl|l", &szNamespace, 
 		&key_info.namespace_len, &szObjectId, &key_info.obj_id_len, 
 		&szKey, &key_info.key_len, &increment, &expires)
 		 == FAILURE)
 	{
-		php_error(E_ERROR, "fastdht_set parameter parse error!");
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_inc parameter parse error!", __LINE__);
+
 		RETURN_LONG(EINVAL);
 	}
 
 	FASTDHT_FILL_KEY(key_info, szNamespace, szObjectId, szKey)
 
+	/*
 	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), szKey=%s(%d), "
 		"increment=%ld, expires=%ld", 
-		key_info.szNameSpace, key_info.namespace_len, 
-		key_info.szObjectId, key_info.obj_id_len, 
-		key_info.szKey, key_info.key_len, increment, expires);
+		szNamespace, key_info.namespace_len, 
+		szObjectId, key_info.obj_id_len, 
+		szKey, key_info.key_len, increment, expires);
+	*/
 
 	value_len = sizeof(szValue);
 	if ((result=fdht_inc(&key_info, expires, increment, 
@@ -217,7 +231,8 @@ ZEND_FUNCTION(fastdht_inc)
 }
 
 /*
-string fastdht_delete(string namespace, string object_id, string key)
+int fastdht_delete(string namespace, string object_id, string key)
+return 0 for success, != 0 for error
 */
 ZEND_FUNCTION(fastdht_delete)
 {
@@ -230,37 +245,53 @@ ZEND_FUNCTION(fastdht_delete)
 	argc = ZEND_NUM_ARGS();
 	if (argc != 3)
 	{
-		php_error(E_ERROR, "fastdht_delete parameters: %d != 3", argc);
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_delete parameters: %d != 3", 
+			__LINE__, argc);
+
 		RETURN_LONG(EINVAL);
 	}
 
-	memset(&key_info, 0, sizeof(FDHTKeyInfo));
 	if (zend_parse_parameters(argc TSRMLS_CC, "sss", &szNamespace, 
 		&key_info.namespace_len, &szObjectId, &key_info.obj_id_len, 
 		&szKey, &key_info.key_len) == FAILURE)
 	{
-		php_error(E_ERROR, "fastdht_delete parameter parse error!");
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_delete parameter parse error!", __LINE__);
+
 		RETURN_LONG(EINVAL);
 	}
 
 	FASTDHT_FILL_KEY(key_info, szNamespace, szObjectId, szKey)
 
+	/*
 	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), szKey=%s(%d)", 
-		key_info.szNameSpace, key_info.namespace_len, 
-		key_info.szObjectId, key_info.obj_id_len, 
-		key_info.szKey, key_info.key_len);
+		szNamespace, key_info.namespace_len, 
+		szObjectId, key_info.obj_id_len, 
+		szKey, key_info.key_len);
+	*/
 
 	RETURN_LONG(fdht_delete(&key_info));
 }
 
-// {{{ PHP_MINIT_FUNCTION
 PHP_MINIT_FUNCTION(fastdht_client)
 {
-	int result;
+	#define ITEM_NAME_CONF_FILE "fastdht_client.config_file"
+	zval conf_filename;
 
-	if ((result=fdht_client_init(FDHT_CLIENT_CONF_FILENAME)) != 0)
+	if (zend_get_configuration_directive(ITEM_NAME_CONF_FILE, 
+		sizeof(ITEM_NAME_CONF_FILE), &conf_filename) != SUCCESS)
 	{
-		return result;
+		fprintf(stderr, "file: "__FILE__", line: %d, " \
+			"get param: %s from fastdht_client.ini fail!\n", 
+			__LINE__, ITEM_NAME_CONF_FILE);
+
+		return FAILURE;
+	}
+
+	if (fdht_client_init(conf_filename.value.str.val) != 0)
+	{
+		return FAILURE;
 	}
 
 	REGISTER_LONG_CONSTANT("FDHT_EXPIRES_NEVER", 0, CONST_CS|CONST_PERSISTENT);
@@ -268,9 +299,7 @@ PHP_MINIT_FUNCTION(fastdht_client)
 
 	return SUCCESS;
 }
-// }}} 
 
-// {{{ PHP_MSHUTDOWN_FUNCTION
 PHP_MSHUTDOWN_FUNCTION(fastdht_client)
 {
 	if (g_keep_alive)
@@ -279,28 +308,21 @@ PHP_MSHUTDOWN_FUNCTION(fastdht_client)
 	}
 
 	fdht_client_destroy();
-	fprintf(stderr, "module shut down. file: "__FILE__", line: %d\n", __LINE__);
+
 	return SUCCESS;
 }
-// }}}
 
-//
-// {{{ PHP_RINIT_FUNCTION
 PHP_RINIT_FUNCTION(fastdht_client)
 {
 	return SUCCESS;
 }
-// }}} 
 
-// {{{ PHP_RSHUTDOWN_FUNCTION
 PHP_RSHUTDOWN_FUNCTION(fastdht_client)
 {
 	fprintf(stderr, "request shut down. file: "__FILE__", line: %d\n", __LINE__);
 	return SUCCESS;
 }
-// }}}
 
-// {{{ PHP_MINFO_FUNCTION
 PHP_MINFO_FUNCTION(fastdht_client)
 {
 	php_info_print_table_start();
@@ -308,5 +330,4 @@ PHP_MINFO_FUNCTION(fastdht_client)
 	php_info_print_table_end();
 
 }
-// }}} 
-//}}}
+
