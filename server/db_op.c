@@ -93,7 +93,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	if ((result=pDBInfo->env->open(pDBInfo->env, base_path, \
-		DB_CREATE | DB_INIT_MPOOL | DB_THREAD, 0644))!=0)
+		DB_CREATE | DB_INIT_MPOOL | DB_INIT_LOCK | DB_THREAD, 0644))!=0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"env->open fail, errno: %d, error info: %s", \
@@ -468,5 +468,24 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 
 	g_server_stat.success_inc_count++;
 	return result;
+}
+
+void *bdb_dl_detect_entrance(void *arg)
+{
+	DB_ENV *dbenv;
+	struct timeval t;
+
+	dbenv = arg;
+	while (g_continue_flag)
+	{
+		t.tv_sec = 0;
+		t.tv_usec = 100 * 1000;
+		(void)dbenv->lock_detect(dbenv, 0, DB_LOCK_YOUNGEST, NULL);
+
+		/* select is a more accurate sleep timer */
+		(void)select(0, NULL, NULL, NULL, &t);
+	}
+
+	return (NULL);
 }
 

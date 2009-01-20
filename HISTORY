@@ -1,4 +1,8 @@
 
+Version 1.03  2009-01-20
+  * BDB env->open add DB_INIT_LOCK flag and add BDB dead_lock_detect thread
+  * shared_func.c add urlencode and urldecode functions
+
 Version 1.02  2009-01-18
   * protocol header add field: keep_alive to support persistent connection
   * fdhtd.conf add item: write_to_binlog to enable or disable replication

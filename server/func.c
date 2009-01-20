@@ -748,6 +748,33 @@ static int fdht_load_stat_from_file()
 	return fdht_write_to_stat_file();
 }
 
+static int start_dl_detect_thread()
+{
+	pthread_t dld_ptid;
+	int i;
+	int result;
+
+	for (i=0; i<g_db_count; i++)
+	{
+	if (g_db_list[i] == NULL)
+	{
+		continue;
+	}
+
+	if ((result = pthread_create(&dld_ptid, NULL, bdb_dl_detect_entrance, \
+			(void *)g_db_list[i]->env)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"pthread_create bdb_dl_detect_thread fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, result, strerror(result));
+		return result;
+	}
+	}
+
+	return 0;
+}
+
 int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 {
 	int result;
@@ -825,6 +852,12 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	}
 
 	free(group_ids);
+
+	if ((result=start_dl_detect_thread()) != 0)
+	{
+		return result;
+	}
+
 	if (result == 0)
 	{
 		result = fdht_load_stat_from_file();

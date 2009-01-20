@@ -47,6 +47,7 @@ int send_notify_write()
 			"call write failed, " \
 			"errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
+
 		return errno != 0 ? errno : EBADF;
 	}
 
@@ -88,8 +89,7 @@ void *send_thread_entrance(void* arg)
 		return NULL;
 	}
 
-	if (set_nonblock(send_fds[0]) != 0 || \
-	    set_nonblock(send_fds[1]) != 0)
+	if (set_nonblock(send_fds[0]) != 0)
 	{
 		g_continue_flag = false;
 		return NULL;
@@ -150,18 +150,34 @@ static void client_sock_write(int sock, short event, void *arg)
 	//printf("%08X sended %d bytes\n", (int)pTask, bytes);
 	if (bytes < 0)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"send failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+		{
+			if (event_add(&pTask->ev, &g_network_tv) != 0)
+			{
+				close(pTask->ev.ev_fd);
+				free_queue_push(pTask);
 
-		close(pTask->ev.ev_fd);
-		free_queue_push(pTask);
+				logError("file: "__FILE__", line: %d, " \
+					"event_add fail.", __LINE__);
+			}
+		}
+		else
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, recv failed, " \
+				"errno: %d, error info: %s", \
+				__LINE__, pTask->client_ip, \
+				errno, strerror(errno));
+
+			close(pTask->ev.ev_fd);
+			free_queue_push(pTask);
+		}
+
 		return;
 	}
 	else if (bytes == 0)
 	{
-		logError("file: "__FILE__", line: %d, " \
+		logWarning("file: "__FILE__", line: %d, " \
 			"send failed, connection disconnected.", \
 			__LINE__);
 
@@ -201,15 +217,21 @@ static void send_notify_read(int sock, short event, void *arg)
 	struct task_info *pTask;
 	char buff[1024];
 	int bytes;
+	int total_bytes;
 
+	total_bytes = 0;
 	while (1)
 	{
 		if ((bytes=read(send_fds[0], buff, sizeof(buff))) < 0)
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"call read failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, errno, strerror(errno));
+			if (!(errno == EAGAIN || errno == EWOULDBLOCK))
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"call read failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, errno, strerror(errno));
+			}
+
 			break;
 		}
 		else if (bytes == 0)
@@ -223,10 +245,18 @@ static void send_notify_read(int sock, short event, void *arg)
 			//event_base_loopbreak(send_event_base);
 		}
 
+
+		total_bytes += bytes;
 		if (bytes < sizeof(buff))
 		{
 			break;
 		}
+	}
+
+	if (total_bytes == 0)
+	{
+		logInfo("send_thread total_bytes==0!");
+		return;
 	}
 
 	while ((pTask = send_queue_pop()) != NULL)
