@@ -48,6 +48,8 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	const int inc, char *pValue, int *value_len, const int timeout);
 
+void *bdb_dl_detect_entrance(void *arg);
+
 #ifdef __cplusplus
 }
 #endif
