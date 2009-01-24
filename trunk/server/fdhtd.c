@@ -348,6 +348,8 @@ static int fdht_init_schedule()
 		pScheduleEntry->func_args = NULL;
 	}
 
+	if (g_clear_expired_interval > 0)
+	{
 	for (i=0; i<g_db_count; i++)
        	{
 		if (g_db_list[i] == NULL)
@@ -362,6 +364,7 @@ static int fdht_init_schedule()
 		pScheduleEntry->interval = g_clear_expired_interval;
 		pScheduleEntry->task_func = db_clear_expired_keys;
 		pScheduleEntry->func_args = (void *)i;
+	}
 	}
 
 	return sched_start(&scheduleArray, &schedule_tid);

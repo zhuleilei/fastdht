@@ -71,14 +71,17 @@ int main(int argc, char *argv[])
 
 	srand(time(NULL));
 
-	expires = time(NULL) + 60;
+	expires = time(NULL) + 3600;
 	memset(&key_info, 0, sizeof(key_info));
 	key_info.namespace_len = sprintf(key_info.szNameSpace, "bbs");
 	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", rand());
 	key_info.key_len = sprintf(key_info.szKey, "k%d", rand());
 
-	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", 123456);
+	/*
+	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", 12345678);
 	key_info.key_len = sprintf(key_info.szKey, "k%d", 978654);
+	*/
+
 	while (1)
 	{
 		char *value;
@@ -113,12 +116,12 @@ int main(int argc, char *argv[])
 
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", value);
-
+		/*
 		if ((result=fdht_delete(&key_info)) != 0)
 		{
 			break;
 		}
-
+		*/
 		break;
 	}
 
