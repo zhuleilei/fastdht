@@ -346,6 +346,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	int64_t max_pkg_size;
 	GroupArray groupArray;
 	char sz_sync_db_time_base[16];
+	char sz_clear_expired_time_base[16];
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
 	{
@@ -602,11 +603,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		g_sync_db_interval = iniGetIntValue( \
 				"sync_db_interval", items, nItemCount, \
 				DEFAULT_SYNC_DB_INVERVAL);
-		if (g_sync_db_interval < 0)
-		{
-			g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
-		}
-
 		
 		if ((result=get_time_item_from_conf(items, nItemCount, \
 			"sync_db_time_base", &g_sync_db_time_base, \
@@ -621,9 +617,31 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 		else
 		{
-			sprintf(sz_sync_db_time_base, "%d:%d", \
+			sprintf(sz_sync_db_time_base, "%02d:%02d", \
 				g_sync_db_time_base.hour, \
 				g_sync_db_time_base.minute);
+		}
+
+		g_clear_expired_interval = iniGetIntValue( \
+				"clear_expired_interval", items, nItemCount, \
+				DEFAULT_CLEAR_EXPIRED_INVERVAL);
+		
+		if ((result=get_time_item_from_conf(items, nItemCount, \
+			"clear_expired_time_base", &g_clear_expired_time_base, \
+			TIME_NONE, TIME_NONE)) != 0)
+		{
+			break;
+		}
+
+		if (g_clear_expired_time_base.hour == TIME_NONE)
+		{
+			strcpy(sz_clear_expired_time_base, "current time");
+		}
+		else
+		{
+			sprintf(sz_clear_expired_time_base, "%02d:%02d", \
+				g_clear_expired_time_base.hour, \
+				g_clear_expired_time_base.minute);
 		}
 
 		g_write_to_binlog_flag = iniGetBoolValue("write_to_binlog", \
@@ -643,6 +661,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d, sync_log_buff_interval=%ds, " \
 			"sync_db_time_base=%s, sync_db_interval=%ds, " \
+			"clear_expired_time_base=%s, " \
+			"clear_expired_interval=%ds, " \
 			"write_to_binlog=%d", \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
@@ -653,7 +673,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
 			*page_size, g_sync_wait_usec / 1000, g_allow_ip_count, \
 			g_sync_log_buff_interval, sz_sync_db_time_base, \
-			g_sync_db_interval, g_write_to_binlog_flag);
+			g_sync_db_interval, sz_clear_expired_time_base, \
+			g_clear_expired_interval, g_write_to_binlog_flag);
 
 		break;
 	}

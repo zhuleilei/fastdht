@@ -501,8 +501,14 @@ void db_clear_expired_keys(void *arg)
 	char szKey[FDHT_MAX_NAMESPACE_LEN + FDHT_MAX_OBJECT_ID_LEN + \
 		   FDHT_MAX_SUB_KEY_LEN + 2];
 	char szValue[4];
+	time_t current_time;
+	struct timeval tv_start;
+	struct timeval tv_end;
 	int64_t total_count;
 	int64_t success_count;
+
+
+	gettimeofday(&tv_start, NULL);
 
 	db_index = (int)arg;
 	db = g_db_list[db_index]->db;
@@ -513,7 +519,7 @@ void db_clear_expired_keys(void *arg)
 			__LINE__, result, db_strerror(result));
 		return;
 	}
-
+	
 	memset(&key, 0, sizeof(key));
 	memset(&value, 0, sizeof(value));
 
@@ -524,20 +530,47 @@ void db_clear_expired_keys(void *arg)
 	value.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
 	value.data = szValue;
 	value.ulen = sizeof(szValue);
+	value.dlen = sizeof(szValue);
 
 	total_count = 0;
 	success_count = 0;
+	current_time = time(NULL);
 	while ((result=cursor->get(cursor, &key,  &value, DB_NEXT)) == 0)
 	{
-		((char *)key.data)[key.dlen] = '\0';
-		logInfo("key=%s(%d), value=%d(%d)", (char *)key.data, key.dlen, \
-			buff2int((char *)value.data), value.dlen);
+		/*
+		((char *)key.data)[key.size] = '\0';
+		logInfo("key=%s(%d), value=%d(%d)", (char *)key.data, key.size, \
+			buff2int((char *)value.data), value.size);
+		*/
+
 		total_count++;
+
+		if (buff2int((char *)value.data) > current_time)
+		{
+			continue;
+		}
+
+		if (cursor->del(cursor, 0) == 0)
+		{
+			success_count++;
+		}
+		else
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"cursor->del fail, errno: %d, error info: %s", \
+				__LINE__, result, db_strerror(result));
+			break;
+		}
 	}
 
 	cursor->close(cursor);
 
-	logInfo("db %d, total count: "INT64_PRINTF_FORMAT", success count: " \
-		INT64_PRINTF_FORMAT, db_index+1, total_count, success_count);
+	gettimeofday(&tv_end, NULL);
+
+	logInfo("clear expired keys, db %d, total count: "INT64_PRINTF_FORMAT \
+		", success count: "INT64_PRINTF_FORMAT", time used: %dms", \
+		db_index+1, total_count, success_count, (tv_end.tv_sec - \
+		tv_start.tv_sec) * 1000 + (tv_end.tv_usec - \
+		tv_start.tv_usec) / 1000);
 }
 
