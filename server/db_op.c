@@ -11,6 +11,7 @@
 #include "shared_func.h"
 #include "db_op.h"
 #include "global.h"
+#include "func.h"
 
 static void db_errcall(const DB_ENV *dbenv, const char *errpfx, const char *msg)
 {
@@ -475,7 +476,7 @@ void *bdb_dl_detect_entrance(void *arg)
 	DB_ENV *dbenv;
 	struct timeval t;
 
-	dbenv = arg;
+	dbenv = (DB_ENV *)arg;
 	while (g_continue_flag)
 	{
 		t.tv_sec = 0;
@@ -487,5 +488,56 @@ void *bdb_dl_detect_entrance(void *arg)
 	}
 
 	return (NULL);
+}
+
+void db_clear_expired_keys(void *arg)
+{
+	int db_index;
+	DB *db;
+	DBC *cursor;
+	int result;
+	DBT key;
+	DBT value;
+	char szKey[FDHT_MAX_NAMESPACE_LEN + FDHT_MAX_OBJECT_ID_LEN + \
+		   FDHT_MAX_SUB_KEY_LEN + 2];
+	char szValue[4];
+	int64_t total_count;
+	int64_t success_count;
+
+	db_index = (int)arg;
+	db = g_db_list[db_index]->db;
+	if ((result=db->cursor(db, NULL, &cursor, 0)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"db->cursor fail, errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+		return;
+	}
+
+	memset(&key, 0, sizeof(key));
+	memset(&value, 0, sizeof(value));
+
+	key.flags = DB_DBT_USERMEM;
+	key.data = szKey;
+	key.ulen = sizeof(szKey);
+
+	value.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
+	value.data = szValue;
+	value.ulen = sizeof(szValue);
+
+	total_count = 0;
+	success_count = 0;
+	while ((result=cursor->get(cursor, &key,  &value, DB_NEXT)) == 0)
+	{
+		((char *)key.data)[key.dlen] = '\0';
+		logInfo("key=%s(%d), value=%d(%d)", (char *)key.data, key.dlen, \
+			buff2int((char *)value.data), value.dlen);
+		total_count++;
+	}
+
+	cursor->close(cursor);
+
+	logInfo("db %d, total count: "INT64_PRINTF_FORMAT", success count: " \
+		INT64_PRINTF_FORMAT, db_index+1, total_count, success_count);
 }
 

@@ -256,10 +256,17 @@ static int fdht_sync_data(BinLogReader *pReader, \
 			BinLogRecord *pRecord)
 {
 	int result;
+	int group_id;
 
 	if (pRecord->expires != FDHT_EXPIRES_NEVER && \
 		pRecord->expires < time(NULL))  //expired
 	{
+		return 0;
+	}
+
+	group_id = ((unsigned int)pRecord->key_hash_code) % g_group_count;
+	if (group_id >= g_db_count || g_db_list[group_id] == NULL)
+	{   //not belong to my groups, ignore
 		return 0;
 	}
 

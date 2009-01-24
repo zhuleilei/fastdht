@@ -19,6 +19,7 @@
 #define FDHT_DEFAULT_MAX_THREADS  64
 #define DEFAULT_SYNC_DB_INVERVAL  30
 #define DEFAULT_SYNC_WAIT_MSEC    100
+#define DEFAULT_CLEAR_EXPIRED_INVERVAL    3600
 
 #ifdef __cplusplus
 extern "C" {
