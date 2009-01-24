@@ -138,6 +138,11 @@ clear_expired_time_base=04:00
 # <= 0 for never clear
 clear_expired_interval=0
 
+# detect Berkeley DB dead lock every interval milliseconds
+# default value is 1000 milliseconds
+# <= 0 for never detect
+db_dead_lock_detect_interval=1000
+
 #include fdht_servers.conf
 
 ###end of server config###
@@ -203,6 +208,8 @@ memo:
 | clear_expired_time_base| string |  40:00  |  N   |
 ----------------------------------------------------
 | expired_time_interval  | int    |  0(s)   |  N   |
+----------------------------------------------------
+| db_dead_lock_detect_interval| int|1000(ms)|  N   |
 ----------------------------------------------------
 | write_to_binlog        | boolean|   1     |  N   |
 ----------------------------------------------------
