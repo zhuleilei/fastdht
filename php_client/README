@@ -9,6 +9,20 @@ Google code (English language): http://code.google.com/p/fastdht/
 Chinese language: http://fastdht.csource.com/
 
 In file fastdht_client.ini, item fastdht_client.config_file point to
-the FastDHT client config filename. Please read INSTALL file to know 
+the FastDHT client config filename. Please read ../INSTALL file to know 
 about how to config FastDHT client.
+
+FastDHT client php extension compiled under PHP 5.2.5, Steps:
+phpize
+./configure
+make
+
+#copy lib file to php extension directory, eg. /usr/lib/php/20060613/
+cp modules/fastdht_client.so  /usr/lib/php/20060613/
+
+#copy fastdfs_client.ini to PHP etc directory, eg. /etc/php/
+cp fastdfs_client.ini /etc/php/
+
+#run test_fastdht.php
+php test_fastdht.php
 
