@@ -957,7 +957,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 				timestamp = time(NULL);
 			}
 			fdht_binlog_write(timestamp, op_type, key_hash_code, \
-				new_expires, &key_info, NULL, 0);
+				FDHT_EXPIRES_NEVER, &key_info, NULL, 0);
 		}
 	}
 

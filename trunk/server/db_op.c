@@ -475,19 +475,32 @@ void *bdb_dl_detect_entrance(void *arg)
 {
 	DB_ENV *dbenv;
 	struct timeval t;
+	int nSec;
+	int nUsec;
+
+	nSec = g_db_dead_lock_detect_interval / 1000;
+	nUsec = (g_db_dead_lock_detect_interval % 1000) * 1000;
+
+	logInfo("bdb_dl_detect_entrance1, sec=%ds, usec=%dus, arg=%08X", nSec, nUsec, (int)arg);
 
 	dbenv = (DB_ENV *)arg;
+
+	logInfo("bdb_dl_detect_entrance1, sec=%ds, usec=%dus, arg=%08X", nSec, nUsec, (int)arg);
+
 	while (g_continue_flag)
 	{
-		t.tv_sec = 0;
-		t.tv_usec = 100 * 1000;
+		t.tv_sec = nSec;
+		t.tv_usec = nUsec;
+		logInfo("bdb_dl_detect deal....");
 		(void)dbenv->lock_detect(dbenv, 0, DB_LOCK_YOUNGEST, NULL);
+		logInfo("bdb_dl_detect done....");
 
-		/* select is a more accurate sleep timer */
+		logInfo("bdb_dl_detect select....");
 		(void)select(0, NULL, NULL, NULL, &t);
 	}
 
-	return (NULL);
+	logInfo("bdb_dl_detect thread exit");
+	return NULL;
 }
 
 void db_clear_expired_keys(void *arg)
@@ -569,8 +582,8 @@ void db_clear_expired_keys(void *arg)
 
 	logInfo("clear expired keys, db %d, total count: "INT64_PRINTF_FORMAT \
 		", success count: "INT64_PRINTF_FORMAT", time used: %dms", \
-		db_index+1, total_count, success_count, (tv_end.tv_sec - \
+		db_index+1, total_count, success_count, (int)((tv_end.tv_sec - \
 		tv_start.tv_sec) * 1000 + (tv_end.tv_usec - \
-		tv_start.tv_usec) / 1000);
+		tv_start.tv_usec) / 1000));
 }
 

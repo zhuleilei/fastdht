@@ -30,6 +30,7 @@ TimeInfo g_sync_db_time_base = {TIME_NONE, TIME_NONE};
 int g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
 TimeInfo g_clear_expired_time_base = {TIME_NONE, TIME_NONE};
 int g_clear_expired_interval = DEFAULT_CLEAR_EXPIRED_INVERVAL;
+int g_db_dead_lock_detect_interval = DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL;
 
 struct timeval g_network_tv = {DEFAULT_NETWORK_TIMEOUT, 0};
 

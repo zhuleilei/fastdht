@@ -39,6 +39,9 @@
 DBInfo **g_db_list = NULL;
 int g_db_count = 0;
 
+static pthread_t *dld_tids = NULL;
+static int dld_tid_count = 0;
+
 static int fdht_stat_fd = -1;
 
 int group_cmp_by_ip_and_port(const void *p1, const void *p2)
@@ -537,8 +540,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		if ((nPageSize < 512) || (nPageSize > 64 * 1024))
 		{
 			logError("file: "__FILE__", line: %d, " \
-				"page_size: %d is invalid, " \
-				"which < %d or > %d!", \
+				"page_size: "INT64_PRINTF_FORMAT \
+				"is invalid, which < %d or > %d!", \
 				__LINE__, nPageSize, 512, 64 * 1024);
 			result = EINVAL;
 			break;
@@ -644,6 +647,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				g_clear_expired_time_base.minute);
 		}
 
+		g_db_dead_lock_detect_interval = iniGetIntValue( \
+			"db_dead_lock_detect_interval", items, nItemCount, \
+			DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL);
+
 		g_write_to_binlog_flag = iniGetBoolValue("write_to_binlog", \
 					items, nItemCount, true);
 
@@ -663,6 +670,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"sync_db_time_base=%s, sync_db_interval=%ds, " \
 			"clear_expired_time_base=%s, " \
 			"clear_expired_interval=%ds, " \
+			"db_dead_lock_detect_interval=%dms, " \
 			"write_to_binlog=%d", \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
@@ -674,7 +682,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			*page_size, g_sync_wait_usec / 1000, g_allow_ip_count, \
 			g_sync_log_buff_interval, sz_sync_db_time_base, \
 			g_sync_db_interval, sz_clear_expired_time_base, \
-			g_clear_expired_interval, g_write_to_binlog_flag);
+			g_clear_expired_interval, \
+			g_db_dead_lock_detect_interval, g_write_to_binlog_flag);
 
 		break;
 	}
@@ -771,26 +780,54 @@ static int fdht_load_stat_from_file()
 
 static int start_dl_detect_thread()
 {
-	pthread_t dld_ptid;
 	int i;
 	int result;
+	pthread_t *ptid;
 
+	if (g_db_dead_lock_detect_interval <= 0)
+	{
+		return 0;
+	}
+	
+	dld_tid_count = 0;
 	for (i=0; i<g_db_count; i++)
 	{
-	if (g_db_list[i] == NULL)
-	{
-		continue;
+		if (g_db_list[i] != NULL)
+		{
+			dld_tid_count++;
+		}
 	}
 
-	if ((result = pthread_create(&dld_ptid, NULL, bdb_dl_detect_entrance, \
-			(void *)g_db_list[i]->env)) != 0)
+	dld_tids = (pthread_t *)malloc(sizeof(pthread_t) * dld_tid_count);
+	if (dld_tids == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"pthread_create bdb_dl_detect_thread fail, " \
+			"malloc %d bytes fail, " \
 			"error no: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-		return result;
+			__LINE__, sizeof(pthread_t) * dld_tid_count, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
 	}
+
+	ptid = dld_tids;
+	for (i=0; i<g_db_count; i++)
+	{
+		if (g_db_list[i] == NULL)
+		{
+			continue;
+		}
+
+		if ((result = pthread_create(ptid, NULL, \
+			bdb_dl_detect_entrance, (void *)g_db_list[i]->env))!=0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"pthread_create bdb_dl_detect_thread fail, " \
+				"error no: %d, error info: %s", \
+				__LINE__, result, strerror(result));
+			return result;
+		}
+
+		ptid++;
 	}
 
 	return 0;
@@ -989,11 +1026,30 @@ int fdht_write_to_stat_file()
 			fdht_get_stat_filename, NULL, buff, len);
 }
 
+static void fdht_kill_db_dld_threads()
+{
+	int i;
+
+	if (dld_tids != NULL)
+	{
+		for (i=0; i<dld_tid_count; i++)
+		{
+			pthread_kill(dld_tids[i], SIGINT);
+		}
+
+		free(dld_tids);
+		dld_tids = NULL;
+	}
+}
+
 int fdht_terminate()
 {
 	int result;
 
 	g_continue_flag = false;
+
+	fdht_kill_db_dld_threads();
+
 	result = kill_recv_thread();
 	result += kill_send_thread();
 
