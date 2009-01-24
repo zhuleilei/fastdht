@@ -37,14 +37,15 @@
 #include "sync.h"
 #include "db_recovery.h"
 
+static ScheduleArray scheduleArray;
 static pthread_t schedule_tid;
+
+static int fdht_init_schedule();
 static void sigQuitHandler(int sig);
 static void sigHupHandler(int sig);
 static void sigUsrHandler(int sig);
 
 static int create_sock_io_threads(int server_sock);
-
-#define SCHEDULE_ENTRIES_COUNT 2
 
 int main(int argc, char *argv[])
 {
@@ -54,8 +55,6 @@ int main(int argc, char *argv[])
 	int result;
 	int sock;
 	struct sigaction act;
-	ScheduleEntry scheduleEntries[SCHEDULE_ENTRIES_COUNT];
-	ScheduleArray scheduleArray;
 
 	memset(bind_addr, 0, sizeof(bind_addr));
 	if (argc < 2)
@@ -170,24 +169,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	scheduleArray.entries = scheduleEntries;
-	scheduleArray.count = SCHEDULE_ENTRIES_COUNT;
-
-	memset(scheduleEntries, 0, sizeof(scheduleEntries));
-	scheduleEntries[0].id = 1;
-	scheduleEntries[0].time_base.hour = TIME_NONE;
-	scheduleEntries[0].time_base.minute = TIME_NONE;
-	scheduleEntries[0].interval = g_sync_log_buff_interval;
-	scheduleEntries[0].task_func = log_sync_func;
-	scheduleEntries[0].func_args = NULL;
-
-	scheduleEntries[1].id = 2;
-	scheduleEntries[1].time_base.hour = g_sync_db_time_base.hour;
-	scheduleEntries[1].time_base.minute = g_sync_db_time_base.minute;
-	scheduleEntries[1].interval = g_sync_db_interval;
-	scheduleEntries[1].task_func = fdht_memp_trickle_dbs;
-	scheduleEntries[1].func_args = NULL;
-	if ((result=sched_start(&scheduleArray, &schedule_tid)) != 0)
+	if ((result=fdht_init_schedule()) != 0)
 	{
 		g_continue_flag = false;
 		work_thread_destroy();
@@ -308,5 +290,80 @@ static int create_sock_io_threads(int server_sock)
 	}
 
 	return result;
+}
+
+static int fdht_init_schedule()
+{
+	int entry_count;
+	int i;
+	ScheduleEntry *pScheduleEntry;
+
+	entry_count = 1;
+	if (g_sync_db_interval > 0)
+	{
+		entry_count++;
+	}
+	if (g_clear_expired_interval > 0)
+	{
+		for (i=0; i<g_db_count; i++)
+        	{
+               		if (g_db_list[i] != NULL)
+			{
+				entry_count++;
+			}
+		}
+	}
+
+	scheduleArray.entries = (ScheduleEntry *)malloc( \
+				sizeof(ScheduleEntry) * entry_count);
+	if (scheduleArray.entries == NULL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, sizeof(ScheduleEntry) * entry_count, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	pScheduleEntry = scheduleArray.entries;
+	scheduleArray.count = entry_count;
+
+	memset(pScheduleEntry, 0, sizeof(ScheduleEntry) * entry_count);
+	pScheduleEntry->id = pScheduleEntry - scheduleArray.entries + 1;
+	pScheduleEntry->time_base.hour = TIME_NONE;
+	pScheduleEntry->time_base.minute = TIME_NONE;
+	pScheduleEntry->interval = g_sync_log_buff_interval;
+	pScheduleEntry->task_func = log_sync_func;
+	pScheduleEntry->func_args = NULL;
+
+	if (g_sync_db_interval > 0)
+	{
+		pScheduleEntry++;
+		pScheduleEntry->id = pScheduleEntry - scheduleArray.entries+1;
+		pScheduleEntry->time_base.hour = g_sync_db_time_base.hour;
+		pScheduleEntry->time_base.minute = g_sync_db_time_base.minute;
+		pScheduleEntry->interval = g_sync_db_interval;
+		pScheduleEntry->task_func = fdht_memp_trickle_dbs;
+		pScheduleEntry->func_args = NULL;
+	}
+
+	for (i=0; i<g_db_count; i++)
+       	{
+		if (g_db_list[i] == NULL)
+		{
+			continue;
+		}
+
+		pScheduleEntry++;
+		pScheduleEntry->id = pScheduleEntry - scheduleArray.entries+1;
+		pScheduleEntry->time_base.hour = g_clear_expired_time_base.hour;
+		pScheduleEntry->time_base.minute = g_clear_expired_time_base.minute;
+		pScheduleEntry->interval = g_clear_expired_interval;
+		pScheduleEntry->task_func = db_clear_expired_keys;
+		pScheduleEntry->func_args = (void *)i;
+	}
+
+	return sched_start(&scheduleArray, &schedule_tid);
 }
 

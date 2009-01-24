@@ -42,6 +42,8 @@ extern int g_sync_wait_usec;
 extern int g_sync_log_buff_interval;
 extern TimeInfo g_sync_db_time_base;
 extern int g_sync_db_interval;
+extern TimeInfo g_clear_expired_time_base;
+extern int g_clear_expired_interval;
 
 extern struct timeval g_network_tv;
 

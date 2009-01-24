@@ -602,7 +602,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		g_sync_db_interval = iniGetIntValue( \
 				"sync_db_interval", items, nItemCount, \
 				DEFAULT_SYNC_DB_INVERVAL);
-		if (g_sync_db_interval <= 0)
+		if (g_sync_db_interval < 0)
 		{
 			g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
 		}
