@@ -89,6 +89,8 @@ int fdht_client_init(const char *filename)
 			break;
 		}
 
+		load_log_level(items, nItemCount);
+
 		logInfo("file: "__FILE__", line: %d, " \
 			"base_path=%s, " \
 			"network_timeout=%d, keep_alive=%d, "\
