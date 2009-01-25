@@ -44,6 +44,8 @@ static int dld_tid_count = 0;
 
 static int fdht_stat_fd = -1;
 
+static void fdht_kill_db_dld_threads();
+
 int group_cmp_by_ip_and_port(const void *p1, const void *p2)
 {
 	int res;
@@ -827,10 +829,10 @@ static int start_dl_detect_thread()
 
 		if ((result = pthread_create(ptid, &thread_attr, \
 			bdb_dl_detect_entrance, \
-			(void *)(g_db_list[i]->env)))!=0)
+			(void *)(g_db_list[i]->env))) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
-				"pthread_create bdb_dl_detect_thread fail, " \
+				"create bdb_dl_detect_thread fail, " \
 				"error no: %d, error info: %s", \
 				__LINE__, result, strerror(result));
 			return result;
@@ -841,6 +843,11 @@ static int start_dl_detect_thread()
 
 	pthread_attr_destroy(&thread_attr);
 
+	//sleep(1);
+	fprintf(stderr, "heihei1\n");
+	//fdht_kill_db_dld_threads();
+	fprintf(stderr, "heihei2\n");
+	
 	return 0;
 }
 
@@ -1059,7 +1066,7 @@ int fdht_terminate()
 
 	g_continue_flag = false;
 
-	fdht_kill_db_dld_threads();
+	//fdht_kill_db_dld_threads();
 
 	result = kill_recv_thread();
 	result += kill_send_thread();

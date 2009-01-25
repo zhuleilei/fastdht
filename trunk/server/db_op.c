@@ -494,6 +494,8 @@ void *bdb_dl_detect_entrance(void *arg)
 		select(0, NULL, NULL, NULL, &t);
 	}
 
+	logInfo("file: "__FILE__", line: %d, bdb_dl_detect thread exit", __LINE__);
+
 	return NULL;
 }
 

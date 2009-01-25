@@ -63,38 +63,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	conf_filename = argv[1];
-	if ((result=fdht_func_init(conf_filename, bind_addr, \
-		sizeof(bind_addr))) != 0)
-	{
-		return result;
-	}
-
-	if ((result=init_pthread_lock(&g_storage_thread_lock)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"init_pthread_lock fail, program exit!", __LINE__);
-		fdht_func_destroy();
-		return result;
-	}
-
-	sock = socketServer(bind_addr, g_server_port, &result);
-	if (sock < 0)
-	{
-		fdht_func_destroy();
-		return result;
-	}
-
-	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
-	{
-		fdht_func_destroy();
-		return result;
-	}
-
-	//daemon_init(true);
-	daemon_init(false);
-	umask(0);
-	
 	memset(&act, 0, sizeof(act));
 	sigemptyset(&act.sa_mask);
 
@@ -143,6 +111,30 @@ int main(int argc, char *argv[])
 		return errno;
 	}
 
+	conf_filename = argv[1];
+	if ((result=fdht_func_init(conf_filename, bind_addr, \
+		sizeof(bind_addr))) != 0)
+	{
+		return result;
+	}
+
+	//daemon_init(true);
+	daemon_init(false);
+	umask(0);
+	
+	sock = socketServer(bind_addr, g_server_port, &result);
+	if (sock < 0)
+	{
+		fdht_func_destroy();
+		return result;
+	}
+
+	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
+	{
+		fdht_func_destroy();
+		return result;
+	}
+
 	if ((result=fdht_sync_init()) != 0)
 	{
 		fdht_func_destroy();
@@ -187,8 +179,6 @@ int main(int argc, char *argv[])
 		log_destory();
 		return result;
 	}
-
-	pthread_mutex_destroy(&g_storage_thread_lock);
 
 	work_thread_destroy();
 

@@ -22,7 +22,6 @@ int g_min_buff_size = 64 * 1024;
 int g_heart_beat_interval = DEFAULT_NETWORK_TIMEOUT / 2;
 bool g_write_to_binlog_flag = true;
 
-pthread_mutex_t g_storage_thread_lock;
 int g_thread_count = 0;
 int g_sync_wait_usec = DEFAULT_SYNC_WAIT_MSEC;
 int g_sync_log_buff_interval = SYNC_LOG_BUFF_DEF_INTERVAL;
