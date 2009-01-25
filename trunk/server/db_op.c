@@ -481,25 +481,19 @@ void *bdb_dl_detect_entrance(void *arg)
 	nSec = g_db_dead_lock_detect_interval / 1000;
 	nUsec = (g_db_dead_lock_detect_interval % 1000) * 1000;
 
-	logInfo("bdb_dl_detect_entrance1, sec=%ds, usec=%dus, arg=%08X", nSec, nUsec, (int)arg);
+	logInfo("file: "__FILE__", line: %d, " \
+		"bdb_dl_detect_entrance", __LINE__);
 
 	dbenv = (DB_ENV *)arg;
-
-	logInfo("bdb_dl_detect_entrance1, sec=%ds, usec=%dus, arg=%08X", nSec, nUsec, (int)arg);
-
 	while (g_continue_flag)
 	{
+		dbenv->lock_detect(dbenv, 0, DB_LOCK_YOUNGEST, NULL);
+
 		t.tv_sec = nSec;
 		t.tv_usec = nUsec;
-		logInfo("bdb_dl_detect deal....");
-		(void)dbenv->lock_detect(dbenv, 0, DB_LOCK_YOUNGEST, NULL);
-		logInfo("bdb_dl_detect done....");
-
-		logInfo("bdb_dl_detect select....");
-		(void)select(0, NULL, NULL, NULL, &t);
+		select(0, NULL, NULL, NULL, &t);
 	}
 
-	logInfo("bdb_dl_detect thread exit");
 	return NULL;
 }
 

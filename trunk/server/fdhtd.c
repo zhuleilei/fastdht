@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	g_log_level = LOG_DEBUG;
 	sock = socketServer(bind_addr, g_server_port, &result);
 	if (sock < 0)
 	{
@@ -92,7 +91,8 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	daemon_init(true);
+	//daemon_init(true);
+	daemon_init(false);
 	umask(0);
 	
 	memset(&act, 0, sizeof(act));
@@ -336,35 +336,39 @@ static int fdht_init_schedule()
 	pScheduleEntry->interval = g_sync_log_buff_interval;
 	pScheduleEntry->task_func = log_sync_func;
 	pScheduleEntry->func_args = NULL;
+	pScheduleEntry++;
 
 	if (g_sync_db_interval > 0)
 	{
-		pScheduleEntry++;
 		pScheduleEntry->id = pScheduleEntry - scheduleArray.entries+1;
 		pScheduleEntry->time_base.hour = g_sync_db_time_base.hour;
 		pScheduleEntry->time_base.minute = g_sync_db_time_base.minute;
 		pScheduleEntry->interval = g_sync_db_interval;
 		pScheduleEntry->task_func = fdht_memp_trickle_dbs;
 		pScheduleEntry->func_args = NULL;
+		pScheduleEntry++;
 	}
 
 	if (g_clear_expired_interval > 0)
 	{
-	for (i=0; i<g_db_count; i++)
-       	{
-		if (g_db_list[i] == NULL)
-		{
-			continue;
-		}
+		for (i=0; i<g_db_count; i++)
+       		{
+			if (g_db_list[i] == NULL)
+			{
+				continue;
+			}
 
-		pScheduleEntry++;
-		pScheduleEntry->id = pScheduleEntry - scheduleArray.entries+1;
-		pScheduleEntry->time_base.hour = g_clear_expired_time_base.hour;
-		pScheduleEntry->time_base.minute = g_clear_expired_time_base.minute;
-		pScheduleEntry->interval = g_clear_expired_interval;
-		pScheduleEntry->task_func = db_clear_expired_keys;
-		pScheduleEntry->func_args = (void *)i;
-	}
+			pScheduleEntry->id = pScheduleEntry - \
+					scheduleArray.entries + 1;
+			pScheduleEntry->time_base.hour = \
+					g_clear_expired_time_base.hour;
+			pScheduleEntry->time_base.minute = \
+					g_clear_expired_time_base.minute;
+			pScheduleEntry->interval = g_clear_expired_interval;
+			pScheduleEntry->task_func = db_clear_expired_keys;
+			pScheduleEntry->func_args = (void *)i;
+			pScheduleEntry++;
+		}
 	}
 
 	return sched_start(&scheduleArray, &schedule_tid);
