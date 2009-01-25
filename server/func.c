@@ -783,12 +783,18 @@ static int start_dl_detect_thread()
 	int i;
 	int result;
 	pthread_t *ptid;
+	pthread_attr_t thread_attr;
 
 	if (g_db_dead_lock_detect_interval <= 0)
 	{
 		return 0;
 	}
 	
+	if ((result=init_pthread_attr(&thread_attr)) != 0)
+	{
+		return result;
+	}
+
 	dld_tid_count = 0;
 	for (i=0; i<g_db_count; i++)
 	{
@@ -809,6 +815,8 @@ static int start_dl_detect_thread()
 		return errno != 0 ? errno : ENOMEM;
 	}
 
+	memset(dld_tids, 0, sizeof(pthread_t) * dld_tid_count);
+
 	ptid = dld_tids;
 	for (i=0; i<g_db_count; i++)
 	{
@@ -817,8 +825,9 @@ static int start_dl_detect_thread()
 			continue;
 		}
 
-		if ((result = pthread_create(ptid, NULL, \
-			bdb_dl_detect_entrance, (void *)g_db_list[i]->env))!=0)
+		if ((result = pthread_create(ptid, &thread_attr, \
+			bdb_dl_detect_entrance, \
+			(void *)(g_db_list[i]->env)))!=0)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"pthread_create bdb_dl_detect_thread fail, " \
@@ -829,6 +838,8 @@ static int start_dl_detect_thread()
 
 		ptid++;
 	}
+
+	pthread_attr_destroy(&thread_attr);
 
 	return 0;
 }
