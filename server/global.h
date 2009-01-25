@@ -36,7 +36,6 @@ extern int g_min_buff_size;
 extern int g_heart_beat_interval;
 extern bool g_write_to_binlog_flag;
 
-extern pthread_mutex_t g_storage_thread_lock;
 extern int g_thread_count;
 extern int g_sync_wait_usec;
 extern int g_sync_log_buff_interval;
