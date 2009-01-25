@@ -138,10 +138,6 @@ static void log_fsync(const bool bNeedLock)
 			 __LINE__, errno, strerror(errno));
 	}
 
-	fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"log_fsync locked, g_log_fd=%d\n", __LINE__, g_log_fd);
-	fflush(stderr);
-
 	if (g_log_fd != STDERR_FILENO)
 	{
 		if (fsync(g_log_fd) != 0)
@@ -152,10 +148,6 @@ static void log_fsync(const bool bNeedLock)
 		}
 	}
 
-	fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"log_fsync unlock1, g_log_fd=%d\n", __LINE__, g_log_fd);
-	fflush(stderr);
-
 	pcurrent_log_buff = log_buff;
 	if (bNeedLock && (result=pthread_mutex_unlock(&log_thread_lock)) != 0)
 	{
@@ -164,10 +156,6 @@ static void log_fsync(const bool bNeedLock)
 			"errno: %d, error info: %s", \
 			__LINE__, result, strerror(result));
 	}
-
-	fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"log_fsync unlock2, g_log_fd=%d\n", __LINE__, g_log_fd);
-	fflush(stderr);
 }
 
 static void doLog(const char *caption, const char* text, const int text_len, \
@@ -187,9 +175,6 @@ static void doLog(const char *caption, const char* text, const int text_len, \
 			"errno: %d, error info: %s", \
 			__LINE__, result, strerror(result));
 	}
-	fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"locked, lock=%X\n", __LINE__, &log_thread_lock);
-	fflush(stderr);
 
 	if (text_len + 64 > sizeof(log_buff))
 	{
@@ -214,18 +199,10 @@ static void doLog(const char *caption, const char* text, const int text_len, \
 	pcurrent_log_buff += text_len;
 	*pcurrent_log_buff++ = '\n';
 
-	fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"locked, lock=%X\n", __LINE__, &log_thread_lock);
-	fflush(stderr);
-
 	if (!log_to_cache || bNeedSync)
 	{
 		log_fsync(false);
 	}
-
-	fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"locked, lock=%X\n", __LINE__, &log_thread_lock);
-	fflush(stderr);
 
 	if ((result=pthread_mutex_unlock(&log_thread_lock)) != 0)
 	{
@@ -234,10 +211,6 @@ static void doLog(const char *caption, const char* text, const int text_len, \
 			"errno: %d, error info: %s", \
 			__LINE__, result, strerror(result));
 	}
-
-	fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"unlock=%X\n", __LINE__, &log_thread_lock);
-	fflush(stderr);
 }
 
 void log_it(const int priority, const char* format, ...)
@@ -314,7 +287,6 @@ void log_it(const int priority, const char* format, ...)
 	va_end(ap); \
 	} \
 \
-	fprintf(stderr, "len=%d, priority=%d\n", len, priority); \
 	doLog(caption, text, len, bNeedSync); \
 
 

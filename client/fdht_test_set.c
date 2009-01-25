@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
 	srand(time(NULL));
 
-	expires = time(NULL) + 300;
+	expires = time(NULL) + 5 * 86400;
 	memset(&key_info, 0, sizeof(key_info));
 
 	value_len = sizeof(szValue);
