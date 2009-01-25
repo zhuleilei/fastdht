@@ -929,13 +929,13 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 
 	free(group_ids);
 
-	if ((result=start_dl_detect_thread()) != 0)
-	{
-		return result;
-	}
-
 	if (result == 0)
 	{
+		if ((result=start_dl_detect_thread()) != 0)
+		{
+			return result;
+		}
+
 		result = fdht_load_stat_from_file();
 	}
 
