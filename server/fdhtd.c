@@ -63,6 +63,30 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	conf_filename = argv[1];
+	if ((result=fdht_func_init(conf_filename, bind_addr, \
+		sizeof(bind_addr))) != 0)
+	{
+		return result;
+	}
+
+	//daemon_init(true);
+	daemon_init(false);
+	umask(0);
+	
+	sock = socketServer(bind_addr, g_server_port, &result);
+	if (sock < 0)
+	{
+		fdht_func_destroy();
+		return result;
+	}
+
+	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
+	{
+		fdht_func_destroy();
+		return result;
+	}
+
 	memset(&act, 0, sizeof(act));
 	sigemptyset(&act.sa_mask);
 
@@ -111,30 +135,7 @@ int main(int argc, char *argv[])
 		return errno;
 	}
 
-	conf_filename = argv[1];
-	if ((result=fdht_func_init(conf_filename, bind_addr, \
-		sizeof(bind_addr))) != 0)
-	{
-		return result;
-	}
-
-	//daemon_init(true);
-	daemon_init(false);
-	umask(0);
-	
-	sock = socketServer(bind_addr, g_server_port, &result);
-	if (sock < 0)
-	{
-		fdht_func_destroy();
-		return result;
-	}
-
-	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
-	{
-		fdht_func_destroy();
-		return result;
-	}
-
+	/*
 	if ((result=fdht_sync_init()) != 0)
 	{
 		fdht_func_destroy();
@@ -185,12 +186,18 @@ int main(int argc, char *argv[])
 	task_queue_destroy();
 
 	close(sock);
+	*/
+
+	printf("g_continue_flag1=%d\n", g_continue_flag);
 
 	while (g_schedule_flag) //waiting for schedule thread exit
 	{
+		printf("g_continue_flag=%d\n", g_continue_flag);
 		sleep(1);
 	}
+	printf("g_continue_flag2=%d\n", g_continue_flag);
 
+	/*
 	fdht_sync_destroy();
 	fdht_memp_trickle_dbs((void *)1);
 
@@ -198,6 +205,7 @@ int main(int argc, char *argv[])
 
 	logInfo("exit nomally.\n");
 	log_destory();
+	*/
 	
 	return 0;
 }

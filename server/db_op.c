@@ -481,7 +481,7 @@ void *bdb_dl_detect_entrance(void *arg)
 	nSec = g_db_dead_lock_detect_interval / 1000;
 	nUsec = (g_db_dead_lock_detect_interval % 1000) * 1000;
 
-	logInfo("file: "__FILE__", line: %d, " \
+	logError("file: "__FILE__", line: %d, " \
 		"bdb_dl_detect_entrance", __LINE__);
 
 	dbenv = (DB_ENV *)arg;
