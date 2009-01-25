@@ -780,7 +780,7 @@ static int fdht_load_stat_from_file()
 	return fdht_write_to_stat_file();
 }
 
-static int start_dl_detect_thread()
+int start_dl_detect_thread()
 {
 	int i;
 	int result;
@@ -843,11 +843,6 @@ static int start_dl_detect_thread()
 
 	pthread_attr_destroy(&thread_attr);
 
-	//sleep(1);
-	fprintf(stderr, "heihei1\n");
-	//fdht_kill_db_dld_threads();
-	fprintf(stderr, "heihei2\n");
-	
 	return 0;
 }
 
@@ -931,11 +926,6 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 
 	if (result == 0)
 	{
-		if ((result=start_dl_detect_thread()) != 0)
-		{
-			return result;
-		}
-
 		result = fdht_load_stat_from_file();
 	}
 
@@ -1066,7 +1056,7 @@ int fdht_terminate()
 
 	g_continue_flag = false;
 
-	//fdht_kill_db_dld_threads();
+	fdht_kill_db_dld_threads();
 
 	result = kill_recv_thread();
 	result += kill_send_thread();

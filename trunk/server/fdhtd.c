@@ -70,8 +70,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	//daemon_init(true);
-	daemon_init(false);
+	daemon_init(true);
 	umask(0);
 	
 	sock = socketServer(bind_addr, g_server_port, &result);
@@ -135,7 +134,6 @@ int main(int argc, char *argv[])
 		return errno;
 	}
 
-	/*
 	if ((result=fdht_sync_init()) != 0)
 	{
 		fdht_func_destroy();
@@ -149,6 +147,13 @@ int main(int argc, char *argv[])
 	}
 
 	if ((result=task_queue_init()) != 0)
+	{
+		g_continue_flag = false;
+		fdht_func_destroy();
+		return result;
+	}
+
+	if ((result=start_dl_detect_thread()) != 0)
 	{
 		g_continue_flag = false;
 		fdht_func_destroy();
@@ -186,18 +191,12 @@ int main(int argc, char *argv[])
 	task_queue_destroy();
 
 	close(sock);
-	*/
-
-	printf("g_continue_flag1=%d\n", g_continue_flag);
 
 	while (g_schedule_flag) //waiting for schedule thread exit
 	{
-		printf("g_continue_flag=%d\n", g_continue_flag);
 		sleep(1);
 	}
-	printf("g_continue_flag2=%d\n", g_continue_flag);
 
-	/*
 	fdht_sync_destroy();
 	fdht_memp_trickle_dbs((void *)1);
 
@@ -205,7 +204,6 @@ int main(int argc, char *argv[])
 
 	logInfo("exit nomally.\n");
 	log_destory();
-	*/
 	
 	return 0;
 }

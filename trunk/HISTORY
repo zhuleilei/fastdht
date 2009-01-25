@@ -1,8 +1,9 @@
 
-Version 1.03  2009-01-24
+Version 1.03  2009-01-25
   * BDB env->open add DB_INIT_LOCK flag and add BDB dead_lock_detect thread
   * shared_func.c add urlencode and urldecode functions
   * clear expired keys every interval seconds
+  * php_client directory: add test_fastdht.php
 
 Version 1.02  2009-01-18
   * protocol header add field: keep_alive to support persistent connection

@@ -481,9 +481,6 @@ void *bdb_dl_detect_entrance(void *arg)
 	nSec = g_db_dead_lock_detect_interval / 1000;
 	nUsec = (g_db_dead_lock_detect_interval % 1000) * 1000;
 
-	logError("file: "__FILE__", line: %d, " \
-		"bdb_dl_detect_entrance", __LINE__);
-
 	dbenv = (DB_ENV *)arg;
 	while (g_continue_flag)
 	{
@@ -493,8 +490,6 @@ void *bdb_dl_detect_entrance(void *arg)
 		t.tv_usec = nUsec;
 		select(0, NULL, NULL, NULL, &t);
 	}
-
-	logInfo("file: "__FILE__", line: %d, bdb_dl_detect thread exit", __LINE__);
 
 	return NULL;
 }
