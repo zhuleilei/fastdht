@@ -89,15 +89,16 @@ typedef struct {
 
 typedef struct
 {
-	FDHTServerInfo *servers;
-	int *unique_socks;
+	FDHTServerInfo **servers;
 	int count;  //server count
 } ServerArray;
 
 typedef struct
 {
 	ServerArray *groups;
-	int count;  //group count
+	FDHTServerInfo *servers;
+	int group_count;  //group count
+	int server_count;
 } GroupArray;
 
 #ifdef __cplusplus

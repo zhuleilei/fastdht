@@ -94,9 +94,9 @@ int fdht_client_init(const char *filename)
 		logInfo("file: "__FILE__", line: %d, " \
 			"base_path=%s, " \
 			"network_timeout=%d, keep_alive=%d, "\
-			"group_count=%d", __LINE__, \
+			"group_count=%d, server_count=%d", __LINE__, \
 			g_base_path, g_network_timeout, g_keep_alive, \
-			g_group_array.count);
+			g_group_array.group_count, g_group_array.server_count);
 
 		break;
 	}
@@ -120,77 +120,52 @@ void fdht_client_destroy()
 static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 		const int hash_code, int *err_no)
 {
-	FDHTServerInfo *pServer;
-	FDHTServerInfo *pEnd;
+	FDHTServerInfo **ppServer;
+	FDHTServerInfo **ppEnd;
 	int server_index;
-	int *punique_sock;
 	unsigned int new_hash_code;
 
 	new_hash_code = (hash_code << 16) | (hash_code >> 16);
 	server_index = new_hash_code % pServerArray->count;
-	pEnd = pServerArray->servers + pServerArray->count;
-	punique_sock = pServerArray->unique_socks + server_index;
-	for (pServer = pServerArray->servers + server_index; \
-		pServer<pEnd; pServer++)
+	ppEnd = pServerArray->servers + pServerArray->count;
+	for (ppServer = pServerArray->servers + server_index; \
+		ppServer<ppEnd; ppServer++)
 	{
-		if (*punique_sock > 0)  //already connected
+		if ((*ppServer)->sock > 0)  //already connected
 		{
-			pServer->sock = *punique_sock;
-			return pServer;
+			return *ppServer;
 		}
 
-		if (fdht_connect_server(pServer) == 0)
+		if (fdht_connect_server(*ppServer) == 0)
 		{
-			*punique_sock = pServer->sock;
 			if (g_keep_alive)
 			{
-				tcpsetnodelay(pServer->sock);
+				tcpsetnodelay((*ppServer)->sock);
 			}
-			return pServer;
+			return *ppServer;
 		}
-
-		punique_sock++;
 	}
 
-	punique_sock = pServerArray->unique_socks;
-	pEnd = pServerArray->servers + server_index;
-	for (pServer = pServerArray->servers; pServer<pEnd; pServer++)
+	ppEnd = pServerArray->servers + server_index;
+	for (ppServer = pServerArray->servers; ppServer<ppEnd; ppServer++)
 	{
-		if (*punique_sock > 0)  //already connected
+		if ((*ppServer)->sock > 0)  //already connected
 		{
-			pServer->sock = *punique_sock;
-			return pServer;
+			return *ppServer;
 		}
 
-		if (fdht_connect_server(pServer) == 0)
+		if (fdht_connect_server(*ppServer) == 0)
 		{
-			*punique_sock = pServer->sock;
 			if (g_keep_alive)
 			{
-				tcpsetnodelay(pServer->sock);
+				tcpsetnodelay((*ppServer)->sock);
 			}
-			return pServer;
+			return *ppServer;
 		}
-
-		punique_sock++;
 	}
 
 	*err_no = ENOENT;
 	return NULL;
-}
-
-static void disconnect_group_server(ServerArray *pServerArray, \
-		FDHTServerInfo *pServer)
-{
-	int server_index;
-	if (pServer->sock <= 0)
-	{
-		return;
-	}
-
-	server_index = pServer - pServerArray->servers;
-	fdht_disconnect_server(pServer);
-	*(pServerArray->unique_socks + server_index) = -1;
 }
 
 #define CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code) \
@@ -272,7 +247,7 @@ int fdht_get_ex1(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	char *p;
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
-	group_id = ((unsigned int)key_hash_code) % g_group_array.count;
+	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
 	pServer = get_readable_connection(g_group_array.groups + group_id, \
                 	key_hash_code, &result);
 	if (pServer == NULL)
@@ -388,14 +363,12 @@ int fdht_get_ex1(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			disconnect_group_server(g_group_array.groups + \
-						group_id, pServer);
+			fdht_disconnect_server(pServer);
 		}
 	}
 	else
 	{
-		disconnect_group_server(g_group_array.groups + group_id, \
-					pServer);
+		fdht_disconnect_server(pServer);
 	}
 
 	return result;
@@ -412,7 +385,7 @@ int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	FDHTServerInfo *pServer;
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
-	group_id = ((unsigned int)key_hash_code) % g_group_array.count;
+	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
                 	key_hash_code, &result);
 	if (pServer == NULL)
@@ -429,14 +402,12 @@ int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			disconnect_group_server(g_group_array.groups + \
-						group_id, pServer);
+			fdht_disconnect_server(pServer);
 		}
 	}
 	else
 	{
-		disconnect_group_server(g_group_array.groups + group_id, \
-					pServer);
+		fdht_disconnect_server(pServer);
 	}
 
 	return result;
@@ -471,7 +442,7 @@ int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
 	char *p;
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
-	group_id = ((unsigned int)key_hash_code) % g_group_array.count;
+	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
                 	key_hash_code, &result);
 	if (pServer == NULL)
@@ -544,14 +515,12 @@ int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			disconnect_group_server(g_group_array.groups + \
-						group_id, pServer);
+			fdht_disconnect_server(pServer);
 		}
 	}
 	else
 	{
-		disconnect_group_server(g_group_array.groups + group_id, \
-					pServer);
+		fdht_disconnect_server(pServer);
 	}
 
 	return result;
@@ -567,7 +536,7 @@ int fdht_delete(FDHTKeyInfo *pKeyInfo)
 	int key_hash_code;
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
-	group_id = ((unsigned int)key_hash_code) % g_group_array.count;
+	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
 	pServer = get_writable_connection(g_group_array.groups + group_id, \
                 	key_hash_code , &result);
 	if (pServer == NULL)
@@ -583,14 +552,12 @@ int fdht_delete(FDHTKeyInfo *pKeyInfo)
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			disconnect_group_server(g_group_array.groups + \
-						group_id, pServer);
+			fdht_disconnect_server(pServer);
 		}
 	}
 	else
 	{
-		disconnect_group_server(g_group_array.groups + group_id, \
-					pServer);
+		fdht_disconnect_server(pServer);
 	}
 
 	return result;
