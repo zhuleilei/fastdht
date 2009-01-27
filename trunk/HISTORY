@@ -1,4 +1,8 @@
 
+Version 1.04  2009-01-27
+  * sync.c: when call socket fail, continue deal (do not exit)
+  * client: share a same sock when the ip and port of servers are same
+
 Version 1.03  2009-01-25
   * BDB env->open add DB_INIT_LOCK flag and add BDB dead_lock_detect thread
   * shared_func.c add urlencode and urldecode functions
