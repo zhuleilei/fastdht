@@ -316,87 +316,24 @@ static int fdht_cmp_by_ip_and_port_pp(const void *p1, const void *p2)
 			(*((FDHTServerInfo **)p2))->port;
 }
 
-static void fdht_insert_sorted_servers(FDHTServerInfo **ppservers, int count, \
+static FDHTServerInfo *fdht_insert_sorted_servers(GroupArray *pGroupArray, \
 		FDHTServerInfo *pInsertedServer)
 {
-	FDHTServerInfo **ppInsertedServer;
-	FDHTServerInfo **ppCurrent;
+	FDHTServerInfo *pCurrent;
 
-	ppInsertedServer = &pInsertedServer;
-	for (ppCurrent=ppservers+count-1; ppCurrent>=ppservers; ppCurrent--)
+	for (pCurrent=pGroupArray->servers + pGroupArray->server_count; \
+		pCurrent > pGroupArray->servers; pCurrent--)
 	{
-		if (fdht_cmp_by_ip_and_port_pp(ppCurrent, ppInsertedServer) < 0)
+		if (fdht_cmp_by_ip_and_port_p(pCurrent-1, pInsertedServer)<0)
 		{
 			break;
 		}
 
-		*(ppCurrent + 1) = *ppCurrent;
+		memcpy(pCurrent,  pCurrent - 1, sizeof(FDHTServerInfo));
 	}
 
-	*(ppCurrent + 1) = pInsertedServer;
-}
-
-static int fdht_set_group_array_socks(GroupArray *pGroupArray)
-{
-	ServerArray *pServerArray;
-	ServerArray *pArrayEnd;
-	FDHTServerInfo *pServerInfo;
-	FDHTServerInfo *pServerEnd;
-	FDHTServerInfo **ppall_servers;
-	FDHTServerInfo **ppFound;
-	int server_count;
-	int *punique_sock;
-
-	server_count = 0;
-	pArrayEnd = pGroupArray->groups + pGroupArray->count;
-	for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
-			pServerArray++)
-	{
-		server_count += pServerArray->count;
-	}
-
-	ppall_servers = (FDHTServerInfo **)malloc( \
-			sizeof(FDHTServerInfo *) * server_count);
-	if (ppall_servers == NULL)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, sizeof(FDHTServerInfo *) * server_count, \
-			errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
-	}
-
-	server_count = 0;
-	for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
-			pServerArray++)
-	{
-		pServerEnd = pServerArray->servers+pServerArray->count;
-		punique_sock = pServerArray->unique_socks;
-		for (pServerInfo=pServerArray->servers; \
-				pServerInfo<pServerEnd; pServerInfo++)
-		{
-			ppFound = (FDHTServerInfo **)bsearch(&pServerInfo, \
-					ppall_servers, server_count, \
-					sizeof(FDHTServerInfo *), \
-					fdht_cmp_by_ip_and_port_pp);
-			if (ppFound == NULL)  //not found
-			{
-				punique_sock = &(pServerInfo->sock);
-				fdht_insert_sorted_servers(ppall_servers, \
-						server_count, pServerInfo);
-				server_count++;
-			}
-			else
-			{
-				punique_sock = &((*ppFound)->sock);
-			}
-
-			punique_sock++;
-		}
-	}
-
-	free(ppall_servers);
-	return 0;
+	memcpy(pCurrent,  pInsertedServer, sizeof(FDHTServerInfo));
+	return pCurrent;
 }
 
 int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
@@ -407,33 +344,49 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 	int group_id;
 	char item_name[32];
 	ServerArray *pServerArray;
-	FDHTServerInfo *pServerInfo;
-	FDHTServerInfo *pServerEnd;
+	FDHTServerInfo serverInfo;
+	FDHTServerInfo **ppServerInfo;
+	FDHTServerInfo **ppServerEnd;
+	FDHTServerInfo *pFound;
+	int alloc_server_count;
 	char *ip_port[2];
 
-	pGroupArray->count = iniGetIntValue("group_count", \
+	pGroupArray->group_count = iniGetIntValue("group_count", \
 			items, nItemCount, 0);
-	if (pGroupArray->count <= 0)
+	if (pGroupArray->group_count <= 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"invalid group count: %d <= 0!", \
-			__LINE__, pGroupArray->count);
+			__LINE__, pGroupArray->group_count);
 		return EINVAL;
 	}
 
 	pGroupArray->groups = (ServerArray *)malloc(sizeof(ServerArray) * \
-					pGroupArray->count);
+					pGroupArray->group_count);
 	if (pGroupArray->groups == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, sizeof(ServerArray) * pGroupArray->count, \
+			__LINE__, sizeof(ServerArray)*pGroupArray->group_count,\
 			errno, strerror(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 
+	alloc_server_count = pGroupArray->group_count * 2;
+	pGroupArray->servers = (FDHTServerInfo *)malloc(sizeof(FDHTServerInfo) \
+					* alloc_server_count);
+	if (pGroupArray->servers == NULL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, errno: %d, error info: %s", \
+			__LINE__, sizeof(FDHTServerInfo) * alloc_server_count, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	serverInfo.sock = -1;
 	pServerArray = pGroupArray->groups;
-	for (group_id=0; group_id<pGroupArray->count; group_id++)
+	for (group_id=0; group_id<pGroupArray->group_count; group_id++)
 	{
 		sprintf(item_name, "group%d", group_id);
 		pItemInfo = iniGetValuesEx(item_name, items, \
@@ -445,8 +398,8 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 			return ENOENT;
 		}
 
-		pServerArray->servers = (FDHTServerInfo *)malloc( \
-			sizeof(FDHTServerInfo) * pServerArray->count);
+		pServerArray->servers = (FDHTServerInfo **)malloc( \
+			sizeof(FDHTServerInfo *) * pServerArray->count);
 		if (pServerArray->servers == NULL)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -457,10 +410,10 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 			return errno != 0 ? errno : ENOMEM;
 		}
 
-		memset(pServerArray->servers, 0, sizeof(FDHTServerInfo) * \
+		memset(pServerArray->servers, 0, sizeof(FDHTServerInfo *) * \
 			pServerArray->count);
 
-		pServerInfo = pServerArray->servers;
+		ppServerInfo = pServerArray->servers;
 		pItemEnd = pItemInfo + pServerArray->count;
 		for (; pItemInfo<pItemEnd; pItemInfo++)
 		{
@@ -473,8 +426,8 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 				return EINVAL;
 			}
 
-			if (getIpaddrByName(ip_port[0], pServerInfo->ip_addr, \
-				sizeof(pServerInfo->ip_addr)) == INADDR_NONE)
+			if (getIpaddrByName(ip_port[0], serverInfo.ip_addr, \
+				sizeof(serverInfo.ip_addr)) == INADDR_NONE)
 			{
 				logError("file: "__FILE__", line: %d, " \
 					"\"%s\" 's value \"%s\" is invalid, "\
@@ -484,7 +437,7 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 				return EINVAL;
 			}
 
-			if (strcmp(pServerInfo->ip_addr, "127.0.0.1") == 0)
+			if (strcmp(serverInfo.ip_addr, "127.0.0.1") == 0)
 			{
 				logError("file: "__FILE__", line: %d, " \
 					"group%d: invalid hostname \"%s\", " \
@@ -493,59 +446,78 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 				return EINVAL;
 			}
 
-			pServerInfo->port = atoi(ip_port[1]);
-			if (pServerInfo->port <= 0 || pServerInfo->port > 65535)
+			serverInfo.port = atoi(ip_port[1]);
+			if (serverInfo.port <= 0 || serverInfo.port > 65535)
 			{
 				logError("file: "__FILE__", line: %d, " \
 					"\"%s\" 's value \"%s\" is invalid, "\
 					"invalid port: %d", \
 					__LINE__, item_name, \
-					pItemInfo->value, pServerInfo->port);
+					pItemInfo->value, serverInfo.port);
 				return EINVAL;
 			}
-			pServerInfo->sock = -1;
 
-			/*
-			logDebug("group%d. %s:%d", group_id, \
-				pServerInfo->ip_addr, pServerInfo->port);
-			*/
+			pFound = (FDHTServerInfo *)bsearch(&serverInfo, \
+					pGroupArray->servers, \
+					pGroupArray->server_count, \
+					sizeof(FDHTServerInfo), \
+					fdht_cmp_by_ip_and_port_p);
+			if (pFound == NULL)  //not found
+			{
+				if (pGroupArray->server_count >= \
+						alloc_server_count)
+				{
+					alloc_server_count = \
+						pGroupArray->server_count + \
+						pGroupArray->group_count + 8;
+					pGroupArray->servers = (FDHTServerInfo*)
+						realloc(pGroupArray->servers, \
+						sizeof(FDHTServerInfo) * \
+						alloc_server_count);
+					if (pGroupArray->servers == NULL)
+					{
+						logError("file: "__FILE__", " \
+							"line: %d, malloc " \
+							"%d bytes fail, "
+							"errno: %d, " \
+							"error info: %s", \
+							__LINE__, \
+							sizeof(FDHTServerInfo) \
+							 * alloc_server_count, \
+							errno, strerror(errno));
+						return errno!=0 ? errno:ENOMEM;
+					}
+				}
 
-			pServerInfo++;
+				*ppServerInfo = fdht_insert_sorted_servers( \
+						pGroupArray, &serverInfo);
+				pGroupArray->server_count++;
+			}
+			else
+			{
+				*ppServerInfo = pFound;
+			}
+
+			ppServerInfo++;
 		}
 
 		qsort(pServerArray->servers, pServerArray->count, \
-			sizeof(FDHTServerInfo), fdht_cmp_by_ip_and_port_p);
-		pServerEnd = pServerArray->servers + pServerArray->count;
-		for (pServerInfo=pServerArray->servers + 1; \
-			pServerInfo<pServerEnd; pServerInfo++)
+			sizeof(FDHTServerInfo *), fdht_cmp_by_ip_and_port_pp);
+		ppServerEnd = pServerArray->servers + pServerArray->count;
+		for (ppServerInfo=pServerArray->servers + 1; \
+			ppServerInfo<ppServerEnd; ppServerInfo++)
 		{
-			if (fdht_cmp_by_ip_and_port_p(pServerInfo-1, \
-				pServerInfo) == 0)
+			if (fdht_cmp_by_ip_and_port_pp(ppServerInfo-1, \
+				ppServerInfo) == 0)
 			{
 				logError("file: "__FILE__", line: %d, " \
 					"group: \"%s\",  duplicate server: " \
 					"%s:%d", __LINE__, item_name, \
-					pServerInfo->ip_addr,pServerInfo->port);
+					(*ppServerInfo)->ip_addr, \
+					(*ppServerInfo)->port);
 				return EINVAL;
 			}
 		}
-
-		pServerArray->unique_socks = (int *)malloc( \
-					sizeof(int) * pServerArray->count);
-		if (pServerArray->unique_socks == NULL)
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"malloc %d bytes fail, " \
-				"errno: %d, error info: %s", __LINE__, \
-				sizeof(int) * pServerArray->count, \
-				errno, strerror(errno));
-
-			free(pServerArray->servers);
-			pServerArray->servers = NULL;
-			return errno != 0 ? errno : ENOMEM;
-		}
-		memset(pServerArray->unique_socks, 0, sizeof(int) * \
-			pServerArray->count);
 
 		/*
 		for (pServerInfo=pServerArray->servers; \
@@ -559,7 +531,8 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 		pServerArray++;
 	}
 
-	return fdht_set_group_array_socks(pGroupArray);
+	//return fdht_set_group_array_socks(pGroupArray);
+	return 0;
 }
 
 void fdht_free_group_array(GroupArray *pGroupArray)
@@ -568,11 +541,10 @@ void fdht_free_group_array(GroupArray *pGroupArray)
 	ServerArray *pArrayEnd;
 	FDHTServerInfo *pServerInfo;
 	FDHTServerInfo *pServerEnd;
-	int *punique_sock;
 
-	if (pGroupArray->groups != NULL)
+	if (pGroupArray->servers != NULL)
 	{
-		pArrayEnd = pGroupArray->groups + pGroupArray->count;
+		pArrayEnd = pGroupArray->groups + pGroupArray->group_count;
 		for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
 			 pServerArray++)
 		{
@@ -581,28 +553,28 @@ void fdht_free_group_array(GroupArray *pGroupArray)
 				continue;
 			}
 
-			pServerEnd = pServerArray->servers+pServerArray->count;
-			punique_sock = pServerArray->unique_socks;
-			for (pServerInfo=pServerArray->servers; \
-				pServerInfo<pServerEnd; pServerInfo++)
-			{
-				if (*punique_sock > 0)
-				{
-					close(pServerInfo->sock);
-					*punique_sock = -1;
-				}
-
-				pServerInfo->sock = -1;
-				punique_sock++;
-			}
-
 			free(pServerArray->servers);
 			pServerArray->servers = NULL;
-
-			free(pServerArray->unique_socks);
-			pServerArray->unique_socks = NULL;
 		}
 
+		pServerEnd = pGroupArray->servers + pGroupArray->server_count;
+		for (pServerInfo=pGroupArray->servers; \
+				pServerInfo<pServerEnd; pServerInfo++)
+		{
+			if (pServerInfo->sock > 0)
+			{
+				close(pServerInfo->sock);
+				pServerInfo->sock = -1;
+			}
+		}
+
+		free(pGroupArray->servers);
+		pGroupArray->servers = NULL;
+
+	}
+
+	if (pGroupArray->groups != NULL)
+	{
 		free(pGroupArray->groups);
 		pGroupArray->groups = NULL;
 	}
@@ -611,57 +583,37 @@ void fdht_free_group_array(GroupArray *pGroupArray)
 int fdht_connect_all_servers(GroupArray *pGroupArray, const bool bNoDelay, \
 			int *success_count, int *fail_count)
 {
-	ServerArray *pServerArray;
-	ServerArray *pArrayEnd;
 	FDHTServerInfo *pServerInfo;
 	FDHTServerInfo *pServerEnd;
-	int *punique_sock;
 	int conn_result;
 	int result;
 
 	*success_count = 0;
 	*fail_count = 0;
-	if (pGroupArray->groups == NULL)
+	if (pGroupArray->servers == NULL)
 	{
 		return ENOENT;
 	}
 
 	result = 0;
-	pArrayEnd = pGroupArray->groups + pGroupArray->count;
-	for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
-		 pServerArray++)
-	{
-		if (pServerArray->servers == NULL)
-		{
-			continue;
-		}
 
-		pServerEnd = pServerArray->servers+pServerArray->count;
-		punique_sock = pServerArray->unique_socks;
-		for (pServerInfo=pServerArray->servers; \
+	pServerEnd = pGroupArray->servers + pGroupArray->server_count;
+	for (pServerInfo=pGroupArray->servers; \
 			pServerInfo<pServerEnd; pServerInfo++)
-		{
-			if (*punique_sock > 0)  //already connected
-			{
-				pServerInfo->sock = *punique_sock;
-			}
-			else if ((conn_result=fdht_connect_server( \
+	{
+		if ((conn_result=fdht_connect_server( \
 						pServerInfo)) != 0)
+		{
+			result = conn_result;
+			(*fail_count)++;
+		}
+		else //connect success
+		{
+			(*success_count)++;
+			if (bNoDelay)
 			{
-				result = conn_result;
-				(*fail_count)++;
+				tcpsetnodelay(pServerInfo->sock);
 			}
-			else //connect success
-			{
-				*punique_sock = pServerInfo->sock;
-				(*success_count)++;
-				if (bNoDelay)
-				{
-					tcpsetnodelay(pServerInfo->sock);
-				}
-			}
-
-			punique_sock++;
 		}
 	}
 
@@ -677,37 +629,20 @@ int fdht_connect_all_servers(GroupArray *pGroupArray, const bool bNoDelay, \
 
 void fdht_disconnect_all_servers(GroupArray *pGroupArray)
 {
-	ServerArray *pServerArray;
-	ServerArray *pArrayEnd;
 	FDHTServerInfo *pServerInfo;
 	FDHTServerInfo *pServerEnd;
-	int *punique_sock;
 
-	if (pGroupArray->groups != NULL)
+	if (pGroupArray->servers != NULL)
 	{
-		pArrayEnd = pGroupArray->groups + pGroupArray->count;
-		for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
-			 pServerArray++)
-		{
-			if (pServerArray->servers == NULL)
-			{
-				continue;
-			}
-
-			pServerEnd = pServerArray->servers+pServerArray->count;
-			punique_sock = pServerArray->unique_socks;
-			for (pServerInfo=pServerArray->servers; \
+		pServerEnd = pGroupArray->servers + pGroupArray->server_count;
+		for (pServerInfo=pGroupArray->servers; \
 				pServerInfo<pServerEnd; pServerInfo++)
+		{
+			if (pServerInfo->sock > 0)
 			{
-				if (*punique_sock > 0)
-				{
-					fdht_quit(pServerInfo);
-					close(pServerInfo->sock);
-					*punique_sock = -1;
-				}
-
+				fdht_quit(pServerInfo);
+				close(pServerInfo->sock);
 				pServerInfo->sock = -1;
-				punique_sock++;
 			}
 		}
 	}
