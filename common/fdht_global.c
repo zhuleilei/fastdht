@@ -13,5 +13,5 @@
 
 int g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
 char g_base_path[MAX_PATH_SIZE];
-Version g_version = {1, 3};
+Version g_version = {1, 4};
 

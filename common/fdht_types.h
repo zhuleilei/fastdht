@@ -90,6 +90,7 @@ typedef struct {
 typedef struct
 {
 	FDHTServerInfo *servers;
+	int *unique_socks;
 	int count;  //server count
 } ServerArray;
 

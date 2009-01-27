@@ -1558,13 +1558,12 @@ static void* fdht_sync_thread_entrance(void* arg)
 				socket(AF_INET, SOCK_STREAM, 0);
 			if(fdht_server.sock < 0)
 			{
-				logCrit("file: "__FILE__", line: %d," \
-					" socket create fail, " \
-					"errno: %d, error info: %s. " \
-					"program exit!", __LINE__, \
+				logError("file: "__FILE__", line: %d, " \
+					"socket create fail, " \
+					"errno: %d, error info: %s", __LINE__, \
 					errno, strerror(errno));
-				fdht_terminate();
-				break;
+				sleep(5);
+				continue;
 			}
 
 			if ((conn_result=connectserverbyip(fdht_server.sock,\

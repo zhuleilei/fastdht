@@ -123,51 +123,74 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 	FDHTServerInfo *pServer;
 	FDHTServerInfo *pEnd;
 	int server_index;
+	int *punique_sock;
 	unsigned int new_hash_code;
 
 	new_hash_code = (hash_code << 16) | (hash_code >> 16);
 	server_index = new_hash_code % pServerArray->count;
-
-	//printf("server_index=%d\n", server_index);
 	pEnd = pServerArray->servers + pServerArray->count;
+	punique_sock = pServerArray->unique_socks + server_index;
 	for (pServer = pServerArray->servers + server_index; \
 		pServer<pEnd; pServer++)
 	{
-		if (pServer->sock > 0)  //already connected
+		if (*punique_sock > 0)  //already connected
 		{
+			pServer->sock = *punique_sock;
 			return pServer;
 		}
 
 		if (fdht_connect_server(pServer) == 0)
 		{
+			*punique_sock = pServer->sock;
 			if (g_keep_alive)
 			{
 				tcpsetnodelay(pServer->sock);
 			}
 			return pServer;
 		}
+
+		punique_sock++;
 	}
 
+	punique_sock = pServerArray->unique_socks;
 	pEnd = pServerArray->servers + server_index;
 	for (pServer = pServerArray->servers; pServer<pEnd; pServer++)
 	{
-		if (pServer->sock > 0)  //already connected
+		if (*punique_sock > 0)  //already connected
 		{
+			pServer->sock = *punique_sock;
 			return pServer;
 		}
 
 		if (fdht_connect_server(pServer) == 0)
 		{
+			*punique_sock = pServer->sock;
 			if (g_keep_alive)
 			{
 				tcpsetnodelay(pServer->sock);
 			}
 			return pServer;
 		}
+
+		punique_sock++;
 	}
 
 	*err_no = ENOENT;
 	return NULL;
+}
+
+static void disconnect_group_server(ServerArray *pServerArray, \
+		FDHTServerInfo *pServer)
+{
+	int server_index;
+	if (pServer->sock <= 0)
+	{
+		return;
+	}
+
+	server_index = pServer - pServerArray->servers;
+	fdht_disconnect_server(pServer);
+	*(pServerArray->unique_socks + server_index) = -1;
 }
 
 #define CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code) \
@@ -365,12 +388,14 @@ int fdht_get_ex1(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			fdht_disconnect_server(pServer);
+			disconnect_group_server(g_group_array.groups + \
+						group_id, pServer);
 		}
 	}
 	else
 	{
-		fdht_disconnect_server(pServer);
+		disconnect_group_server(g_group_array.groups + group_id, \
+					pServer);
 	}
 
 	return result;
@@ -404,12 +429,14 @@ int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			fdht_disconnect_server(pServer);
+			disconnect_group_server(g_group_array.groups + \
+						group_id, pServer);
 		}
 	}
 	else
 	{
-		fdht_disconnect_server(pServer);
+		disconnect_group_server(g_group_array.groups + group_id, \
+					pServer);
 	}
 
 	return result;
@@ -517,12 +544,14 @@ int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			fdht_disconnect_server(pServer);
+			disconnect_group_server(g_group_array.groups + \
+						group_id, pServer);
 		}
 	}
 	else
 	{
-		fdht_disconnect_server(pServer);
+		disconnect_group_server(g_group_array.groups + group_id, \
+					pServer);
 	}
 
 	return result;
@@ -554,12 +583,14 @@ int fdht_delete(FDHTKeyInfo *pKeyInfo)
 	{
 		if (result >= ENETDOWN) //network error
 		{
-			fdht_disconnect_server(pServer);
+			disconnect_group_server(g_group_array.groups + \
+						group_id, pServer);
 		}
 	}
 	else
 	{
-		fdht_disconnect_server(pServer);
+		disconnect_group_server(g_group_array.groups + group_id, \
+					pServer);
 	}
 
 	return result;
