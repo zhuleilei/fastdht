@@ -248,7 +248,7 @@ int fdht_get_ex1(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
-	pServer = get_readable_connection(g_group_array.groups + group_id, \
+	pServer = get_readable_connection((g_group_array.groups + group_id), \
                 	key_hash_code, &result);
 	if (pServer == NULL)
 	{
@@ -386,7 +386,7 @@ int fdht_set(FDHTKeyInfo *pKeyInfo, const time_t expires, \
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
-	pServer = get_writable_connection(g_group_array.groups + group_id, \
+	pServer = get_writable_connection((g_group_array.groups + group_id), \
                 	key_hash_code, &result);
 	if (pServer == NULL)
 	{
@@ -443,7 +443,7 @@ int fdht_inc(FDHTKeyInfo *pKeyInfo, const time_t expires, const int increase, \
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
-	pServer = get_writable_connection(g_group_array.groups + group_id, \
+	pServer = get_writable_connection((g_group_array.groups + group_id), \
                 	key_hash_code, &result);
 	if (pServer == NULL)
 	{
@@ -537,7 +537,7 @@ int fdht_delete(FDHTKeyInfo *pKeyInfo)
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % g_group_array.group_count;
-	pServer = get_writable_connection(g_group_array.groups + group_id, \
+	pServer = get_writable_connection((g_group_array.groups + group_id), \
                 	key_hash_code , &result);
 	if (pServer == NULL)
 	{
