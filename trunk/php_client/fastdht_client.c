@@ -161,8 +161,8 @@ ZEND_FUNCTION(fastdht_get)
 
 	pValue = NULL;
 	value_len = 0;
-	if ((result=fdht_get_ex1(&key_info, expires, &pValue, &value_len, 
-				_emalloc)) != 0)
+	if ((result=fdht_get_ex1(&g_group_array, g_keep_alive, &key_info, \
+			expires, &pValue, &value_len, _emalloc)) != 0)
 	{
 		RETURN_LONG(result);
 	}

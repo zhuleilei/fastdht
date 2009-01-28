@@ -17,6 +17,7 @@
 #include "fdht_define.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
+#include "fdht_func.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,8 +47,8 @@ void fdht_client_destroy();
 	fdht_inc_ex((&g_group_array), g_keep_alive, pKeyInfo, expires, \
 		increase, pValue, value_len)
 
-#define fdht_delete(pGroupArray, pKeyInfo) \
-	fdht_delete_ex((&g_group_array), g_keep_alive, pGroupArray, pKeyInfo)
+#define fdht_delete(pKeyInfo) \
+	fdht_delete_ex((&g_group_array), g_keep_alive, pKeyInfo)
 
 
 int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \

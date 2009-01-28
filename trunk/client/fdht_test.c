@@ -116,12 +116,11 @@ int main(int argc, char *argv[])
 
 		printf("value_len: %d\n", value_len);
 		printf("value: %s\n", value);
-		/*
 		if ((result=fdht_delete(&key_info)) != 0)
 		{
 			break;
 		}
-		*/
+
 		break;
 	}
 
