@@ -29,7 +29,7 @@ HEADER_FILES = ../common/common_define.h ../common/fdht_define.h  \
 
 ALL_OBJS = $(STATIC_OBJS) $(SHARED_OBJS)
 
-ALL_PRGS = fdht_test fdht_test_set fdht_test_get
+ALL_PRGS = fdht_test fdht_test_thread fdht_test_set fdht_test_get
 ALL_LIBS = libfdhtclient.so.1
 
 all: $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)

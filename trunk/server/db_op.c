@@ -509,6 +509,7 @@ void db_clear_expired_keys(void *arg)
 	struct timeval tv_start;
 	struct timeval tv_end;
 	int64_t total_count;
+	int64_t expired_count;
 	int64_t success_count;
 
 
@@ -537,9 +538,11 @@ void db_clear_expired_keys(void *arg)
 	value.dlen = sizeof(szValue);
 
 	total_count = 0;
+	expired_count = 0;
 	success_count = 0;
 	current_time = time(NULL);
-	while ((result=cursor->get(cursor, &key,  &value, DB_NEXT)) == 0)
+	while (g_continue_flag && (result=cursor->get(cursor, &key, &value, \
+		DB_NEXT)) == 0)
 	{
 		/*
 		((char *)key.data)[key.size] = '\0';
@@ -554,7 +557,8 @@ void db_clear_expired_keys(void *arg)
 			continue;
 		}
 
-		if (cursor->del(cursor, 0) == 0)
+		expired_count++;
+		if ((result=cursor->del(cursor, 0)) == 0)
 		{
 			success_count++;
 		}
@@ -563,7 +567,6 @@ void db_clear_expired_keys(void *arg)
 			logError("file: "__FILE__", line: %d, " \
 				"cursor->del fail, errno: %d, error info: %s", \
 				__LINE__, result, db_strerror(result));
-			break;
 		}
 	}
 
@@ -572,9 +575,11 @@ void db_clear_expired_keys(void *arg)
 	gettimeofday(&tv_end, NULL);
 
 	logInfo("clear expired keys, db %d, total count: "INT64_PRINTF_FORMAT \
-		", success count: "INT64_PRINTF_FORMAT", time used: %dms", \
-		db_index+1, total_count, success_count, (int)((tv_end.tv_sec - \
-		tv_start.tv_sec) * 1000 + (tv_end.tv_usec - \
-		tv_start.tv_usec) / 1000));
+		", expired key count: "INT64_PRINTF_FORMAT \
+		", success count: "INT64_PRINTF_FORMAT \
+		", time used: %dms", db_index + 1, \
+		total_count, expired_count, success_count, \
+		(int)((tv_end.tv_sec - tv_start.tv_sec) * 1000 + \
+		(tv_end.tv_usec - tv_start.tv_usec) / 1000));
 }
 
