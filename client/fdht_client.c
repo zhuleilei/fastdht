@@ -21,7 +21,6 @@
 #include "ini_file_reader.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
-#include "fdht_func.h"
 #include "fdht_client.h"
 
 GroupArray g_group_array = {NULL, 0};
