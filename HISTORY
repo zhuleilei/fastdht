@@ -1,8 +1,9 @@
 
-Version 1.04  2009-01-28
+Version 1.04  2009-01-29
   * sync.c: when call socket fail, continue deal (do not exit)
   * client: share a same sock when the ip and port of servers are same
   * client: thread-safe and add muti-thread test program fdht_test_thread.c
+  * sync.c: fdht_sync_del return 0 when key not exists (errno: ENOENT)
 
 Version 1.03  2009-01-25
   * BDB env->open add DB_INIT_LOCK flag and add BDB dead_lock_detect thread

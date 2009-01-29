@@ -326,11 +326,23 @@ int fdht_client_delete(FDHTServerInfo *pServer, const char keep_alive, \
 
 	if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"recv data from server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
+		if (result == ENOENT)
+		{
+			logWarning("file: "__FILE__", line: %d, " \
+				"recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", __LINE__, \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+		}
+		else
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"recv data from server %s:%d fail, " \
+				"errno: %d, error info: %s", __LINE__, \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+		}
+
 		return result;
 	}
 

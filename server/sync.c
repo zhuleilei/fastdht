@@ -239,9 +239,11 @@ static int fdht_sync_set(FDHTServerInfo *pDestServer, \
 static int fdht_sync_del(FDHTServerInfo *pDestServer, \
 			BinLogRecord *pRecord)
 {
-	return fdht_client_delete(pDestServer, 1, pRecord->timestamp, \
+	int result;
+	result = fdht_client_delete(pDestServer, 1, pRecord->timestamp, \
 		FDHT_PROTO_CMD_SYNC_DEL, pRecord->key_hash_code, \
 		&(pRecord->key_info));
+	return result == ENOENT ? 0 : result;
 }
 
 #define STARAGE_CHECK_IF_NEED_SYNC_OLD(pReader, pRecord) \
