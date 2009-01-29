@@ -66,8 +66,8 @@ static int load_group_servers(GroupArray *pGroupArray, \
 		FDHTGroupServer **ppGroupServers, int *server_count)
 {
 	ServerArray *pServerArray;
-	FDHTServerInfo *pServerInfo;
-	FDHTServerInfo *pServerEnd;
+	FDHTServerInfo **ppServerInfo;
+	FDHTServerInfo **ppServerEnd;
 	FDHTGroupServer *pFound;
 	FDHTGroupServer targetServer;
 	int *counts;
@@ -99,16 +99,14 @@ static int load_group_servers(GroupArray *pGroupArray, \
 	memset(*ppGroupServers, 0, sizeof(FDHTGroupServer)*pServerArray->count);
 	memset(&targetServer, 0, sizeof(FDHTGroupServer));
 
-	pServerEnd = pServerArray->servers + pServerArray->count;
-	for (pServerInfo=pServerArray->servers; \
-		pServerInfo<pServerEnd; pServerInfo++)
+	ppServerEnd = pServerArray->servers + pServerArray->count;
+	for (ppServerInfo=pServerArray->servers; \
+		ppServerInfo<ppServerEnd; ppServerInfo++)
 	{
 		compare = 1;
 		for (k=0; k<*server_count; k++)
 		{
-			strcpy(targetServer.ip_addr, pServerInfo->ip_addr);
-			targetServer.port = pServerInfo->port;
-			compare = group_cmp_by_ip_and_port(&targetServer, \
+			compare = group_cmp_by_ip_and_port(*ppServerInfo, \
 						(*ppGroupServers) + k);
 			if (compare <= 0)
 			{
@@ -126,8 +124,8 @@ static int load_group_servers(GroupArray *pGroupArray, \
 			memcpy((*ppGroupServers) + (i+1), \
 				(*ppGroupServers) + i, sizeof(FDHTGroupServer));
 		}
-		strcpy((*ppGroupServers)[k].ip_addr, pServerInfo->ip_addr);
-		(*ppGroupServers)[k].port = pServerInfo->port;
+		strcpy((*ppGroupServers)[k].ip_addr, (*ppServerInfo)->ip_addr);
+		(*ppGroupServers)[k].port = (*ppServerInfo)->port;
 
 		(*server_count)++;
 	}
@@ -154,12 +152,12 @@ static int load_group_servers(GroupArray *pGroupArray, \
 		memset(counts, 0, sizeof(int) * (*server_count));
 
 		pServerArray = pGroupArray->groups + group_ids[k];
-		pServerEnd = pServerArray->servers + pServerArray->count;
-		for (pServerInfo=pServerArray->servers; \
-			pServerInfo<pServerEnd; pServerInfo++)
+		ppServerEnd = pServerArray->servers + pServerArray->count;
+		for (ppServerInfo=pServerArray->servers; \
+			ppServerInfo<ppServerEnd; ppServerInfo++)
 		{
-			strcpy(targetServer.ip_addr, pServerInfo->ip_addr);
-			targetServer.port = pServerInfo->port;
+			strcpy(targetServer.ip_addr, (*ppServerInfo)->ip_addr);
+			targetServer.port = (*ppServerInfo)->port;
 			pFound = (FDHTGroupServer *)bsearch(&targetServer, \
 				*ppGroupServers, *server_count, \
 				sizeof(FDHTGroupServer),group_cmp_by_ip_and_port);
@@ -170,8 +168,8 @@ static int load_group_servers(GroupArray *pGroupArray, \
 					"servers not same, group %d " \
 					"no server \"%s:%d\"", __LINE__, \
 					group_ids[0], group_ids[k], \
-					group_ids[0], pServerInfo->ip_addr, \
-					pServerInfo->port);
+					group_ids[0], (*ppServerInfo)->ip_addr,\
+					(*ppServerInfo)->port);
 				result = EINVAL;
 				break;
 			}
@@ -218,8 +216,8 @@ static int load_group_ids(GroupArray *pGroupArray, \
 	int addrs_count;
 	ServerArray *pServerArray;
 	ServerArray *pArrayEnd;
-	FDHTServerInfo *pServerInfo;
-	FDHTServerInfo *pServerEnd;
+	FDHTServerInfo **ppServerInfo;
+	FDHTServerInfo **ppServerEnd;
 	int id;
 	int k;
 
@@ -255,19 +253,19 @@ static int load_group_ids(GroupArray *pGroupArray, \
 		*/
 	}
 
-	*group_ids = (int *)malloc(sizeof(int) * pGroupArray->count);
+	*group_ids = (int *)malloc(sizeof(int) * pGroupArray->group_count);
 	if (*group_ids == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, sizeof(int) * pGroupArray->count, \
+			__LINE__, sizeof(int) * pGroupArray->group_count, \
 			errno, strerror(errno));
 
 		return errno != 0 ? errno : ENOMEM;
 	}
 
 	id = 0;
-	pArrayEnd = pGroupArray->groups + pGroupArray->count;
+	pArrayEnd = pGroupArray->groups + pGroupArray->group_count;
 	for (pServerArray=pGroupArray->groups; pServerArray<pArrayEnd;
 		 pServerArray++)
 	{
@@ -277,14 +275,14 @@ static int load_group_ids(GroupArray *pGroupArray, \
 			continue;
 		}
 
-		pServerEnd = pServerArray->servers+pServerArray->count;
-		for (pServerInfo=pServerArray->servers; \
-			pServerInfo<pServerEnd; pServerInfo++)
+		ppServerEnd = pServerArray->servers+pServerArray->count;
+		for (ppServerInfo=pServerArray->servers; \
+			ppServerInfo<ppServerEnd; ppServerInfo++)
 		{
 			for (k=0; k < addrs_count; k++)
 			{
 				if (strcmp(host_addrs[k], \
-					pServerInfo->ip_addr) == 0)
+					(*ppServerInfo)->ip_addr) == 0)
 				{
 					(*group_ids)[*group_count] = id;
 					(*group_count)++;
@@ -569,7 +567,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		g_group_count = groupArray.count;
+		g_group_count = groupArray.group_count;
 		if ((result=load_group_ids(&groupArray, bind_addr, \
 				group_ids, group_count)) != 0)
 		{
