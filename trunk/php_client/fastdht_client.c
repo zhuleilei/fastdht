@@ -112,7 +112,7 @@ ZEND_FUNCTION(fastdht_set)
 }
 
 /*
-string fastdht_get(string namespace, string object_id, string key
+string/int fastdht_get(string namespace, string object_id, string key
 		[, int expires])
 return string value for success, int value (errno) for error
 */
@@ -171,7 +171,7 @@ ZEND_FUNCTION(fastdht_get)
 }
 
 /*
-string fastdht_inc(string namespace, string object_id, string key, 
+string/int fastdht_inc(string namespace, string object_id, string key, 
 		int increment [, int expires])
 return string value for success, int value (errno) for error
 */
