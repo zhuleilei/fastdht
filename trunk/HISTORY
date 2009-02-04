@@ -1,4 +1,7 @@
 
+Version 1.05  2009-02-04
+  * only start one dead_lock_detect thread
+
 Version 1.04  2009-01-29
   * sync.c: when call socket fail, continue deal (do not exit)
   * client: share a same sock when the ip and port of servers are same

@@ -473,23 +473,62 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 
 void *bdb_dl_detect_entrance(void *arg)
 {
-	DB_ENV *dbenv;
 	struct timeval t;
 	int nSec;
 	int nUsec;
+	int my_db_count;
+	DBInfo **my_db_list;
+	DBInfo **ppDBInfo;
+	DBInfo **ppEnd;
 
 	nSec = g_db_dead_lock_detect_interval / 1000;
 	nUsec = (g_db_dead_lock_detect_interval % 1000) * 1000;
 
-	dbenv = (DB_ENV *)arg;
+	my_db_count = 0;
+	ppEnd = g_db_list + g_db_count;
+	for (ppDBInfo=g_db_list; ppDBInfo<ppEnd; ppDBInfo++)
+	{
+		if (*ppDBInfo != NULL)
+		{
+			my_db_count++;
+		}
+	}
+
+	my_db_list = (DBInfo **)malloc(sizeof(DBInfo *) * my_db_count);
+	if (my_db_list == NULL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, " \
+			"error no: %d, error info: %s", \
+			__LINE__, sizeof(DBInfo *) * my_db_count, \
+			errno, strerror(errno));
+		return NULL;
+	}
+
+	my_db_count = 0;
+	for (ppDBInfo=g_db_list; ppDBInfo<ppEnd; ppDBInfo++)
+	{
+		if (*ppDBInfo != NULL)
+		{
+			my_db_list[my_db_count++] = *ppDBInfo;
+		}
+	}
+
+	ppEnd = my_db_list + my_db_count;
 	while (g_continue_flag)
 	{
-		dbenv->lock_detect(dbenv, 0, DB_LOCK_YOUNGEST, NULL);
+		for (ppDBInfo=my_db_list; ppDBInfo<ppEnd; ppDBInfo++)
+		{
+			(*ppDBInfo)->env->lock_detect((*ppDBInfo)->env, 0, \
+					DB_LOCK_YOUNGEST, NULL);
+		}
 
 		t.tv_sec = nSec;
 		t.tv_usec = nUsec;
 		select(0, NULL, NULL, NULL, &t);
 	}
+	
+	free(my_db_list);
 
 	return NULL;
 }

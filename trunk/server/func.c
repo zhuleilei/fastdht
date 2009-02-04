@@ -39,12 +39,9 @@
 DBInfo **g_db_list = NULL;
 int g_db_count = 0;
 
-static pthread_t *dld_tids = NULL;
-static int dld_tid_count = 0;
+static pthread_t dld_tid = 0;
 
 static int fdht_stat_fd = -1;
-
-static void fdht_kill_db_dld_threads();
 
 int group_cmp_by_ip_and_port(const void *p1, const void *p2)
 {
@@ -780,9 +777,7 @@ static int fdht_load_stat_from_file()
 
 int start_dl_detect_thread()
 {
-	int i;
 	int result;
-	pthread_t *ptid;
 	pthread_attr_t thread_attr;
 
 	if (g_db_dead_lock_detect_interval <= 0)
@@ -795,48 +790,14 @@ int start_dl_detect_thread()
 		return result;
 	}
 
-	dld_tid_count = 0;
-	for (i=0; i<g_db_count; i++)
-	{
-		if (g_db_list[i] != NULL)
-		{
-			dld_tid_count++;
-		}
-	}
-
-	dld_tids = (pthread_t *)malloc(sizeof(pthread_t) * dld_tid_count);
-	if (dld_tids == NULL)
+	if ((result = pthread_create(&dld_tid, &thread_attr, \
+			bdb_dl_detect_entrance, NULL)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"malloc %d bytes fail, " \
-			"error no: %d, error info: %s", \
-			__LINE__, sizeof(pthread_t) * dld_tid_count, \
-			errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
-	}
-
-	memset(dld_tids, 0, sizeof(pthread_t) * dld_tid_count);
-
-	ptid = dld_tids;
-	for (i=0; i<g_db_count; i++)
-	{
-		if (g_db_list[i] == NULL)
-		{
-			continue;
-		}
-
-		if ((result = pthread_create(ptid, &thread_attr, \
-			bdb_dl_detect_entrance, \
-			(void *)(g_db_list[i]->env))) != 0)
-		{
-			logError("file: "__FILE__", line: %d, " \
 				"create bdb_dl_detect_thread fail, " \
 				"error no: %d, error info: %s", \
 				__LINE__, result, strerror(result));
-			return result;
-		}
-
-		ptid++;
+		return result;
 	}
 
 	pthread_attr_destroy(&thread_attr);
@@ -1032,29 +993,13 @@ int fdht_write_to_stat_file()
 			fdht_get_stat_filename, NULL, buff, len);
 }
 
-static void fdht_kill_db_dld_threads()
-{
-	int i;
-
-	if (dld_tids != NULL)
-	{
-		for (i=0; i<dld_tid_count; i++)
-		{
-			pthread_kill(dld_tids[i], SIGINT);
-		}
-
-		free(dld_tids);
-		dld_tids = NULL;
-	}
-}
-
 int fdht_terminate()
 {
 	int result;
 
 	g_continue_flag = false;
 
-	fdht_kill_db_dld_threads();
+	pthread_kill(dld_tid, SIGINT);
 
 	result = kill_recv_thread();
 	result += kill_send_thread();
