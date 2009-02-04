@@ -633,6 +633,19 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 			"server: %s:%d not in my group!", \
 			__LINE__, pTask->client_ip, targetServer.port);
 		pTask->length = sizeof(ProtoHeader);
+
+		if (g_log_level >= LOG_DEBUG)
+		{
+			int k;
+			logDebug("My group server list:");
+			for (k=0; k<g_group_server_count; k++)
+			{
+				logDebug("\t%d. %s:%d", k+1, \
+					g_group_servers[k].ip_addr, \
+					g_group_servers[k].port);
+			}
+		}
+
 		return ENOENT;
 	}
 
