@@ -25,10 +25,23 @@ extern "C" {
 
 typedef void* (*MallocFunc)(size_t size);
 
-extern GroupArray g_group_array;
-extern bool g_keep_alive;
+extern GroupArray g_group_array; //group info, including server list
+extern bool g_keep_alive;  //persistent connection flag
 
+/*
+init function
+param:
+	filename: client config filename
+return: 0 for success, != 0 for fail (errno)
+*/
 int fdht_client_init(const char *filename);
+
+
+/*
+destroy function, free resource
+param:
+return: none
+*/
 void fdht_client_destroy();
 
 #define fdht_get(pKeyInfo, ppValue, value_len) \
@@ -51,18 +64,66 @@ void fdht_client_destroy();
 	fdht_delete_ex((&g_group_array), g_keep_alive, pKeyInfo)
 
 
+/*
+get value of the key
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pKeyInfo:  the key to fetch
+	expires:  expire time (unix timestamp)
+		FDHT_EXPIRES_NONE - do not change the expire time of the key
+		FDHT_EXPIRES_NEVER- set the expire time to forever(never expired)
+	ppValue: return the value of the key
+	value_len: return the length of the value (bytes)
+	malloc_func: malloc function, can be standard function named malloc
+return: 0 for success, != 0 for fail (errno)
+*/
 int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		char **ppValue, int *value_len, MallocFunc malloc_func);
 
+/*
+set value of the key
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pKeyInfo:  the key to set
+	expires:  expire time (unix timestamp)
+		FDHT_EXPIRES_NEVER- set the expire time to forever(never expired)
+	pValue: the value of the key
+	value_len: the length of the value (bytes)
+return: 0 for success, != 0 for fail (errno)
+*/
 int fdht_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		const char *pValue, const int value_len);
 
+/*
+increase value of the key, if the key does not exist, 
+set the value to increment value (param named "increase")
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pKeyInfo:  the key to increase 
+	expires:  expire time (unix timestamp)
+		FDHT_EXPIRES_NEVER- set the expire time to forever(never expired)
+	increase: the increment value, can be negative, eg. 1 or -1
+	pValue: return the value after increment
+	value_len: return the length of the value (bytes)
+return: 0 for success, != 0 for fail (errno)
+*/
 int fdht_inc_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		const int increase, char *pValue, int *value_len);
 
+/*
+delete the key
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pKeyInfo:  the key to delete
+return: 0 for success, != 0 for fail (errno)
+*/
 int fdht_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTKeyInfo *pKeyInfo);
 
