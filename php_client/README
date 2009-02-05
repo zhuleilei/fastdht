@@ -57,12 +57,13 @@ return: string value for success, int value (errno) for error
 
 string/int fastdht_inc(string namespace, string object_id, string key, 
 		int increment [, int expires])
-increase value of the key
+increase value of the key, if the key does not exist,
+set the value to increment value (param named "increment")
 params:
 	namespace: the namespace of the key, can be empty
 	object_id: the object ID of the key, can be empty
 	key: the key name, can't be empty
-	increment: increment value, can be negative
+	increment: the increment value, can be negative
 	expires: optional, omitted or FDHT_EXPIRES_NEVER for persistent
 		 storage (never expired)
 return: the value after increment, string value for success, 
