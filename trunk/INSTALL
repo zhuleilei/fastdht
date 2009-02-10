@@ -27,7 +27,7 @@ make; make install
 # http://code.google.com/p/fastdht/downloads/list
 # then unpack the source package as:
 # tar xzf FastDHT_v1.xx.tar.gz
-tar xzf FastDHT_v1.03.tar.gz
+tar xzf FastDHT_v1.05.tar.gz
 cd FastDHT
 ./make.sh; ./make.sh install
 
@@ -56,8 +56,8 @@ base_path=/home/yuqing/fastdht
 max_connections=256
 
 # work thread count, should <= max_connections
-# default value is 64
-max_threads=64
+# default value is 32
+max_threads=32
 
 # max communication package size
 # bytes unit can be one of follows:
@@ -67,6 +67,17 @@ max_threads=64
 ### no unit for byte(B)
 # default value is 64KB
 max_pkg_size=64KB
+
+# min buff size, the task queue size at least: max_connections * min_buff_size,
+# you can set the value of min_buff_size to that of max_pkg_size to avoid
+# memory re-alloc if memory is enough.
+# bytes unit can be one of follows:
+### G or g for gigabyte(GB)
+### M or m for megabyte(MB)
+### K or k for kilobyte(KB)
+### no unit for byte(B)
+# default value is 64KB
+min_buff_size=64KB
 
 # the db filename prefix
 db_prefix = db
@@ -183,9 +194,11 @@ memo:
 ----------------------------------------------------
 | max_connections        | int    | 256     |  N   |
 ----------------------------------------------------
-| max_threads            | int    |  64     |  N   |
+| max_threads            | int    |  32     |  N   |
 ----------------------------------------------------
 | max_pkg_size           | string | 64KB    |  N   |
+----------------------------------------------------
+| min_buff_size          | string | 64KB    |  N   |
 ----------------------------------------------------
 | cache_size             | string | 64MB    |  N   |
 ----------------------------------------------------

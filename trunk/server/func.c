@@ -339,11 +339,13 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char *pCacheSize;
 	char *pPageSize;
 	char *pMaxPkgSize;
+	char *pMinBuffSize;
 	int64_t nPageSize;
 	IniItemInfo *items;
 	int nItemCount;
 	int result;
 	int64_t max_pkg_size;
+	int64_t min_buff_size;
 	GroupArray groupArray;
 	char sz_sync_db_time_base[16];
 	char sz_clear_expired_time_base[16];
@@ -468,6 +470,22 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				return result;
 			}
 			g_max_pkg_size = (int)max_pkg_size;
+		}
+
+		pMinBuffSize = iniGetStrValue("min_buff_size", \
+				items, nItemCount);
+		if (pMinBuffSize == NULL)
+		{
+			g_min_buff_size = FDHT_MIN_BUFF_SIZE;
+		}
+		else
+		{
+			if ((result=parse_bytes(pMinBuffSize, 1, \
+					&min_buff_size)) != 0)
+			{
+				return result;
+			}
+			g_min_buff_size = (int)min_buff_size;
 		}
 
 		g_sync_wait_usec = iniGetIntValue("sync_wait_msec", \
@@ -659,6 +677,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"max_connections=%d, "    \
 			"max_threads=%d, "    \
 			"max_pkg_size=%d KB, " \
+			"min_buff_size=%d KB, " \
 			"db_type=%s, " \
 			"db_prefix=%s, " \
 			"cache_size=%d MB, page_size=%d, " \
@@ -674,6 +693,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_group_server_count, g_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
 			g_max_threads, g_max_pkg_size / 1024, \
+			g_min_buff_size / 1024, \
 			*db_type == DB_BTREE ? "btree" : "hash", \
 			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
 			*page_size, g_sync_wait_usec / 1000, g_allow_ip_count, \

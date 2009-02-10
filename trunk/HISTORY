@@ -1,4 +1,7 @@
 
+Version 1.06  2009-02-10
+  * in config file conf/fdhtd.conf: add item "min_buff_size"
+
 Version 1.05  2009-02-04
   * only start one dead_lock_detect thread to save resource
   * in file php_client/README: add function description
