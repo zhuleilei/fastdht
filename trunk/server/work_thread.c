@@ -52,6 +52,7 @@ static void wait_for_work_threads_exit();
 static int deal_task(struct task_info *pTask);
 
 static int deal_cmd_get(struct task_info *pTask);
+static int deal_cmd_gets(struct task_info *pTask);
 static int deal_cmd_set(struct task_info *pTask, byte op_type);
 static int deal_cmd_del(struct task_info *pTask, byte op_type);
 static int deal_cmd_inc(struct task_info *pTask);
@@ -365,8 +366,8 @@ static int deal_task(struct task_info *pTask)
 		return  EINVAL; \
 	} \
 
-#define PARSE_COMMON_BODY(min_body_len, pTask, nInBodyLen, key_info, \
-		pNameSpace, pObjectId, pKey) \
+#define PARSE_COMMON_BODY_BEFORE_KEY(min_body_len, pTask, nInBodyLen, key_info,\
+		pNameSpace, pObjectId) \
 	nInBodyLen = pTask->length - sizeof(ProtoHeader); \
 	if (nInBodyLen <= min_body_len) \
 	{ \
@@ -428,7 +429,10 @@ static int deal_task(struct task_info *pTask)
 	{ \
 		memcpy(key_info.szObjectId, pObjectId, key_info.obj_id_len); \
 	} \
- \
+
+
+#define PARSE_COMMON_BODY_KEY(min_body_len, pTask, nInBodyLen, key_info, \
+		pNameSpace, pObjectId, pKey) \
 	key_info.key_len = buff2int(pObjectId + key_info.obj_id_len); \
 	if (key_info.key_len < 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN) \
 	{ \
@@ -455,11 +459,11 @@ static int deal_task(struct task_info *pTask)
 
 /**
 * request body format:
-*       key_info.namespace_len:  4 bytes big endian integer
+*       namespace_len:  4 bytes big endian integer
 *       namespace: can be emtpy
-*       key_info.obj_id_len:  4 bytes big endian integer
+*       obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
-*       key_info.key_len:  4 bytes big endian integer
+*       key_len:  4 bytes big endian integer
 *       key:      key name
 * response body format:
 *       value_len:  4 bytes big endian integer
@@ -486,7 +490,9 @@ static int deal_cmd_get(struct task_info *pTask)
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
-	PARSE_COMMON_BODY(12, pTask, nInBodyLen, key_info, pNameSpace, \
+	PARSE_COMMON_BODY_BEFORE_KEY(12, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId)
+	PARSE_COMMON_BODY_KEY(12, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
 
 	if (nInBodyLen != 12 + key_info.namespace_len + key_info.obj_id_len + \
@@ -567,6 +573,163 @@ static int deal_cmd_get(struct task_info *pTask)
 
 	return 0;
 }
+
+
+/**
+* request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
+*       key_count: 4 bytes key count (big endian integer), must > 0
+*       key_len*:  4 bytes big endian integer
+*       key*:      key name
+* response body format:
+*       key_count: key count, must > 0
+*       key_len*:  4 bytes big endian integer
+*       key*:      key_len bytes key name
+*       status*:     1 byte key status
+*       value_len*:  4 bytes big endian integer
+*       value*:      value_len bytes value buff
+*/
+static int deal_cmd_gets(struct task_info *pTask)
+{
+	int nInBodyLen;
+	FDHTKeyInfo key_info;
+	int key_hash_code;
+	int group_id;
+	int timestamp;
+	int old_expires;
+	int new_expires;
+	char *pNameSpace;
+	int key_count;
+	char *pObjectId;
+	char *pKey;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	char *pValue;
+	char *p;  //tmp var
+	int full_key_len;
+	int value_len;
+	int result;
+
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
+
+	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId)
+
+	key_count = buff2int(pObjectId + key_info.obj_id_len);
+	if (key_count <= 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, invalid key count: %d", \
+			__LINE__, pTask->client_ip, key_count); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	}
+
+	key_info.key_len = buff2int(pObjectId + key_info.obj_id_len); \
+	if (key_info.key_len < 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, invalid key length: %d", \
+			__LINE__, pTask->client_ip, key_info.key_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+
+	if (nInBodyLen < 16 + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, 16 + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len); \
+		pTask->length = sizeof(ProtoHeader); \
+		return EINVAL; \
+	} \
+	pKey = pObjectId + key_info.obj_id_len + 4; \
+	memcpy(key_info.szKey, pKey, key_info.key_len); \
+
+	if (nInBodyLen != 16 + key_info.namespace_len + key_info.obj_id_len + \
+				key_info.key_len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, 16 + key_info.namespace_len + \
+			key_info.obj_id_len + key_info.key_len);
+		pTask->length = sizeof(ProtoHeader);
+		return EINVAL;
+	}
+
+	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
+
+	pValue = pTask->data + sizeof(ProtoHeader);
+	value_len = pTask->size - sizeof(ProtoHeader);
+	if ((result=db_get(g_db_list[group_id], full_key, full_key_len, \
+               	&pValue, &value_len)) != 0)
+	{
+		if (result == ENOSPC)
+		{
+			char *pTemp;
+
+			pTemp = (char *)pTask->data;
+			pTask->data = malloc(sizeof(ProtoHeader) + value_len);
+			if (pTask->data == NULL)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"malloc %d bytes failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, pTask->size, \
+					errno, strerror(errno));
+
+				pTask->data = pTemp;  //restore old data
+				pTask->length = sizeof(ProtoHeader);
+				return ENOMEM;
+			}
+
+			memcpy(pTask->data, pTemp, sizeof(ProtoHeader));
+			free(pTemp);
+			pTask->size = sizeof(ProtoHeader) + value_len;
+
+			pValue = pTask->data + sizeof(ProtoHeader);
+			if ((result=db_get(g_db_list[group_id], full_key, \
+				full_key_len, &pValue, &value_len)) != 0)
+			{
+				pTask->length = sizeof(ProtoHeader);
+				return result;
+			}
+		}
+		else
+		{
+			pTask->length = sizeof(ProtoHeader);
+			return result;
+		}
+	}
+
+	old_expires = buff2int(pValue);
+	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < time(NULL))
+	{
+		pTask->length = sizeof(ProtoHeader);
+		return ENOENT;
+	}
+
+	if (new_expires != FDHT_EXPIRES_NONE)
+	{
+		int2buff(new_expires, pValue);
+		result = db_set(g_db_list[group_id], full_key, full_key_len, \
+			pValue, value_len);
+	}
+
+	value_len -= 4;
+	pTask->length = sizeof(ProtoHeader) + 4 + value_len;
+	memcpy(((ProtoHeader *)pTask->data)->expires, pValue, 4);
+	int2buff(value_len, pTask->data+sizeof(ProtoHeader));
+
+	return 0;
+}
+
 
 #define PACK_SYNC_REQ_BODY(pTask) \
 	pTask->length = sizeof(ProtoHeader) + 1 + IP_ADDRESS_SIZE + 8; \
@@ -829,11 +992,11 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 
 /**
 * request body format:
-*       key_info.namespace_len:  4 bytes big endian integer
+*       namespace_len:  4 bytes big endian integer
 *       namespace: can be emtpy
-*       key_info.obj_id_len:  4 bytes big endian integer
+*       obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
-*       key_info.key_len:  4 bytes big endian integer
+*       key_len:  4 bytes big endian integer
 *       key:      key name
 *       value_len:  4 bytes big endian integer
 *       value:      value buff
@@ -860,8 +1023,10 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
-	PARSE_COMMON_BODY(16, pTask, nInBodyLen, key_info, pNameSpace, \
-			pObjectId, pKey)
+	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId)
+	PARSE_COMMON_BODY_KEY(16, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId, pKey)
 
 	value_len = buff2int(pKey + key_info.key_len);
 	if (value_len < 0)
@@ -942,7 +1107,9 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
-	PARSE_COMMON_BODY(12, pTask, nInBodyLen, key_info, pNameSpace, \
+	PARSE_COMMON_BODY_BEFORE_KEY(12, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId)
+	PARSE_COMMON_BODY_KEY(12, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
 
 	if (nInBodyLen != 12 + key_info.namespace_len + key_info.obj_id_len + \
@@ -979,11 +1146,11 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 
 /**
 * request body format:
-*       key_info.namespace_len:  4 bytes big endian integer
+*       namespace_len:  4 bytes big endian integer
 *       namespace: can be emtpy
-*       key_info.obj_id_len:  4 bytes big endian integer
+*       obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
-*       key_info.key_len:  4 bytes big endian integer
+*       key_len:  4 bytes big endian integer
 *       key:      key name
 *       incr      4 bytes big endian integer
 * response body format:
@@ -1011,8 +1178,11 @@ static int deal_cmd_inc(struct task_info *pTask)
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
-	PARSE_COMMON_BODY(16, pTask, nInBodyLen, key_info, pNameSpace, \
+	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId)
+	PARSE_COMMON_BODY_KEY(16, pTask, nInBodyLen, key_info, pNameSpace, \
 			pObjectId, pKey)
+
 	if (nInBodyLen != 16 + key_info.namespace_len + key_info.obj_id_len + \
 			key_info.key_len)
 	{
