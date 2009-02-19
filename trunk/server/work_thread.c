@@ -585,12 +585,12 @@ static int deal_cmd_get(struct task_info *pTask)
 *       key_len*:  4 bytes big endian integer
 *       key*:      key name
 * response body format:
-*       key_count: key count, must > 0
+*       key_count: key count, 4 bytes big endian integer, must > 0
 *       key_len*:  4 bytes big endian integer
 *       key*:      key_len bytes key name
 *       status*:     1 byte key status
-*       value_len*:  4 bytes big endian integer
-*       value*:      value_len bytes value buff
+*       value_len*:  4 bytes big endian integer (when status == 0)
+*       value*:      value_len bytes value buff (when status == 0)
 */
 static int deal_cmd_gets(struct task_info *pTask)
 {
@@ -601,12 +601,17 @@ static int deal_cmd_gets(struct task_info *pTask)
 	int timestamp;
 	int old_expires;
 	int new_expires;
+	int min_expires;
 	char *pNameSpace;
 	int key_count;
+	int i;
+	int previous_len;
 	char *pObjectId;
 	char *pKey;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	char *pValue;
+	char *pDest;
+	char *pCurrent;
 	char *p;  //tmp var
 	int full_key_len;
 	int value_len;
@@ -622,37 +627,137 @@ static int deal_cmd_gets(struct task_info *pTask)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, invalid key count: %d", \
-			__LINE__, pTask->client_ip, key_count); \
-		pTask->length = sizeof(ProtoHeader); \
-		return EINVAL; \
+			__LINE__, pTask->client_ip, key_count);
+		pTask->length = sizeof(ProtoHeader);
+		return EINVAL;
 	}
 
-	key_info.key_len = buff2int(pObjectId + key_info.obj_id_len); \
-	if (key_info.key_len < 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN) \
-	{ \
+	
+	if (new_expires != FDHT_EXPIRES_NONE)
+	{
+		min_expires = new_expires;
+	}
+	else
+	{
+		min_expires = FDHT_EXPIRES_NEVER;
+	}
+
+	previous_len = 12 + key_info.namespace_len + key_info.obj_id_len;
+	pCurrent = pObjectId + key_info.obj_id_len + 4;
+	pDest = pTask->data + sizeof(ProtoHeader);
+	int2buff(key_count, pDest);
+	pDest += 4;
+	for (i=0; i<key_count; i++)
+	{
+	key_info.key_len = buff2int(pCurrent);
+	if (key_info.key_len <= 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN)
+	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, invalid key length: %d", \
-			__LINE__, pTask->client_ip, key_info.key_len); \
-		pTask->length = sizeof(ProtoHeader); \
-		return EINVAL; \
-	} \
+			__LINE__, pTask->client_ip, key_info.key_len);
+		pTask->length = sizeof(ProtoHeader);
+		return EINVAL;
+	}
 
-	if (nInBodyLen < 16 + key_info.namespace_len + \
-			key_info.obj_id_len + key_info.key_len) \
-	{ \
+	if (nInBodyLen < previous_len + 4 + key_info.key_len)
+	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
-			__LINE__, pTask->client_ip, \
-			nInBodyLen, 16 + key_info.namespace_len + \
-			key_info.obj_id_len + key_info.key_len); \
-		pTask->length = sizeof(ProtoHeader); \
-		return EINVAL; \
-	} \
-	pKey = pObjectId + key_info.obj_id_len + 4; \
-	memcpy(key_info.szKey, pKey, key_info.key_len); \
+			__LINE__, pTask->client_ip, nInBodyLen, \
+			previous_len + 4 + key_info.key_len);
+		pTask->length = sizeof(ProtoHeader);
+		return EINVAL;
+	}
+	pKey = pCurrent + 4;
+	memcpy(key_info.szKey, pKey, key_info.key_len);
+	pCurrent += 4 + key_info.key_len;
 
-	if (nInBodyLen != 16 + key_info.namespace_len + key_info.obj_id_len + \
-				key_info.key_len)
+	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
+
+	int2buff(key_info.key_len, pDest);
+	pDest += 4;
+	memcpy(pDest, pKey, key_info.key_len);
+	pDest += key_info.key_len + 1;
+
+	pValue = pDest;
+	value_len = pTask->size - (pDest - pTask->data);
+	result = db_get(g_db_list[group_id], full_key, full_key_len, \
+               	&pValue, &value_len);
+	if (result != 0)
+	{
+		*(pDest-1) = result;
+		if (result == ENOSPC)
+		{
+			char *pTemp;
+
+			pTemp = (char *)pTask->data;
+			pTask->data = realloc(pTask->data, sizeof(ProtoHeader) + value_len);
+			if (pTask->data == NULL)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"realloc %d bytes failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, pTask->size, \
+					errno, strerror(errno));
+
+				pTask->data = pTemp;  //restore old data
+				pTask->length = sizeof(ProtoHeader);
+				return ENOMEM;
+			}
+
+			pTask->size = sizeof(ProtoHeader) + value_len;
+
+			pValue = pTask->data + sizeof(ProtoHeader);
+			if ((result=db_get(g_db_list[group_id], full_key, \
+				full_key_len, &pValue, &value_len)) != 0)
+			{
+				continue;
+			}
+		}
+		else
+		{
+			continue;
+		}
+	}
+
+	old_expires = buff2int(pValue);
+	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < time(NULL))
+	{
+		*(pDest-1) = ENOENT;
+		continue;
+	}
+
+	*(pDest-1) = 0;
+	if (new_expires != FDHT_EXPIRES_NONE)
+	{
+		int2buff(new_expires, pValue);
+		result = db_set(g_db_list[group_id], full_key, full_key_len, \
+			pValue, value_len);
+	}
+	else
+	{
+		if (min_expires == FDHT_EXPIRES_NEVER)
+		{
+			if (old_expires != FDHT_EXPIRES_NEVER)
+			{
+				min_expires = old_expires;
+			}
+		}
+		else
+		{
+			if (old_expires != FDHT_EXPIRES_NEVER && \
+				old_expires < min_expires)
+			{
+				min_expires = old_expires;
+			}
+		}
+	}
+
+	int2buff(value_len - 4, pDest);
+	pDest += value_len;
+	}
+
+	if (nInBodyLen != pCurrent - pTask->data)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
@@ -663,73 +768,11 @@ static int deal_cmd_gets(struct task_info *pTask)
 		return EINVAL;
 	}
 
-	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
-
-	pValue = pTask->data + sizeof(ProtoHeader);
-	value_len = pTask->size - sizeof(ProtoHeader);
-	if ((result=db_get(g_db_list[group_id], full_key, full_key_len, \
-               	&pValue, &value_len)) != 0)
-	{
-		if (result == ENOSPC)
-		{
-			char *pTemp;
-
-			pTemp = (char *)pTask->data;
-			pTask->data = malloc(sizeof(ProtoHeader) + value_len);
-			if (pTask->data == NULL)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"malloc %d bytes failed, " \
-					"errno: %d, error info: %s", \
-					__LINE__, pTask->size, \
-					errno, strerror(errno));
-
-				pTask->data = pTemp;  //restore old data
-				pTask->length = sizeof(ProtoHeader);
-				return ENOMEM;
-			}
-
-			memcpy(pTask->data, pTemp, sizeof(ProtoHeader));
-			free(pTemp);
-			pTask->size = sizeof(ProtoHeader) + value_len;
-
-			pValue = pTask->data + sizeof(ProtoHeader);
-			if ((result=db_get(g_db_list[group_id], full_key, \
-				full_key_len, &pValue, &value_len)) != 0)
-			{
-				pTask->length = sizeof(ProtoHeader);
-				return result;
-			}
-		}
-		else
-		{
-			pTask->length = sizeof(ProtoHeader);
-			return result;
-		}
-	}
-
-	old_expires = buff2int(pValue);
-	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < time(NULL))
-	{
-		pTask->length = sizeof(ProtoHeader);
-		return ENOENT;
-	}
-
-	if (new_expires != FDHT_EXPIRES_NONE)
-	{
-		int2buff(new_expires, pValue);
-		result = db_set(g_db_list[group_id], full_key, full_key_len, \
-			pValue, value_len);
-	}
-
-	value_len -= 4;
-	pTask->length = sizeof(ProtoHeader) + 4 + value_len;
-	memcpy(((ProtoHeader *)pTask->data)->expires, pValue, 4);
-	int2buff(value_len, pTask->data+sizeof(ProtoHeader));
+	pTask->length = pDest - pTask->data;
+	int2buff(min_expires, ((ProtoHeader *)pTask->data)->expires);
 
 	return 0;
 }
-
 
 #define PACK_SYNC_REQ_BODY(pTask) \
 	pTask->length = sizeof(ProtoHeader) + 1 + IP_ADDRESS_SIZE + 8; \
