@@ -22,6 +22,7 @@
 #define DEFAULT_SYNC_WAIT_MSEC    100
 #define DEFAULT_CLEAR_EXPIRED_INVERVAL          0
 #define DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL 1000
+#define FDHT_MAX_KEY_COUNT_PER_REQ  128
 
 #ifdef __cplusplus
 extern "C" {
