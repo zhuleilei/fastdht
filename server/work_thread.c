@@ -575,6 +575,26 @@ static int deal_cmd_get(struct task_info *pTask)
 }
 
 
+#define CHECK_BUFF_SIZE(pTask, old_len, value_len, new_size, pTemp) \
+			new_size = old_len + value_len + 8 * 1024; \
+			pTemp = (char *)pTask->data; \
+			pTask->data = realloc(pTask->data, new_size); \
+			if (pTask->data == NULL) \
+			{ \
+				logError("file: "__FILE__", line: %d, " \
+					"realloc %d bytes failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, new_size, \
+					errno, strerror(errno)); \
+ \
+				pTask->data = pTemp;  /* restore old data */ \
+				pTask->length = sizeof(ProtoHeader); \
+				return ENOMEM; \
+			} \
+ \
+			pTask->size = new_size; \
+
+
 /**
 * request body format:
 *       namespace_len:  4 bytes big endian integer
@@ -605,17 +625,21 @@ static int deal_cmd_gets(struct task_info *pTask)
 	char *pNameSpace;
 	int key_count;
 	int i;
-	int previous_len;
+	int common_fileds_len;
 	char *pObjectId;
-	char *pKey;
+	char in_buff[(4 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ];
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	char *pValue;
+	char *pSrc;
 	char *pDest;
-	char *pCurrent;
 	char *p;  //tmp var
 	int full_key_len;
 	int value_len;
 	int result;
+	char *pTemp;
+	int old_len;
+	int new_size;
+
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
@@ -623,7 +647,7 @@ static int deal_cmd_gets(struct task_info *pTask)
 			pNameSpace, pObjectId)
 
 	key_count = buff2int(pObjectId + key_info.obj_id_len);
-	if (key_count <= 0)
+	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, invalid key count: %d", \
@@ -632,6 +656,16 @@ static int deal_cmd_gets(struct task_info *pTask)
 		return EINVAL;
 	}
 
+	common_fileds_len = 12 + key_info.namespace_len + key_info.obj_id_len;
+	if (nInBodyLen > common_fileds_len + (4 + FDHT_MAX_SUB_KEY_LEN) * key_count)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d > %d", \
+			__LINE__, pTask->client_ip, nInBodyLen, \
+			common_fileds_len + (4 + FDHT_MAX_SUB_KEY_LEN) * key_count);
+		pTask->length = sizeof(ProtoHeader);
+		return EINVAL;
+	}
 	
 	if (new_expires != FDHT_EXPIRES_NONE)
 	{
@@ -642,14 +676,16 @@ static int deal_cmd_gets(struct task_info *pTask)
 		min_expires = FDHT_EXPIRES_NEVER;
 	}
 
-	previous_len = 12 + key_info.namespace_len + key_info.obj_id_len;
-	pCurrent = pObjectId + key_info.obj_id_len + 4;
+	memcpy(in_buff, pObjectId + key_info.obj_id_len + 4, \
+		nInBodyLen - common_fileds_len);
+	pSrc = in_buff;
+
 	pDest = pTask->data + sizeof(ProtoHeader);
 	int2buff(key_count, pDest);
 	pDest += 4;
 	for (i=0; i<key_count; i++)
 	{
-	key_info.key_len = buff2int(pCurrent);
+	key_info.key_len = buff2int(pSrc);
 	if (key_info.key_len <= 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -659,25 +695,34 @@ static int deal_cmd_gets(struct task_info *pTask)
 		return EINVAL;
 	}
 
-	if (nInBodyLen < previous_len + 4 + key_info.key_len)
+	if (nInBodyLen < common_fileds_len + (pSrc - in_buff) + \
+			4 + key_info.key_len)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, nInBodyLen, \
-			previous_len + 4 + key_info.key_len);
+			common_fileds_len + (pSrc - in_buff) + \
+			4 + key_info.key_len);
 		pTask->length = sizeof(ProtoHeader);
 		return EINVAL;
 	}
-	pKey = pCurrent + 4;
-	memcpy(key_info.szKey, pKey, key_info.key_len);
-	pCurrent += 4 + key_info.key_len;
+	memcpy(key_info.szKey, pSrc + 4, key_info.key_len);
+	pSrc += 4 + key_info.key_len;
 
-	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
+	old_len = pDest - pTask->data;
+	value_len = 9 + key_info.key_len;
+	if (pTask->size <= old_len + value_len)
+	{
+		CHECK_BUFF_SIZE(pTask, old_len, value_len, new_size, pTemp)
+		pDest = pTask->data + old_len;
+	}
 
 	int2buff(key_info.key_len, pDest);
 	pDest += 4;
-	memcpy(pDest, pKey, key_info.key_len);
+	memcpy(pDest, key_info.szKey, key_info.key_len);
 	pDest += key_info.key_len + 1;
+
+	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	pValue = pDest;
 	value_len = pTask->size - (pDest - pTask->data);
@@ -688,26 +733,13 @@ static int deal_cmd_gets(struct task_info *pTask)
 		*(pDest-1) = result;
 		if (result == ENOSPC)
 		{
-			char *pTemp;
+			old_len = pDest - pTask->data;
 
-			pTemp = (char *)pTask->data;
-			pTask->data = realloc(pTask->data, sizeof(ProtoHeader) + value_len);
-			if (pTask->data == NULL)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"realloc %d bytes failed, " \
-					"errno: %d, error info: %s", \
-					__LINE__, pTask->size, \
-					errno, strerror(errno));
+			CHECK_BUFF_SIZE(pTask, old_len, value_len, new_size, pTemp)
 
-				pTask->data = pTemp;  //restore old data
-				pTask->length = sizeof(ProtoHeader);
-				return ENOMEM;
-			}
+			pDest = pTask->data + old_len;
 
-			pTask->size = sizeof(ProtoHeader) + value_len;
-
-			pValue = pTask->data + sizeof(ProtoHeader);
+			pValue = pDest;
 			if ((result=db_get(g_db_list[group_id], full_key, \
 				full_key_len, &pValue, &value_len)) != 0)
 			{
@@ -757,13 +789,14 @@ static int deal_cmd_gets(struct task_info *pTask)
 	pDest += value_len;
 	}
 
-	if (nInBodyLen != pCurrent - pTask->data)
+	if (nInBodyLen != 12 + key_info.namespace_len + key_info.obj_id_len \
+		 + (pSrc - in_buff))
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 16 + key_info.namespace_len + \
-			key_info.obj_id_len + key_info.key_len);
+			nInBodyLen, 12 + key_info.namespace_len + \
+			key_info.obj_id_len + (pSrc - in_buff));
 		pTask->length = sizeof(ProtoHeader);
 		return EINVAL;
 	}
