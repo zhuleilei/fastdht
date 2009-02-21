@@ -15,10 +15,13 @@
 
 #define FDHT_PROTO_CMD_QUIT	10
 
-#define FDHT_PROTO_CMD_SET	11
-#define FDHT_PROTO_CMD_INC	12
-#define FDHT_PROTO_CMD_GET	13
-#define FDHT_PROTO_CMD_DEL	14
+#define FDHT_PROTO_CMD_SET		11
+#define FDHT_PROTO_CMD_INC		12
+#define FDHT_PROTO_CMD_GET		13
+#define FDHT_PROTO_CMD_DEL		14
+#define FDHT_PROTO_CMD_BATCH_SET	15
+#define FDHT_PROTO_CMD_BATCH_GET	16
+#define FDHT_PROTO_CMD_BATCH_DEL	17
 
 #define FDHT_PROTO_CMD_SYNC_REQ	   21
 #define FDHT_PROTO_CMD_SYNC_NOTIFY 22  //sync done notify
@@ -53,6 +56,17 @@ typedef int fdht_pkg_size_t;
 	p += 4; \
 	memcpy(p, pKeyInfo->szKey, pKeyInfo->key_len); \
 	p += pKeyInfo->key_len; \
+
+
+#define PACK_BODY_OBJECT(pObjectInfo, p) \
+	int2buff(pObjectInfo->namespace_len, p); \
+	p += 4; \
+	memcpy(p, pObjectInfo->szNameSpace, pObjectInfo->namespace_len); \
+	p += pObjectInfo->namespace_len; \
+	int2buff(pObjectInfo->obj_id_len, p);  \
+	p += 4; \
+	memcpy(p, pObjectInfo->szObjectId, pObjectInfo->obj_id_len); \
+	p += pObjectInfo->obj_id_len; \
 
 
 typedef struct
