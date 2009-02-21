@@ -52,6 +52,14 @@ void fdht_client_destroy();
 	fdht_get_ex1((&g_group_array), g_keep_alive, pKeyInfo, expires, \
 			ppValue, value_len, malloc)
 
+#define  fdht_batch_get(pObjectInfo, key_list, key_count) \
+	fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
+			key_list, key_count, FDHT_EXPIRES_NONE, malloc)
+
+#define  fdht_batch_get_ex(pObjectInfo, key_list, key_count, expires) \
+	fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
+			key_list, key_count, expires, malloc)
+
 #define fdht_set(pKeyInfo, expires, pValue, value_len) \
 	fdht_set_ex((&g_group_array), g_keep_alive, pKeyInfo, expires, \
 		pValue, value_len)
@@ -81,6 +89,25 @@ return: 0 for success, != 0 for fail (errno)
 int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		char **ppValue, int *value_len, MallocFunc malloc_func);
+
+/*
+get values of the key list
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pObjectInfo:  the object to fetch, namespace and object id can't be empty
+	key_list: key list, return the value of the key
+	key_count: key count
+	expires:  expire time (unix timestamp)
+		FDHT_EXPIRES_NONE - do not change the expire time of the keys
+		FDHT_EXPIRES_NEVER- set the expire time to forever(never expired)
+	malloc_func: malloc function, can be standard function named malloc
+return: 0 for success, != 0 for fail (errno)
+*/
+int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
+		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
+		const int key_count, const time_t expires, \
+		MallocFunc malloc_func);
 
 /*
 set value of the key

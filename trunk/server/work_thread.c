@@ -305,6 +305,9 @@ static int deal_task(struct task_info *pTask)
 			close(pTask->ev.ev_fd);
 			free_queue_push(pTask);
 			return 0;
+		case FDHT_PROTO_CMD_BATCH_GET:
+			result = deal_cmd_gets(pTask);
+			break;
 		case FDHT_PROTO_CMD_SYNC_REQ:
 			result = deal_cmd_sync_req(pTask);
 			break;
@@ -624,6 +627,7 @@ static int deal_cmd_gets(struct task_info *pTask)
 	int min_expires;
 	char *pNameSpace;
 	int key_count;
+	int success_count;
 	int i;
 	int common_fileds_len;
 	char *pObjectId;
@@ -675,6 +679,9 @@ static int deal_cmd_gets(struct task_info *pTask)
 	{
 		min_expires = FDHT_EXPIRES_NEVER;
 	}
+
+	success_count = 0;
+	result = 0;
 
 	memcpy(in_buff, pObjectId + key_info.obj_id_len + 4, \
 		nInBodyLen - common_fileds_len);
@@ -730,7 +737,6 @@ static int deal_cmd_gets(struct task_info *pTask)
                	&pValue, &value_len);
 	if (result != 0)
 	{
-		*(pDest-1) = result;
 		if (result == ENOSPC)
 		{
 			old_len = pDest - pTask->data;
@@ -743,11 +749,13 @@ static int deal_cmd_gets(struct task_info *pTask)
 			if ((result=db_get(g_db_list[group_id], full_key, \
 				full_key_len, &pValue, &value_len)) != 0)
 			{
+				*(pDest-1) = result;
 				continue;
 			}
 		}
 		else
 		{
+			*(pDest-1) = result;
 			continue;
 		}
 	}
@@ -755,16 +763,19 @@ static int deal_cmd_gets(struct task_info *pTask)
 	old_expires = buff2int(pValue);
 	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < time(NULL))
 	{
-		*(pDest-1) = ENOENT;
+		*(pDest-1) = result = ENOENT;
 		continue;
 	}
 
-	*(pDest-1) = 0;
 	if (new_expires != FDHT_EXPIRES_NONE)
 	{
 		int2buff(new_expires, pValue);
-		result = db_set(g_db_list[group_id], full_key, full_key_len, \
-			pValue, value_len);
+		if ((result = db_set(g_db_list[group_id], full_key, \
+			full_key_len, pValue, value_len)) != 0)
+		{
+			*(pDest-1) = result;
+			continue;
+		}
 	}
 	else
 	{
@@ -785,26 +796,33 @@ static int deal_cmd_gets(struct task_info *pTask)
 		}
 	}
 
+	success_count++;
+	*(pDest-1) = 0;
 	int2buff(value_len - 4, pDest);
 	pDest += value_len;
 	}
 
-	if (nInBodyLen != 12 + key_info.namespace_len + key_info.obj_id_len \
-		 + (pSrc - in_buff))
+	if (nInBodyLen != common_fileds_len + (pSrc - in_buff))
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
 			__LINE__, pTask->client_ip, \
-			nInBodyLen, 12 + key_info.namespace_len + \
-			key_info.obj_id_len + (pSrc - in_buff));
+			nInBodyLen, common_fileds_len + (pSrc - in_buff));
 		pTask->length = sizeof(ProtoHeader);
 		return EINVAL;
 	}
 
-	pTask->length = pDest - pTask->data;
-	int2buff(min_expires, ((ProtoHeader *)pTask->data)->expires);
-
-	return 0;
+	if (success_count > 0)
+	{
+		pTask->length = pDest - pTask->data;
+		int2buff(min_expires, ((ProtoHeader *)pTask->data)->expires);
+		return 0;
+	}
+	else
+	{
+		pTask->length = sizeof(ProtoHeader);
+		return result;
+	}
 }
 
 #define PACK_SYNC_REQ_BODY(pTask) \
