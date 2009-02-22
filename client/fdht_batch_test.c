@@ -102,6 +102,11 @@ int main(int argc, char *argv[])
 			break;
 		}
 
+		for (i=0; i<key_count; i++)
+		{
+			key_list[i].pValue = NULL;
+			key_list[i].value_len = 0;
+		}
 		if ((result=fdht_batch_get_ex(&object_info, key_list, \
 				key_count, expires)) != 0)
 		{
