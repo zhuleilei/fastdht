@@ -64,6 +64,10 @@ void fdht_client_destroy();
 	fdht_set_ex((&g_group_array), g_keep_alive, pKeyInfo, expires, \
 		pValue, value_len)
 
+#define  fdht_batch_set(pObjectInfo, key_list, key_count, expires) \
+	fdht_batch_set_ex((&g_group_array), g_keep_alive, pObjectInfo, \
+			key_list, key_count, expires)
+
 #define fdht_inc(pKeyInfo, expires, increase, pValue, value_len) \
 	fdht_inc_ex((&g_group_array), g_keep_alive, pKeyInfo, expires, \
 		increase, pValue, value_len)
@@ -124,6 +128,22 @@ return: 0 for success, != 0 for fail (errno)
 int fdht_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTKeyInfo *pKeyInfo, const time_t expires, \
 		const char *pValue, const int value_len);
+
+/*
+set values of the key list
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pObjectInfo:  the object to fetch, namespace and object id can't be empty
+	key_list: key list, return the value of the key
+	key_count: key count
+	expires:  expire time (unix timestamp)
+		FDHT_EXPIRES_NEVER- set the expire time to forever(never expired)
+return: 0 for success, != 0 for fail (errno)
+*/
+int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
+		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
+		const int key_count, const time_t expires);
 
 /*
 increase value of the key, if the key does not exist, 

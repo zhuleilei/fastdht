@@ -52,12 +52,14 @@ static void wait_for_work_threads_exit();
 static int deal_task(struct task_info *pTask);
 
 static int deal_cmd_get(struct task_info *pTask);
-static int deal_cmd_gets(struct task_info *pTask);
 static int deal_cmd_set(struct task_info *pTask, byte op_type);
 static int deal_cmd_del(struct task_info *pTask, byte op_type);
 static int deal_cmd_inc(struct task_info *pTask);
 static int deal_cmd_sync_req(struct task_info *pTask);
 static int deal_cmd_sync_done(struct task_info *pTask);
+static int deal_cmd_batch_get(struct task_info *pTask);
+static int deal_cmd_batch_set(struct task_info *pTask);
+static int deal_cmd_batch_del(struct task_info *pTask);
 
 int work_thread_init()
 {
@@ -306,7 +308,10 @@ static int deal_task(struct task_info *pTask)
 			free_queue_push(pTask);
 			return 0;
 		case FDHT_PROTO_CMD_BATCH_GET:
-			result = deal_cmd_gets(pTask);
+			result = deal_cmd_batch_get(pTask);
+			break;
+		case FDHT_PROTO_CMD_BATCH_SET:
+			result = deal_cmd_batch_set(pTask);
 			break;
 		case FDHT_PROTO_CMD_SYNC_REQ:
 			result = deal_cmd_sync_req(pTask);
@@ -607,6 +612,151 @@ static int deal_cmd_get(struct task_info *pTask)
 *       key_count: 4 bytes key count (big endian integer), must > 0
 *       key_len*:  4 bytes big endian integer
 *       key*:      key name
+*       value_len*:  4 bytes big endian integer
+*       value*:      value_len bytes value buff
+* response body format:
+*       key_count: key count, 4 bytes big endian integer, must > 0
+*       key_len*:  4 bytes big endian integer
+*       key*:      key_len bytes key name
+*       status*:     1 byte key status
+*/
+static int deal_cmd_batch_set(struct task_info *pTask)
+{
+	int nInBodyLen;
+	FDHTKeyInfo key_info;
+	int key_hash_code;
+	int group_id;
+	int timestamp;
+	int new_expires;
+	char *pNameSpace;
+	int key_count;
+	int success_count;
+	int i;
+	int common_fileds_len;
+	char *pObjectId;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	char *pSrcStart;
+	char *pSrc;
+	char *pDest;
+	char *p;  //tmp var
+	int full_key_len;
+	int value_len;
+	int result;
+
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
+
+	PARSE_COMMON_BODY_BEFORE_KEY(20, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId)
+
+	key_count = buff2int(pObjectId + key_info.obj_id_len);
+	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, invalid key count: %d", \
+			__LINE__, pTask->client_ip, key_count);
+		pTask->length = sizeof(ProtoHeader);
+		return EINVAL;
+	}
+
+	common_fileds_len = 12 + key_info.namespace_len + key_info.obj_id_len;
+	
+	success_count = 0;
+	result = 0;
+
+	pSrc = pSrcStart = pObjectId + key_info.obj_id_len + 4;
+	pDest = pTask->data + sizeof(ProtoHeader);
+	int2buff(key_count, pDest);
+	pDest += 4;
+	for (i=0; i<key_count; i++)
+	{
+		key_info.key_len = buff2int(pSrc);
+		if (key_info.key_len <= 0 || \
+			key_info.key_len > FDHT_MAX_SUB_KEY_LEN)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, invalid key length: %d", \
+				__LINE__, pTask->client_ip, key_info.key_len);
+			pTask->length = sizeof(ProtoHeader);
+			return EINVAL;
+		}
+
+		if (nInBodyLen < common_fileds_len + (pSrc - pSrcStart) + \
+				8 + key_info.key_len)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, body length: %d != %d", \
+				__LINE__, pTask->client_ip, nInBodyLen, \
+				common_fileds_len + (pSrc - pSrcStart) + \
+				8 + key_info.key_len);
+			pTask->length = sizeof(ProtoHeader);
+			return EINVAL;
+		}
+		memcpy(key_info.szKey, pSrc + 4, key_info.key_len);
+		pSrc += 4 + key_info.key_len;
+
+		value_len = buff2int(pSrc);
+		if (nInBodyLen < common_fileds_len + (pSrc - pSrcStart) + \
+				4 + value_len)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, body length: %d != %d", \
+				__LINE__, pTask->client_ip, nInBodyLen, \
+				common_fileds_len + (pSrc - pSrcStart) + \
+				4 + value_len);
+			pTask->length = sizeof(ProtoHeader);
+			return EINVAL;
+		}
+
+		int2buff(key_info.key_len, pDest);
+		pDest += 4;
+		memcpy(pDest, key_info.szKey, key_info.key_len);
+		pDest += key_info.key_len;
+
+		FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
+
+		value_len += 4; //including expires field
+		int2buff(new_expires, pSrc);
+		*pDest++ = result = db_set(g_db_list[group_id], full_key, \
+				full_key_len, pSrc, value_len);
+		pSrc += value_len;
+		if (result == 0)
+		{
+			success_count++;
+		}
+	}
+
+	if (nInBodyLen != common_fileds_len + (pSrc - pSrcStart))
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != %d", \
+			__LINE__, pTask->client_ip, \
+			nInBodyLen, common_fileds_len + (pSrc - pSrcStart));
+		pTask->length = sizeof(ProtoHeader);
+		return EINVAL;
+	}
+
+	if (success_count > 0)
+	{
+		pTask->length = pDest - pTask->data;
+		int2buff(new_expires, ((ProtoHeader *)pTask->data)->expires);
+		return 0;
+	}
+	else
+	{
+		pTask->length = sizeof(ProtoHeader);
+		return result;
+	}
+}
+
+/**
+* request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
+*       key_count: 4 bytes key count (big endian integer), must > 0
+*       key_len*:  4 bytes big endian integer
+*       key*:      key name
 * response body format:
 *       key_count: key count, 4 bytes big endian integer, must > 0
 *       key_len*:  4 bytes big endian integer
@@ -615,7 +765,7 @@ static int deal_cmd_get(struct task_info *pTask)
 *       value_len*:  4 bytes big endian integer (when status == 0)
 *       value*:      value_len bytes value buff (when status == 0)
 */
-static int deal_cmd_gets(struct task_info *pTask)
+static int deal_cmd_batch_get(struct task_info *pTask)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
