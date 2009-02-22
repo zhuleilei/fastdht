@@ -53,11 +53,11 @@ void fdht_client_destroy();
 			ppValue, value_len, malloc)
 
 #define  fdht_batch_get(pObjectInfo, key_list, key_count) \
-	fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
+	 fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
 			key_list, key_count, FDHT_EXPIRES_NONE, malloc)
 
 #define  fdht_batch_get_ex(pObjectInfo, key_list, key_count, expires) \
-	fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
+	 fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
 			key_list, key_count, expires, malloc)
 
 #define fdht_set(pKeyInfo, expires, pValue, value_len) \
@@ -65,7 +65,7 @@ void fdht_client_destroy();
 		pValue, value_len)
 
 #define  fdht_batch_set(pObjectInfo, key_list, key_count, expires) \
-	fdht_batch_set_ex((&g_group_array), g_keep_alive, pObjectInfo, \
+	 fdht_batch_set_ex((&g_group_array), g_keep_alive, pObjectInfo, \
 			key_list, key_count, expires)
 
 #define fdht_inc(pKeyInfo, expires, increase, pValue, value_len) \
@@ -74,6 +74,10 @@ void fdht_client_destroy();
 
 #define fdht_delete(pKeyInfo) \
 	fdht_delete_ex((&g_group_array), g_keep_alive, pKeyInfo)
+
+#define  fdht_batch_delete(pObjectInfo, key_list, key_count) \
+	 fdht_batch_delete_ex((&g_group_array), g_keep_alive, pObjectInfo, \
+			key_list, key_count)
 
 
 /*
@@ -173,6 +177,20 @@ return: 0 for success, != 0 for fail (errno)
 */
 int fdht_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTKeyInfo *pKeyInfo);
+
+/*
+delete key list
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pObjectInfo:  the object to fetch, namespace and object id can't be empty
+	key_list: key list, return the value of the key
+	key_count: key count
+return: 0 for success, != 0 for fail (errno)
+*/
+int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
+		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
+		const int key_count);
 
 #ifdef __cplusplus
 }

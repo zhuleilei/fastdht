@@ -1,8 +1,9 @@
 
-Version 1.06  2009-02-10
+Version 1.06  2009-02-22
   * in config file conf/fdhtd.conf: add item "min_buff_size"
-  * batch get, can get multi keys once
-  * batch set, can set multi keys once
+  * add batch get, can get multi keys once
+  * add batch set, can set multi keys once
+  * add batch delete, can delete multi keys once
 
 Version 1.05  2009-02-04
   * only start one dead_lock_detect thread to save resource
