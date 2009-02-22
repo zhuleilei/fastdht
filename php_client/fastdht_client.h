@@ -16,6 +16,8 @@ ZEND_FUNCTION(fastdht_get);
 ZEND_FUNCTION(fastdht_inc);
 ZEND_FUNCTION(fastdht_delete);
 ZEND_FUNCTION(fastdht_batch_set);
+ZEND_FUNCTION(fastdht_batch_get);
+ZEND_FUNCTION(fastdht_batch_delete);
 
 #ifdef __cplusplus
 }
