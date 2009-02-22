@@ -412,6 +412,180 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	return result;
 }
 
+int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
+		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
+		const int key_count, const time_t expires)
+{
+	int result;
+	ProtoHeader *pHeader;
+	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
+	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + \
+		(8 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ + \
+		32 * 1024];
+	char *pBuff;
+	int in_bytes;
+	int total_key_len;
+	int total_value_len;
+	int pkg_total_len;
+	int group_id;
+	int hash_key_len;
+	int key_hash_code;
+	FDHTServerInfo *pServer;
+	FDHTKeyValuePair *pKeyValuePair;
+	FDHTKeyValuePair *pKeyValueEnd;
+	char *p;
+
+	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
+	{
+		logError("invalid key_count: %d", key_count);
+		return EINVAL;
+	}
+
+	CALC_OBJECT_HASH_CODE(pObjectInfo, hash_key, hash_key_len, key_hash_code)
+	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
+	pServer = get_writable_connection((pGroupArray->groups + group_id), \
+                	bKeepAlive, key_hash_code, &result);
+	if (pServer == NULL)
+	{
+		return result;
+	}
+
+	total_key_len = 0;
+	total_value_len = 0;
+	pKeyValueEnd = key_list + key_count;
+	for (pKeyValuePair=key_list; pKeyValuePair<pKeyValueEnd; pKeyValuePair++)
+	{
+		total_key_len += pKeyValuePair->key_len;
+		total_value_len += pKeyValuePair->value_len;
+	}
+	pkg_total_len = sizeof(ProtoHeader) + 12 + pObjectInfo->namespace_len + \
+			pObjectInfo->obj_id_len + 8 * key_count + \
+			total_key_len + total_value_len;
+
+	if (pkg_total_len <= sizeof(buff))
+	{
+		pBuff = buff;
+	}
+	else
+	{
+		pBuff = (char *)malloc(pkg_total_len);
+		if (pBuff == NULL)
+		{
+			result = errno != 0 ? errno : ENOMEM;
+			logError("malloc %d bytes fail, " \
+				"errno: %d, error info: %s", \
+				pkg_total_len, result, strerror(result));
+			return result;
+		}
+	}
+
+	memset(pBuff, 0, pkg_total_len);
+	pHeader = (ProtoHeader *)pBuff;
+
+	pHeader->cmd = FDHT_PROTO_CMD_BATCH_SET;
+	pHeader->keep_alive = bKeepAlive;
+	int2buff((int)time(NULL), pHeader->timestamp);
+	int2buff((int)expires, pHeader->expires);
+	int2buff(key_hash_code, pHeader->key_hash_code);
+
+	p = pBuff + sizeof(ProtoHeader);
+	PACK_BODY_OBJECT(pObjectInfo, p)
+	int2buff(key_count, p);
+	p += 4;
+
+	for (pKeyValuePair=key_list; pKeyValuePair<pKeyValueEnd; pKeyValuePair++)
+	{
+		int2buff(pKeyValuePair->key_len, p);
+		memcpy(p + 4, pKeyValuePair->szKey, pKeyValuePair->key_len);
+		p += 4 + pKeyValuePair->key_len;
+
+		int2buff(pKeyValuePair->value_len, p);
+		memcpy(p + 4, pKeyValuePair->pValue, pKeyValuePair->value_len);
+		p += 4 + pKeyValuePair->value_len;
+	}
+
+	do
+	{
+		int2buff(pkg_total_len - sizeof(ProtoHeader), pHeader->pkg_len);
+		if ((result=tcpsenddata(pServer->sock, pBuff, pkg_total_len, \
+			g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		{
+			break;
+		}
+
+		if (in_bytes != 4 + 5 * key_count + total_key_len)
+		{
+			logError("server %s:%d reponse bytes: %d != %d", \
+				pServer->ip_addr, pServer->port, in_bytes, \
+				4 + 5 * key_count + total_key_len);
+			result = EINVAL;
+			break;
+		}
+
+		if ((result=tcprecvdata(pServer->sock, pBuff, \
+			in_bytes, g_network_timeout)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"server: %s:%d, recv data fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if (buff2int(pBuff) != key_count)
+		{
+			result = EINVAL;
+			logError("file: "__FILE__", line: %d, " \
+				"server: %s:%d, invalid key_count: %d, " \
+				"expect key count: %d", \
+				__LINE__, pServer->ip_addr, pServer->port, \
+				buff2int(pBuff), key_count);
+			break;
+		}
+
+		p = pBuff + 4;
+		for (pKeyValuePair=key_list; pKeyValuePair<pKeyValueEnd; \
+			pKeyValuePair++)
+		{
+			pKeyValuePair->key_len = buff2int(p);
+
+			memcpy(pKeyValuePair->szKey, p + 4, \
+				pKeyValuePair->key_len);
+			p += 4 + pKeyValuePair->key_len;
+			pKeyValuePair->status = *p++;
+		}
+	} while (0);
+
+	if (pBuff != buff)
+	{
+		free(pBuff);
+	}
+
+	if (bKeepAlive)
+	{
+		if (result >= ENETDOWN) //network error
+		{
+			fdht_disconnect_server(pServer);
+		}
+	}
+	else
+	{
+		fdht_disconnect_server(pServer);
+	}
+
+	return result;
+}
+
 int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
 		const int key_count, const time_t expires, \
