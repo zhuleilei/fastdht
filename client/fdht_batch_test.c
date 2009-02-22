@@ -74,8 +74,8 @@ int main(int argc, char *argv[])
 
 	expires = time(NULL) + 3600;
 	memset(&object_info, 0, sizeof(object_info));
-	object_info.namespace_len = sprintf(object_info.szNameSpace, "bbs");
-	object_info.obj_id_len = sprintf(object_info.szObjectId, "test");
+	object_info.namespace_len = sprintf(object_info.szNameSpace, "user");
+	object_info.obj_id_len = sprintf(object_info.szObjectId, "happy_fish100");
 
 
 	memset(key_list, 0, sizeof(key_list));
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 	{
 		key_list[0].pValue = "happy_fish";
 		key_list[0].value_len = strlen(key_list[0].pValue);
-		key_list[1].pValue = "1235277182";
+		key_list[1].pValue = "1235277184";
 		key_list[1].value_len = strlen(key_list[1].pValue);
 		key_list[2].pValue = "zh";
 		key_list[2].value_len = strlen(key_list[2].pValue);
@@ -135,6 +135,13 @@ int main(int argc, char *argv[])
 			{
 				free(key_list[i].pValue);
 			}
+		}
+
+		if ((result=fdht_batch_delete(&object_info, key_list, \
+				key_count)) != 0)
+		{
+			printf("fdht_batch_delete result=%d\n", result);
+			break;
 		}
 
 		break;
