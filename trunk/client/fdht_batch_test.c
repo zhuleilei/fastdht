@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
 	FDHTObjectInfo object_info;
 	FDHTKeyValuePair key_list[32];
 	int key_count;
+	int success_count;
 	int i;
 	int conn_success_count;
 	int conn_fail_count;
@@ -96,11 +97,12 @@ int main(int argc, char *argv[])
 		key_list[3].value_len = strlen(key_list[3].pValue);
 
 		if ((result=fdht_batch_set(&object_info, key_list, \
-				key_count, expires)) != 0)
+				key_count, expires, &success_count)) != 0)
 		{
 			printf("fdht_batch_set result=%d\n", result);
 			break;
 		}
+		printf("fdht_batch_set success count: %d\n", success_count);
 
 		for (i=0; i<key_count; i++)
 		{
@@ -108,11 +110,12 @@ int main(int argc, char *argv[])
 			key_list[i].value_len = 0;
 		}
 		if ((result=fdht_batch_get_ex(&object_info, key_list, \
-				key_count, expires)) != 0)
+				key_count, expires, &success_count)) != 0)
 		{
 			printf("fdht_batch_get_ex result=%d\n", result);
 			break;
 		}
+		printf("fdht_batch_get_ex success count: %d\n", success_count);
 
 		for (i=0; i<key_count; i++)
 		{
@@ -138,11 +141,13 @@ int main(int argc, char *argv[])
 		}
 
 		if ((result=fdht_batch_delete(&object_info, key_list, \
-				key_count)) != 0)
+				key_count, &success_count)) != 0)
 		{
 			printf("fdht_batch_delete result=%d\n", result);
 			break;
 		}
+
+		printf("fdht_batch_delete success count: %d\n", success_count);
 
 		break;
 	}

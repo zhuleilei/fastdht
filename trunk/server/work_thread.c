@@ -618,7 +618,8 @@ static int deal_cmd_get(struct task_info *pTask)
 *       value_len*:  4 bytes big endian integer
 *       value*:      value_len bytes value buff
 * response body format:
-*       key_count: key count, 4 bytes big endian integer, must > 0
+*       key_count: key count, 4 bytes big endian integer
+*       success_count: success key count, 4 bytes big endian integer
 *       key_len*:  4 bytes big endian integer
 *       key*:      key_len bytes key name
 *       status*:     1 byte key status
@@ -670,7 +671,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 	pSrc = pSrcStart = pObjectId + key_info.obj_id_len + 4;
 	pDest = pTask->data + sizeof(ProtoHeader);
 	int2buff(key_count, pDest);
-	pDest += 4;
+	pDest += 8;
 	for (i=0; i<key_count; i++)
 	{
 		key_info.key_len = buff2int(pSrc);
@@ -750,6 +751,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 
 	if (success_count > 0)
 	{
+		int2buff(success_count, pTask->data + sizeof(ProtoHeader) + 4);
 		pTask->length = pDest - pTask->data;
 		int2buff(new_expires, ((ProtoHeader *)pTask->data)->expires);
 		return 0;
@@ -771,7 +773,8 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 *       key_len*:  4 bytes big endian integer
 *       key*:      key name
 * response body format:
-*       key_count: key count, 4 bytes big endian integer, must > 0
+*       key_count: key count, 4 bytes big endian integer
+*       success_count: success key count, 4 bytes big endian integer
 *       key_len*:  4 bytes big endian integer
 *       key*:      key_len bytes key name
 *       status*:     1 byte key status
@@ -802,6 +805,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 	char *p;  //tmp var
 	int full_key_len;
 	int value_len;
+	time_t current_time;
 	int result;
 	char *pTemp;
 	int old_len;
@@ -845,6 +849,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 
 	success_count = 0;
 	result = 0;
+	current_time = time(NULL);
 
 	memcpy(in_buff, pObjectId + key_info.obj_id_len + 4, \
 		nInBodyLen - common_fileds_len);
@@ -852,65 +857,94 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 
 	pDest = pTask->data + sizeof(ProtoHeader);
 	int2buff(key_count, pDest);
-	pDest += 4;
+	pDest += 8;
 	for (i=0; i<key_count; i++)
 	{
-	key_info.key_len = buff2int(pSrc);
-	if (key_info.key_len <= 0 || key_info.key_len > FDHT_MAX_SUB_KEY_LEN)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, invalid key length: %d", \
-			__LINE__, pTask->client_ip, key_info.key_len);
-		pTask->length = sizeof(ProtoHeader);
-		return EINVAL;
-	}
-
-	if (nInBodyLen < common_fileds_len + (pSrc - in_buff) + \
-			4 + key_info.key_len)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"client ip: %s, body length: %d != %d", \
-			__LINE__, pTask->client_ip, nInBodyLen, \
-			common_fileds_len + (pSrc - in_buff) + \
-			4 + key_info.key_len);
-		pTask->length = sizeof(ProtoHeader);
-		return EINVAL;
-	}
-	memcpy(key_info.szKey, pSrc + 4, key_info.key_len);
-	pSrc += 4 + key_info.key_len;
-
-	old_len = pDest - pTask->data;
-	value_len = 9 + key_info.key_len;
-	if (pTask->size <= old_len + value_len)
-	{
-		CHECK_BUFF_SIZE(pTask, old_len, value_len, new_size, pTemp)
-		pDest = pTask->data + old_len;
-	}
-
-	int2buff(key_info.key_len, pDest);
-	pDest += 4;
-	memcpy(pDest, key_info.szKey, key_info.key_len);
-	pDest += key_info.key_len + 1;
-
-	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
-
-	pValue = pDest;
-	value_len = pTask->size - (pDest - pTask->data);
-	result = db_get(g_db_list[group_id], full_key, full_key_len, \
-               	&pValue, &value_len);
-	if (result != 0)
-	{
-		if (result == ENOSPC)
+		key_info.key_len = buff2int(pSrc);
+		if (key_info.key_len <= 0 || \
+			key_info.key_len > FDHT_MAX_SUB_KEY_LEN)
 		{
-			old_len = pDest - pTask->data;
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, invalid key length: %d", \
+				__LINE__, pTask->client_ip, key_info.key_len);
+			pTask->length = sizeof(ProtoHeader);
+			return EINVAL;
+		}
 
-			CHECK_BUFF_SIZE(pTask, old_len, value_len, new_size, pTemp)
+		if (nInBodyLen < common_fileds_len + (pSrc - in_buff) + \
+				4 + key_info.key_len)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, body length: %d != %d", \
+				__LINE__, pTask->client_ip, nInBodyLen, \
+				common_fileds_len + (pSrc - in_buff) + \
+				4 + key_info.key_len);
+			pTask->length = sizeof(ProtoHeader);
+			return EINVAL;
+		}
+		memcpy(key_info.szKey, pSrc + 4, key_info.key_len);
+		pSrc += 4 + key_info.key_len;
 
+		old_len = pDest - pTask->data;
+		value_len = 9 + key_info.key_len;
+		if (pTask->size <= old_len + value_len)
+		{
+			CHECK_BUFF_SIZE(pTask, old_len, value_len, \
+					new_size, pTemp)
 			pDest = pTask->data + old_len;
+		}
 
-			pValue = pDest;
-			if ((result=db_get(g_db_list[group_id], full_key, \
-				full_key_len, &pValue, &value_len)) != 0)
+		int2buff(key_info.key_len, pDest);
+		pDest += 4;
+		memcpy(pDest, key_info.szKey, key_info.key_len);
+		pDest += key_info.key_len + 1;
+
+		FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
+
+		pValue = pDest;
+		value_len = pTask->size - (pDest - pTask->data);
+		result = db_get(g_db_list[group_id], full_key, full_key_len, \
+				&pValue, &value_len);
+		if (result != 0)
+		{
+			if (result == ENOSPC)
+			{
+				old_len = pDest - pTask->data;
+
+				CHECK_BUFF_SIZE(pTask, old_len, value_len, \
+						new_size, pTemp)
+
+				pDest = pTask->data + old_len;
+
+				pValue = pDest;
+				if ((result=db_get(g_db_list[group_id], \
+						full_key, full_key_len, \
+						&pValue, &value_len)) != 0)
+				{
+					*(pDest-1) = result;
+					continue;
+				}
+			}
+			else
+			{
+				*(pDest-1) = result;
+				continue;
+			}
+		}
+
+		old_expires = buff2int(pValue);
+		if (old_expires != FDHT_EXPIRES_NEVER && \
+			old_expires < current_time)
+		{
+			*(pDest-1) = result = ENOENT;
+			continue;
+		}
+
+		if (new_expires != FDHT_EXPIRES_NONE)
+		{
+			int2buff(new_expires, pValue);
+			if ((result = db_set(g_db_list[group_id], full_key, \
+					full_key_len, pValue, value_len)) != 0)
 			{
 				*(pDest-1) = result;
 				continue;
@@ -918,51 +952,27 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 		}
 		else
 		{
-			*(pDest-1) = result;
-			continue;
-		}
-	}
-
-	old_expires = buff2int(pValue);
-	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < time(NULL))
-	{
-		*(pDest-1) = result = ENOENT;
-		continue;
-	}
-
-	if (new_expires != FDHT_EXPIRES_NONE)
-	{
-		int2buff(new_expires, pValue);
-		if ((result = db_set(g_db_list[group_id], full_key, \
-			full_key_len, pValue, value_len)) != 0)
-		{
-			*(pDest-1) = result;
-			continue;
-		}
-	}
-	else
-	{
-		if (min_expires == FDHT_EXPIRES_NEVER)
-		{
-			if (old_expires != FDHT_EXPIRES_NEVER)
+			if (min_expires == FDHT_EXPIRES_NEVER)
 			{
-				min_expires = old_expires;
+				if (old_expires != FDHT_EXPIRES_NEVER)
+				{
+					min_expires = old_expires;
+				}
+			}
+			else
+			{
+				if (old_expires != FDHT_EXPIRES_NEVER && \
+						old_expires < min_expires)
+				{
+					min_expires = old_expires;
+				}
 			}
 		}
-		else
-		{
-			if (old_expires != FDHT_EXPIRES_NEVER && \
-				old_expires < min_expires)
-			{
-				min_expires = old_expires;
-			}
-		}
-	}
 
-	success_count++;
-	*(pDest-1) = 0;
-	int2buff(value_len - 4, pDest);
-	pDest += value_len;
+		success_count++;
+		*(pDest-1) = 0;
+		int2buff(value_len - 4, pDest);
+		pDest += value_len;
 	}
 
 	if (nInBodyLen != common_fileds_len + (pSrc - in_buff))
@@ -977,6 +987,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 
 	if (success_count > 0)
 	{
+		int2buff(success_count, pTask->data + sizeof(ProtoHeader) + 4);
 		pTask->length = pDest - pTask->data;
 		int2buff(min_expires, ((ProtoHeader *)pTask->data)->expires);
 		return 0;
@@ -998,7 +1009,8 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 *       key_len*:  4 bytes big endian integer
 *       key*:      key name
 * response body format:
-*       key_count: key count, 4 bytes big endian integer, must > 0
+*       key_count: key count, 4 bytes big endian integer
+*       success_count: success key count, 4 bytes big endian integer
 *       key_len*:  4 bytes big endian integer
 *       key*:      key_len bytes key name
 *       status*:     1 byte key status
@@ -1063,7 +1075,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 
 	pDest = pTask->data + sizeof(ProtoHeader);
 	int2buff(key_count, pDest);
-	pDest += 4;
+	pDest += 8;
 	for (i=0; i<key_count; i++)
 	{
 		key_info.key_len = buff2int(pSrc);
@@ -1125,6 +1137,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 
 	if (success_count > 0)
 	{
+		int2buff(success_count, pTask->data + sizeof(ProtoHeader) + 4);
 		pTask->length = pDest - pTask->data;
 		return 0;
 	}
