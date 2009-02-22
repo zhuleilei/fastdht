@@ -414,7 +414,7 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
-		const int key_count, const time_t expires)
+		const int key_count, const time_t expires, int *success_count)
 {
 	int result;
 	ProtoHeader *pHeader;
@@ -435,6 +435,7 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	FDHTKeyValuePair *pKeyValueEnd;
 	char *p;
 
+	*success_count = 0;
 	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
 	{
 		logError("invalid key_count: %d", key_count);
@@ -522,11 +523,11 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		if (in_bytes != 4 + 5 * key_count + total_key_len)
+		if (in_bytes != 8 + 5 * key_count + total_key_len)
 		{
 			logError("server %s:%d reponse bytes: %d != %d", \
 				pServer->ip_addr, pServer->port, in_bytes, \
-				4 + 5 * key_count + total_key_len);
+				8 + 5 * key_count + total_key_len);
 			result = EINVAL;
 			break;
 		}
@@ -553,7 +554,8 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		p = pBuff + 4;
+		*success_count = buff2int(pBuff + 4);
+		p = pBuff + 8;
 		for (pKeyValuePair=key_list; pKeyValuePair<pKeyValueEnd; \
 			pKeyValuePair++)
 		{
@@ -588,13 +590,13 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
-		const int key_count)
+		const int key_count, int *success_count)
 {
 	int result;
 	ProtoHeader *pHeader;
 	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
-	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + \
-		(4 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ];
+	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 8 + \
+		(5 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ];
 	int in_bytes;
 	int total_key_len;
 	int group_id;
@@ -605,6 +607,7 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	FDHTKeyValuePair *pKeyValueEnd;
 	char *p;
 
+	*success_count = 0;
 	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
 	{
 		logError("invalid key_count: %d", key_count);
@@ -662,11 +665,11 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		if (in_bytes != 4 + 5 * key_count + total_key_len)
+		if (in_bytes != 8 + 5 * key_count + total_key_len)
 		{
 			logError("server %s:%d reponse bytes: %d != %d", \
 				pServer->ip_addr, pServer->port, in_bytes, \
-				4 + 5 * key_count + total_key_len);
+				8 + 5 * key_count + total_key_len);
 			result = EINVAL;
 			break;
 		}
@@ -693,7 +696,8 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		p = buff + 4;
+		*success_count = buff2int(buff + 4);
+		p = buff + 8;
 		for (pKeyValuePair=key_list; pKeyValuePair<pKeyValueEnd; \
 			pKeyValuePair++)
 		{
@@ -724,7 +728,7 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
 		const int key_count, const time_t expires, \
-		MallocFunc malloc_func)
+		MallocFunc malloc_func, int *success_count)
 {
 	int result;
 	ProtoHeader *pHeader;
@@ -743,6 +747,7 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	FDHTKeyValuePair *pKeyValueEnd;
 	char *p;
 
+	*success_count = 0;
 	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
 	{
 		logError("invalid key_count: %d", key_count);
@@ -799,9 +804,9 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		if (in_bytes < 13)
+		if (in_bytes < 17)
 		{
-			logError("server %s:%d reponse bytes: %d < 13", \
+			logError("server %s:%d reponse bytes: %d < 17", \
 				pServer->ip_addr, pServer->port, in_bytes);
 			result = EINVAL;
 			break;
@@ -844,7 +849,8 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		p = pInBuff + 4;
+		*success_count = buff2int(pInBuff + 4);
+		p = pInBuff + 8;
 		for (pKeyValuePair=key_list; pKeyValuePair<pKeyValueEnd; \
 			pKeyValuePair++)
 		{
@@ -902,6 +908,16 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 			}
 
 			p += value_len;
+		}
+
+		if (in_bytes != p - pInBuff)
+		{
+			*success_count = 0;
+			logError("server %s:%d reponse bytes: %d != %d", \
+				pServer->ip_addr, pServer->port, \
+				in_bytes, p - pInBuff);
+			result = EINVAL;
+			break;
 		}
 	} while (0);
 

@@ -52,21 +52,24 @@ void fdht_client_destroy();
 	fdht_get_ex1((&g_group_array), g_keep_alive, pKeyInfo, expires, \
 			ppValue, value_len, malloc)
 
-#define  fdht_batch_get(pObjectInfo, key_list, key_count) \
+#define  fdht_batch_get(pObjectInfo, key_list, key_count, success_count) \
 	 fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
-			key_list, key_count, FDHT_EXPIRES_NONE, malloc)
+			key_list, key_count, FDHT_EXPIRES_NONE, \
+			malloc, success_count)
 
-#define  fdht_batch_get_ex(pObjectInfo, key_list, key_count, expires) \
+#define  fdht_batch_get_ex(pObjectInfo, key_list, key_count, \
+			expires, success_count) \
 	 fdht_batch_get_ex1((&g_group_array), g_keep_alive, pObjectInfo, \
-			key_list, key_count, expires, malloc)
+			key_list, key_count, expires, malloc, success_count)
 
 #define fdht_set(pKeyInfo, expires, pValue, value_len) \
 	fdht_set_ex((&g_group_array), g_keep_alive, pKeyInfo, expires, \
 		pValue, value_len)
 
-#define  fdht_batch_set(pObjectInfo, key_list, key_count, expires) \
+#define  fdht_batch_set(pObjectInfo, key_list, key_count, \
+			expires, success_count) \
 	 fdht_batch_set_ex((&g_group_array), g_keep_alive, pObjectInfo, \
-			key_list, key_count, expires)
+			key_list, key_count, expires, success_count)
 
 #define fdht_inc(pKeyInfo, expires, increase, pValue, value_len) \
 	fdht_inc_ex((&g_group_array), g_keep_alive, pKeyInfo, expires, \
@@ -75,9 +78,9 @@ void fdht_client_destroy();
 #define fdht_delete(pKeyInfo) \
 	fdht_delete_ex((&g_group_array), g_keep_alive, pKeyInfo)
 
-#define  fdht_batch_delete(pObjectInfo, key_list, key_count) \
+#define  fdht_batch_delete(pObjectInfo, key_list, key_count, success_count) \
 	 fdht_batch_delete_ex((&g_group_array), g_keep_alive, pObjectInfo, \
-			key_list, key_count)
+			key_list, key_count, success_count)
 
 
 /*
@@ -115,7 +118,7 @@ return: 0 for success, != 0 for fail (errno)
 int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
 		const int key_count, const time_t expires, \
-		MallocFunc malloc_func);
+		MallocFunc malloc_func, int *success_count);
 
 /*
 set value of the key
@@ -147,7 +150,7 @@ return: 0 for success, != 0 for fail (errno)
 */
 int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
-		const int key_count, const time_t expires);
+		const int key_count, const time_t expires, int *success_count);
 
 /*
 increase value of the key, if the key does not exist, 
@@ -190,7 +193,7 @@ return: 0 for success, != 0 for fail (errno)
 */
 int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		FDHTObjectInfo *pObjectInfo, FDHTKeyValuePair *key_list, \
-		const int key_count);
+		const int key_count, int *success_count);
 
 #ifdef __cplusplus
 }

@@ -16,12 +16,15 @@
 #include <fdht_func.h>
 #include <logger.h>
 
+/*
+		ZEND_FE(fastdht_delete, NULL)
+*/
+
 // Every user visible function must have an entry in fastdht_client_functions[].
 	function_entry fastdht_client_functions[] = {
 		ZEND_FE(fastdht_set, NULL)
 		ZEND_FE(fastdht_get, NULL)
 		ZEND_FE(fastdht_inc, NULL)
-		ZEND_FE(fastdht_delete, NULL)
 		ZEND_FE(fastdht_batch_set, NULL)
 		{NULL, NULL, NULL}  /* Must be the last line */
 	};
@@ -138,9 +141,12 @@ ZEND_FUNCTION(fastdht_batch_set)
 	zval *key_values;
 	HashTable *key_value_hash;
 	zval **data;
+	zval ***ppp;
 	int key_count;
 	char *szKey;
+	long index;
 	long expires;
+	int result;
 	FDHTObjectInfo obj_info;
 	FDHTKeyValuePair key_list[FDHT_MAX_KEY_COUNT_PER_REQ];
 	zval zvalues[FDHT_MAX_KEY_COUNT_PER_REQ];
@@ -181,21 +187,24 @@ ZEND_FUNCTION(fastdht_batch_set)
 
 	FASTDHT_FILL_OBJECT(obj_info, szNamespace, szObjectId)
 
+	/*
 	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), "
-		"expires=%ld", szNamespace, key_info.namespace_len, 
-		szObjectId, key_info.obj_id_len, expires);
+		"expires=%ld", szNamespace, obj_info.namespace_len, 
+		szObjectId, obj_info.obj_id_len, expires);
+	*/
 
-	memset(zvalues, 0, sizeof(zvalues);
-	memset(key_list, 0, sizeof(key_list);
+	memset(zvalues, 0, sizeof(zvalues));
+	memset(key_list, 0, sizeof(key_list));
 	pValue = zvalues;
 	pKeyValuePair = key_list;
-	for (zend_hash_internal_pointer_reset_ex(key_value_hash, &pointer); \
-	     zend_hash_get_current_data_ex(key_value_hash, (void**)&data, \
-		&pointer) == SUCCESS; zend_hash_move_forward_ex( \
+	ppp = &data;
+	for (zend_hash_internal_pointer_reset_ex(key_value_hash, &pointer);
+	     zend_hash_get_current_data_ex(key_value_hash, (void **)ppp,
+		&pointer) == SUCCESS; zend_hash_move_forward_ex(
 		key_value_hash, &pointer))
 	{
 		if (zend_hash_get_current_key_ex(key_value_hash, &szKey, \
-			&pKeyValuePair->key_len, &index, 0, &pointer) \
+			&(pKeyValuePair->key_len), &index, 0, &pointer) \
 			!= HASH_KEY_IS_STRING)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -226,24 +235,17 @@ ZEND_FUNCTION(fastdht_batch_set)
 			pValue++;
 		}
 
+		/*
 		logInfo("key=%s(%d), value=%s(%d)", \
 			pKeyValuePair->szKey, pKeyValuePair->key_len, \
 			pKeyValuePair->pValue, pKeyValuePair->value_len);
+		*/
 
 		pKeyValuePair++;
 	}
-
 	pValueEnd = pValue;
 
-	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), szKey=%s(%d), "
-		"szValue=%s(%d), expires=%ld", 
-		szNamespace, key_info.namespace_len, 
-		szObjectId, key_info.obj_id_len, 
-		szKey, key_info.key_len,
-		szValue, value_len, expires);
-	*/
-
-	result = fdht_batch_set_ex(&obj_info, key_list, key_count, expires);
+	result = fdht_batch_set(&obj_info, key_list, key_count, expires);
 	for (pValue=zvalues; pValue<pValueEnd; pValue++)
 	{
 		zval_dtor(pValue);
