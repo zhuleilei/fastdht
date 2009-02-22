@@ -22,6 +22,7 @@
 		ZEND_FE(fastdht_get, NULL)
 		ZEND_FE(fastdht_inc, NULL)
 		ZEND_FE(fastdht_delete, NULL)
+		ZEND_FE(fastdht_batch_set, NULL)
 		{NULL, NULL, NULL}  /* Must be the last line */
 	};
 
@@ -60,6 +61,19 @@ zend_module_entry fastdht_client_module_entry = {
 	memcpy(key_info.szObjectId, szObjectId, key_info.obj_id_len); \
 	memcpy(key_info.szKey, szKey, key_info.key_len); \
 
+
+#define FASTDHT_FILL_OBJECT(obj_info, szNamespace, szObjectId) \
+	if (obj_info.namespace_len > FDHT_MAX_NAMESPACE_LEN) \
+	{ \
+		obj_info.namespace_len = FDHT_MAX_NAMESPACE_LEN; \
+	} \
+	if (obj_info.obj_id_len > FDHT_MAX_OBJECT_ID_LEN) \
+	{ \
+		obj_info.obj_id_len = FDHT_MAX_OBJECT_ID_LEN; \
+	} \
+ \
+	memcpy(obj_info.szNameSpace, szNamespace, obj_info.namespace_len); \
+	memcpy(obj_info.szObjectId, szObjectId, obj_info.obj_id_len); \
 
 /*
 int fastdht_set(string namespace, string object_id, string key, 
@@ -109,6 +123,145 @@ ZEND_FUNCTION(fastdht_set)
 	*/
 
 	RETURN_LONG(fdht_set(&key_info, expires, szValue, value_len));
+}
+
+/*
+int fastdht_batch_set(string namespace, string object_id, array key_value_hash, 
+		[, int expires])
+return 0 for success, != 0 for error
+*/
+ZEND_FUNCTION(fastdht_batch_set)
+{
+	int argc;
+	char *szNamespace;
+	char *szObjectId;
+	zval *key_values;
+	HashTable *key_value_hash;
+	zval **data;
+	int key_count;
+	char *szKey;
+	long expires;
+	FDHTObjectInfo obj_info;
+	FDHTKeyValuePair key_list[FDHT_MAX_KEY_COUNT_PER_REQ];
+	zval zvalues[FDHT_MAX_KEY_COUNT_PER_REQ];
+	zval *pValue;
+	zval *pValueEnd;
+	FDHTKeyValuePair *pKeyValuePair;
+	FDHTKeyValuePair *pKeyValueEnd;
+	HashPosition pointer;
+
+	argc = ZEND_NUM_ARGS();
+	if (argc != 3 && argc != 4)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_set parameters count: %d != 3 or 4", \
+			__LINE__, argc);
+		RETURN_LONG(EINVAL);
+	}
+
+	expires = FDHT_EXPIRES_NEVER;
+	if (zend_parse_parameters(argc TSRMLS_CC, "ssa|l", &szNamespace, 
+		&obj_info.namespace_len, &szObjectId, &obj_info.obj_id_len, 
+		&key_values, &expires) == FAILURE)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_batch_set parameter parse error!", __LINE__);
+		RETURN_LONG(EINVAL);
+	}
+
+	key_value_hash = Z_ARRVAL_P(key_values);
+	key_count = zend_hash_num_elements(key_value_hash);
+	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_batch_set, invalid key_count: %d!", \
+			__LINE__, key_count);
+		RETURN_LONG(EINVAL);
+	}
+
+	FASTDHT_FILL_OBJECT(obj_info, szNamespace, szObjectId)
+
+	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), "
+		"expires=%ld", szNamespace, key_info.namespace_len, 
+		szObjectId, key_info.obj_id_len, expires);
+
+	memset(zvalues, 0, sizeof(zvalues);
+	memset(key_list, 0, sizeof(key_list);
+	pValue = zvalues;
+	pKeyValuePair = key_list;
+	for (zend_hash_internal_pointer_reset_ex(key_value_hash, &pointer); \
+	     zend_hash_get_current_data_ex(key_value_hash, (void**)&data, \
+		&pointer) == SUCCESS; zend_hash_move_forward_ex( \
+		key_value_hash, &pointer))
+	{
+		if (zend_hash_get_current_key_ex(key_value_hash, &szKey, \
+			&pKeyValuePair->key_len, &index, 0, &pointer) \
+			!= HASH_KEY_IS_STRING)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"fastdht_batch_set, invalid array element, " \
+				"index=%d!", __LINE__, index);
+			RETURN_LONG(EINVAL);
+		}
+
+		if (pKeyValuePair->key_len > FDHT_MAX_SUB_KEY_LEN)
+		{
+			pKeyValuePair->key_len = FDHT_MAX_SUB_KEY_LEN;
+		}
+		memcpy(pKeyValuePair->szKey, szKey, pKeyValuePair->key_len);
+
+		if (Z_TYPE_PP(data) == IS_STRING)
+		{
+			pKeyValuePair->pValue = Z_STRVAL_PP(data);
+			pKeyValuePair->value_len = Z_STRLEN_PP(data);
+		}
+		else
+		{
+			*pValue = **data;
+			zval_copy_ctor(pValue);
+			convert_to_string(pValue);
+			pKeyValuePair->pValue = Z_STRVAL(*pValue);
+			pKeyValuePair->value_len = Z_STRLEN(*pValue);
+
+			pValue++;
+		}
+
+		logInfo("key=%s(%d), value=%s(%d)", \
+			pKeyValuePair->szKey, pKeyValuePair->key_len, \
+			pKeyValuePair->pValue, pKeyValuePair->value_len);
+
+		pKeyValuePair++;
+	}
+
+	pValueEnd = pValue;
+
+	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), szKey=%s(%d), "
+		"szValue=%s(%d), expires=%ld", 
+		szNamespace, key_info.namespace_len, 
+		szObjectId, key_info.obj_id_len, 
+		szKey, key_info.key_len,
+		szValue, value_len, expires);
+	*/
+
+	result = fdht_batch_set_ex(&obj_info, key_list, key_count, expires);
+	for (pValue=zvalues; pValue<pValueEnd; pValue++)
+	{
+		zval_dtor(pValue);
+	}
+
+	if (result != 0)
+	{
+		RETURN_LONG(result);
+	}
+
+	array_init(return_value);
+
+	pKeyValueEnd = key_list + key_count;
+	for (pKeyValuePair=key_list; pKeyValuePair<pKeyValueEnd; pKeyValuePair++)
+	{
+		add_assoc_long(return_value, pKeyValuePair->szKey, \
+				pKeyValuePair->status);
+	}
 }
 
 /*
