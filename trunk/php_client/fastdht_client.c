@@ -16,6 +16,26 @@
 #include <fdht_func.h>
 #include <logger.h>
 
+typedef struct
+{
+	zend_object zo;
+	GroupArray *pGroupArray;
+} php_fdht_t;
+
+static int le_fdht;
+
+static zend_class_entry *fdht_ce = NULL;
+static zend_class_entry *fdht_exception_ce = NULL;
+static zend_class_entry *spl_ce_RuntimeException = NULL;
+
+#if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION < 3)
+const zend_fcall_info empty_fcall_info = { 0, NULL, NULL, NULL, NULL, 0, NULL, NULL, 0 };
+#undef ZEND_BEGIN_ARG_INFO_EX
+#define ZEND_BEGIN_ARG_INFO_EX(name, pass_rest_by_reference, return_reference, required_num_args) \
+    static zend_arg_info name[] = {                                                               \
+        { NULL, 0, NULL, 0, 0, 0, pass_rest_by_reference, return_reference, required_num_args },
+#endif
+
 #define TRIM_PHP_KEY(szKey, key_len)  \
 	if (key_len > 0 && *(szKey + (key_len - 1)) == '\0') \
 	{ \
@@ -42,7 +62,7 @@ zend_module_entry fastdht_client_module_entry = {
 	NULL,//PHP_RINIT(fastdht_client),
 	NULL,//PHP_RSHUTDOWN(fastdht_client),
 	PHP_MINFO(fastdht_client),
-	"$Revision: 0.1 $", 
+	"1.06", 
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -696,6 +716,135 @@ ZEND_FUNCTION(fastdht_delete)
 	RETURN_LONG(fdht_delete(&key_info));
 }
 
+/* {{{ constructor/destructor */
+static void php_fdht_destroy(php_fdht_t *i_obj TSRMLS_DC)
+{
+	fdht_free(i_obj->pGroupArray);
+
+	efree(i_obj);
+}
+
+ZEND_RSRC_DTOR_FUNC(php_fdht_dtor)
+{
+    if (rsrc->ptr) {
+        php_fdht_t *i_obj = (php_fdht_t *)rsrc->ptr;
+		php_fdht_destroy(i_obj TSRMLS_CC);
+        rsrc->ptr = NULL;
+    }
+}
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo___construct, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_get, 0, 0, 3)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, szKey)
+	ZEND_ARG_INFO(0, expires)
+ZEND_END_ARG_INFO()
+
+
+/* {{{ fdht_class_methods */
+#define MEMC_ME(name, args) PHP_ME(FastDHT, name, args, ZEND_ACC_PUBLIC)
+static zend_function_entry fdht_class_methods[] = {
+    MEMC_ME(__construct,        arginfo___construct)
+    MEMC_ME(get,                arginfo_get)
+    { NULL, NULL, NULL }
+};
+#undef MEMC_ME
+/* }}} */
+
+static void php_fdht_free_storage(php_fdht_t *i_obj TSRMLS_DC)
+{
+	zend_object_std_dtor(&i_obj->zo TSRMLS_CC);
+
+	if (!i_obj->is_persistent)
+	{
+		php_fdht_destroy(i_obj TSRMLS_CC);
+	}
+}
+
+zend_object_value php_fdht_new(zend_class_entry *ce TSRMLS_DC)
+{
+	zend_object_value retval;
+	php_fdht_t *i_obj;
+	zval *tmp;
+
+	i_obj = ecalloc(1, sizeof(*i_obj));
+	zend_object_std_init( &i_obj->zo, ce TSRMLS_CC );
+	zend_hash_copy(i_obj->zo.properties, &ce->default_properties, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+
+	retval.handle = zend_objects_store_put(i_obj, (zend_objects_store_dtor_t)zend_objects_destroy_object, (zend_objects_free_object_storage_t)php_fdht_free_storage, NULL TSRMLS_CC);
+	retval.handlers = zend_get_std_object_handlers();
+
+	return retval;
+}
+
+/* {{{ FastDHT::__construct()
+   Creates a FastDHT object */
+static PHP_METHOD(FastDHT, __construct)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	/*
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &persistent_id,
+							  &persistent_id_len) == FAILURE) {
+		ZVAL_NULL(object);
+		return;
+	}
+	*/
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+}
+
+/* {{{ FastDHT::get(string key [, mixed callback [, double &cas_token ] ])
+   Returns a value for the given key or false */
+PHP_METHOD(FastDHT, get)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	RETURN_STRING("ok");
+}
+/* }}} */
+
+PHP_FASTDHT_API zend_class_entry *php_fdht_get_ce(void)
+{
+	return fdht_ce;
+}
+
+PHP_FASTDHT_API zend_class_entry *php_fdht_get_exception(void)
+{
+	return fdht_exception_ce;
+}
+
+PHP_FASTDHT_API zend_class_entry *php_fdht_get_exception_base(int root TSRMLS_DC)
+{
+#if HAVE_SPL
+	if (!root) {
+		if (!spl_ce_RuntimeException) {
+			zend_class_entry **pce;
+
+			if (zend_hash_find(CG(class_table), "runtimeexception",
+			   sizeof("RuntimeException"), (void **) &pce) == SUCCESS) {
+				spl_ce_RuntimeException = *pce;
+				return *pce;
+			}
+		} else {
+			return spl_ce_RuntimeException;
+		}
+	}
+#endif
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 2)
+	return zend_exception_get_default();
+#else
+	return zend_exception_get_default(TSRMLS_C);
+#endif
+}
+
+
 PHP_MINIT_FUNCTION(fastdht_client)
 {
 	#define ITEM_NAME_CONF_FILE "fastdht_client.config_file"
@@ -715,6 +864,17 @@ PHP_MINIT_FUNCTION(fastdht_client)
 	{
 		return FAILURE;
 	}
+
+		zend_class_entry ce;
+
+	le_fdht = zend_register_list_destructors_ex(NULL, php_fdht_dtor, "FastDHT persistent connection", module_number);
+
+	INIT_CLASS_ENTRY(ce, "FastDHT", fdht_class_methods);
+	fdht_ce = zend_register_internal_class(&ce TSRMLS_CC);
+	fdht_ce->create_object = php_fdht_new;
+
+	INIT_CLASS_ENTRY(ce, "FastDHTException", NULL);
+	fdht_exception_ce = zend_register_internal_class_ex(&ce, php_fdht_get_exception_base(0 TSRMLS_CC), NULL TSRMLS_CC);
 
 	REGISTER_LONG_CONSTANT("FDHT_EXPIRES_NEVER", 0, CONST_CS|CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDHT_EXPIRES_NONE", -1, CONST_CS|CONST_PERSISTENT);
