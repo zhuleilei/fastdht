@@ -726,6 +726,7 @@ ZEND_FUNCTION(fastdht_delete)
 /* {{{ constructor/destructor */
 static void php_fdht_destroy(php_fdht_t *i_obj TSRMLS_DC)
 {
+	fprintf(stderr, "php_fdht_destroy , obj=%X, zo=%X\n", (int)i_obj, (int)(&i_obj->zo));
 	if (i_obj->pGroupArray != NULL && i_obj->pGroupArray != &g_group_array)
 	{
 		fdht_free_group_array(i_obj->pGroupArray);
@@ -737,9 +738,10 @@ static void php_fdht_destroy(php_fdht_t *i_obj TSRMLS_DC)
 
 ZEND_RSRC_DTOR_FUNC(php_fdht_dtor)
 {
-	if (rsrc->ptr)
+	if (rsrc->ptr != NULL)
 	{
 		php_fdht_t *i_obj = (php_fdht_t *)rsrc->ptr;
+
 		php_fdht_destroy(i_obj TSRMLS_CC);
 		rsrc->ptr = NULL;
 	}
@@ -772,7 +774,7 @@ PHP_METHOD(FastDHT, get)
 	php_fdht_t *i_obj;
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
-	RETURN_STRING("ok", 0);
+	RETURN_STRING("ok", 1);
 }
 /* }}} */
 
@@ -799,6 +801,8 @@ static zend_function_entry fdht_class_methods[] = {
 
 static void php_fdht_free_storage(php_fdht_t *i_obj TSRMLS_DC)
 {
+	fprintf(stderr, "php_fdht_free_storage, obj=%X, zo=%X\n", (int)i_obj, (int)(&i_obj->zo));
+
 	zend_object_std_dtor(&i_obj->zo TSRMLS_CC);
 	php_fdht_destroy(i_obj TSRMLS_CC);
 }
@@ -811,9 +815,13 @@ zend_object_value php_fdht_new(zend_class_entry *ce TSRMLS_DC)
 
 	i_obj = ecalloc(1, sizeof(*i_obj));
 	zend_object_std_init( &i_obj->zo, ce TSRMLS_CC );
-	zend_hash_copy(i_obj->zo.properties, &ce->default_properties, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+	zend_hash_copy(i_obj->zo.properties, &ce->default_properties, \
+		(copy_ctor_func_t) zval_add_ref, (void *)&tmp, sizeof(zval *));
 
-	retval.handle = zend_objects_store_put(i_obj, (zend_objects_store_dtor_t)zend_objects_destroy_object, (zend_objects_free_object_storage_t)php_fdht_free_storage, NULL TSRMLS_CC);
+	retval.handle = zend_objects_store_put(i_obj, \
+		(zend_objects_store_dtor_t)zend_objects_destroy_object, \
+		(zend_objects_free_object_storage_t)php_fdht_free_storage, \
+		NULL TSRMLS_CC);
 	retval.handlers = zend_get_std_object_handlers();
 
 	return retval;
@@ -867,7 +875,6 @@ PHP_MINIT_FUNCTION(fastdht_client)
 	zval conf_filename;
 	zend_class_entry ce;
 
-	fprintf(stderr, "init1...\n");
 	if (zend_get_configuration_directive(ITEM_NAME_CONF_FILE, 
 		sizeof(ITEM_NAME_CONF_FILE), &conf_filename) != SUCCESS)
 	{
@@ -878,7 +885,6 @@ PHP_MINIT_FUNCTION(fastdht_client)
 		return FAILURE;
 	}
 
-	fprintf(stderr, "init2...\n");
 	if (fdht_client_init(conf_filename.value.str.val) != 0)
 	{
 		return FAILURE;
