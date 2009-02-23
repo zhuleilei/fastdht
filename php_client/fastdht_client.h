@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+extern zend_module_entry fastdht_client_module_entry;
+
 #ifdef PHP_WIN32
 #define PHP_FASTDHT_API __declspec(dllexport)
 #else
