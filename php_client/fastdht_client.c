@@ -13,7 +13,6 @@
 #include "ext/standard/info.h"
 #include <zend_extensions.h>
 #include <zend_exceptions.h>
-#include "fastdht_client.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,6 +21,7 @@
 #include <fdht_client.h>
 #include <fdht_func.h>
 #include <logger.h>
+#include "fastdht_client.h"
 
 typedef struct
 {
@@ -560,12 +560,8 @@ ZEND_FUNCTION(fastdht_batch_delete)
 	}
 }
 
-/*
-string/int fastdht_get(string namespace, string object_id, string key
-		[, int expires])
-return string value for success, int value (errno) for error
-*/
-ZEND_FUNCTION(fastdht_get)
+static void php_fdht_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
 {
 	int argc;
 	char *szNamespace;
@@ -610,13 +606,24 @@ ZEND_FUNCTION(fastdht_get)
 
 	pValue = NULL;
 	value_len = 0;
-	if ((result=fdht_get_ex1(&g_group_array, g_keep_alive, &key_info, \
+	if ((result=fdht_get_ex1(pGroupArray, bKeepAlive, &key_info, \
 			expires, &pValue, &value_len, _emalloc)) != 0)
 	{
 		RETURN_LONG(result);
 	}
 
 	RETURN_STRINGL(pValue, value_len, 0);
+}
+
+/*
+string/int fastdht_get(string namespace, string object_id, string key
+		[, int expires])
+return string value for success, int value (errno) for error
+*/
+ZEND_FUNCTION(fastdht_get)
+{
+	php_fdht_get_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
 }
 
 /*
@@ -723,13 +730,16 @@ ZEND_FUNCTION(fastdht_delete)
 	RETURN_LONG(fdht_delete(&key_info));
 }
 
-/* {{{ constructor/destructor */
+/* constructor/destructor */
 static void php_fdht_destroy(php_fdht_t *i_obj TSRMLS_DC)
 {
 	fprintf(stderr, "php_fdht_destroy , obj=%X, zo=%X\n", (int)i_obj, (int)(&i_obj->zo));
+	fprintf(stderr, "php_fdht_destroy , i_obj->pGroupArray=%X\n", (int)i_obj->pGroupArray);
 	if (i_obj->pGroupArray != NULL && i_obj->pGroupArray != &g_group_array)
 	{
+		fprintf(stderr, "free i_obj->pGroupArray=%X\n", (int)i_obj->pGroupArray);
 		fdht_free_group_array(i_obj->pGroupArray);
+		efree(i_obj->pGroupArray);
 		i_obj->pGroupArray = NULL;
 	}
 
@@ -747,36 +757,63 @@ ZEND_RSRC_DTOR_FUNC(php_fdht_dtor)
 	}
 }
 
-/* {{{ FastDHT::__construct([bool shared])
+/* FastDHT::__construct([bool bMultiThread])
    Creates a FastDHT object */
 static PHP_METHOD(FastDHT, __construct)
 {
+	bool bMultiThread;
 	zval *object = getThis();
 	php_fdht_t *i_obj;
 
-	/*
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &persistent_id,
-							  &persistent_id_len) == FAILURE) {
+	bMultiThread = false;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|b", \
+			&bMultiThread) == FAILURE)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"zend_parse_parameters fail!", __LINE__);
 		ZVAL_NULL(object);
 		return;
 	}
-	*/
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
-	i_obj->pGroupArray = &g_group_array;
+	if (bMultiThread)
+	{
+		i_obj->pGroupArray = (GroupArray *)emalloc(sizeof(GroupArray));
+		if (i_obj->pGroupArray == NULL)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"malloc %d bytes fail!", __LINE__, \
+				sizeof(GroupArray));
+			ZVAL_NULL(object);
+			return;
+		}
+
+		if (fdht_copy_group_array(i_obj->pGroupArray,&g_group_array)!=0)
+		{
+			ZVAL_NULL(object);
+			return;
+		}
+	}
+	else
+	{
+		i_obj->pGroupArray = &g_group_array;
+	}
 }
 
-/* {{{ FastDHT::get(string key [, mixed callback [, double &cas_token ] ])
-   Returns a value for the given key or false */
+/*
+string/int $FastDHT->get(string namespace, string object_id, string key
+		[, int expires])
+return string value for success, int value (errno) for error
+*/
 PHP_METHOD(FastDHT, get)
 {
 	zval *object = getThis();
 	php_fdht_t *i_obj;
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
-	RETURN_STRING("ok", 1);
+	php_fdht_get_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			i_obj->pGroupArray, true);
 }
-/* }}} */
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo___construct, 0, 0, 0)
 ZEND_END_ARG_INFO()
@@ -813,7 +850,7 @@ zend_object_value php_fdht_new(zend_class_entry *ce TSRMLS_DC)
 	php_fdht_t *i_obj;
 	zval *tmp;
 
-	i_obj = ecalloc(1, sizeof(*i_obj));
+	i_obj = ecalloc(1, sizeof(php_fdht_t));
 	zend_object_std_init( &i_obj->zo, ce TSRMLS_CC );
 	zend_hash_copy(i_obj->zo.properties, &ce->default_properties, \
 		(copy_ctor_func_t) zval_add_ref, (void *)&tmp, sizeof(zval *));
