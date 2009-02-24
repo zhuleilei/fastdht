@@ -573,8 +573,9 @@ static int deal_cmd_get(struct task_info *pTask)
 	if (new_expires != FDHT_EXPIRES_NONE)
 	{
 		int2buff(new_expires, pValue);
-		result = db_set(g_db_list[group_id], full_key, full_key_len, \
-			pValue, value_len);
+
+		result = db_partial_set(g_db_list[group_id], full_key, \
+			full_key_len, pValue, 0, 4);
 	}
 
 	value_len -= 4;

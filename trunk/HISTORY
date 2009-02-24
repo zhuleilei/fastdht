@@ -4,7 +4,9 @@ Version 1.06  2009-02-24
   * add batch get, can get multi keys once
   * add batch set, can set multi keys once
   * add batch delete, can delete multi keys once
-  * php extension add class version
+  * php extension add class version, see sub dir php_client/
+  * performance enhancement: in function get, delay expires (timeout) 
+    use partial set
 
 Version 1.05  2009-02-04
   * only start one dead_lock_detect thread to save resource

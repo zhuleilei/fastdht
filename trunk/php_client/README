@@ -227,3 +227,7 @@ params:
 return 0 for success, != 0 for error
 	return key => errno array when set some key fail
 
+
+void FastDHT::close()
+close connections to FastDHT servers
+

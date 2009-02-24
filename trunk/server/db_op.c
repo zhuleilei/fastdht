@@ -256,6 +256,40 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	return result;
 }
 
+int db_partial_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+	const char *pValue, const int offset, const int value_len)
+{
+	int result;
+	DBT key;
+	DBT value;
+
+	g_server_stat.total_set_count++;
+
+	memset(&key, 0, sizeof(key));
+	memset(&value, 0, sizeof(value));
+
+	key.data = (char *)pKey;
+	key.size = key_len;
+
+	value.flags = DB_DBT_PARTIAL;
+	value.data = (char *)pValue;
+	value.doff = offset;
+	value.dlen = value_len;
+	value.size = value_len;
+
+	if ((result=pDBInfo->db->put(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"db_put fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
+		return EFAULT;
+	}
+
+	g_server_stat.success_set_count++;
+	return result;
+}
+
 static int _db_do_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		char **ppValue, int *size)
 {
