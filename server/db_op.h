@@ -41,6 +41,8 @@ int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		char **ppValue, int *size);
 int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	const char *pValue, const int value_len);
+int db_partial_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+	const char *pValue, const int offset, const int value_len);
 int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len);
 int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	const int inc, char *pValue, int *value_len);
