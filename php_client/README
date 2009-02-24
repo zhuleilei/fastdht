@@ -31,32 +31,36 @@ php test_fastdht.php
 FastDHT PHP functions:
 
 int fastdht_set(string namespace, string object_id, string key, 
-		string value [, int expires])
+		string value [, int expires = FDHT_EXPIRES_NEVER])
 set value of the key
 params:
 	namespace: the namespace of the key, can be empty
 	object_id: the object ID of the key, can be empty
 	key: the key name, can't be empty
 	value: value of the key, can be empty
-	expires: optional, omitted or FDHT_EXPIRES_NEVER for persistent 
+	expires: optional, FDHT_EXPIRES_NEVER for persistent 
                  storage (never expired)
 return: 0 for success, != 0 for error (errno)
 
 
-string/int fastdht_get(string namespace, string object_id, string key
-		[, int expires])
+string/int/boolean fastdht_get(string namespace, string object_id, string key
+		[, boolean return_errno = false, int expires = FDHT_EXPIRES_NONE])
 get value of the key
 params:
 	namespace: the namespace of the key, can be empty
 	object_id: the object ID of the key, can be empty
 	key: the key name, can't be empty
-	expires: optional, omitted or FDHT_EXPIRES_NONE do not change the 
-                 expire time of the key
-return: string value for success, int value (errno) for error
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as key not exist
+	expires: optional, unix timestamp, omitted or FDHT_EXPIRES_NONE do not 
+		change the expire time of the key
+return: string value for success, 
+        return int value (errno) for error when return_errno set to true, 
+        return false for error when return_errno set to false 
 
 
-string/int fastdht_inc(string namespace, string object_id, string key, 
-		int increment [, int expires])
+string/int/boolean fastdht_inc(string namespace, string object_id, string key, 
+		int increment [, bool return_errno = false, int expires])
 increase value of the key, if the key does not exist,
 set the value to increment value (param named "increment")
 params:
@@ -64,10 +68,13 @@ params:
 	object_id: the object ID of the key, can be empty
 	key: the key name, can't be empty
 	increment: the increment value, can be negative
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as key not exist
 	expires: optional, omitted or FDHT_EXPIRES_NEVER for persistent
 		 storage (never expired)
 return: the value after increment, string value for success, 
-        int value (errno) for error
+        return int value (errno) for error when return_errno set to true, 
+        return false for error when return_errno set to false 
 
 
 int fastdht_delete(string namespace, string object_id, string key)
@@ -77,4 +84,146 @@ params:
 	object_id: the object ID of the key, can be empty
 	key: the key name, can't be empty
 return: 0 for success, != 0 for error (errno)
+
+
+int/array fastdht_batch_set(string namespace, string object_id, 
+		array key_list, [, int expires = FDHT_EXPIRES_NEVER])
+batch set keys
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+	key_list: key value pair array
+	expires: optional, omitted or FDHT_EXPIRES_NEVER for persistent
+		 storage (never expired)
+return 0 for success, != 0 for error. 
+	return key => errno array when set some key fail
+
+
+array/int/boolean fastdht_batch_get(string namespace, string object_id, 
+		array key_list [, bool return_errno = false, 
+		int expires = FDHT_EXPIRES_NONE])
+batch get keys
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+	key_list: the key array to fetch
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as key not exist
+	expires: optional, unix timestamp, omitted or FDHT_EXPIRES_NONE do not 
+		change the expire time of the key
+return  return int value or false for error
+	return key => int value (errno) or false when set the key fail
+
+
+int/array fastdht_batch_delete(string namespace, string object_id, array key_list)
+batch delete keys
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+	key_list: the key array to delete
+return 0 for success, != 0 for error
+	return key => errno array when set some key fail
+
+
+
+FastDHT Class Info:
+
+class FastDHT([boolean bMultiThread = false]);
+constructor
+params:
+	bMultiThread: if in multi-thread
+
+
+int FastDHT::set(string namespace, string object_id, string key, 
+		string value [, int expires = FDHT_EXPIRES_NEVER])
+set value of the key
+params:
+	namespace: the namespace of the key, can be empty
+	object_id: the object ID of the key, can be empty
+	key: the key name, can't be empty
+	value: value of the key, can be empty
+	expires: optional, FDHT_EXPIRES_NEVER for persistent 
+                 storage (never expired)
+return: 0 for success, != 0 for error (errno)
+
+
+string/int/boolean FastDHT::get(string namespace, string object_id, string key
+		[, return_errno = false, int expires = FDHT_EXPIRES_NONE])
+params:
+	namespace: the namespace of the key, can be empty
+	object_id: the object ID of the key, can be empty
+	key: the key name, can't be empty
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as key not exist
+	expires: optional, unix timestamp, omitted or FDHT_EXPIRES_NONE do not 
+		change the expire time of the key
+return string value for success, 
+        return int value (errno) for error when return_errno set to true, 
+        return false for error when return_errno set to false 
+
+
+string/int/boolean FastDHT::inc(string namespace, string object_id, string key, 
+		int increment [, bool return_errno = false, int expires])
+increase value of the key, if the key does not exist,
+set the value to increment value (param named "increment")
+params:
+	namespace: the namespace of the key, can be empty
+	object_id: the object ID of the key, can be empty
+	key: the key name, can't be empty
+	increment: the increment value, can be negative
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as key not exist
+	expires: optional, omitted or FDHT_EXPIRES_NEVER for persistent
+		 storage (never expired)
+return: the value after increment, string value for success, 
+        return int value (errno) for error when return_errno set to true, 
+        return false for error when return_errno set to false 
+
+
+int FastDHT::delete(string namespace, string object_id, string key)
+delete the key
+params:
+	namespace: the namespace of the key, can be empty
+	object_id: the object ID of the key, can be empty
+	key: the key name, can't be empty
+return: 0 for success, != 0 for error (errno)
+
+
+int/array FastDHT::batch_set(string namespace, string object_id, 
+		array key_list, [, int expires = FDHT_EXPIRES_NEVER])
+batch set keys
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+	key_list: key value pair array
+	expires: optional, omitted or FDHT_EXPIRES_NEVER for persistent
+		 storage (never expired)
+return 0 for success, != 0 for error. 
+	return key => errno array when set some key fail
+
+
+array/int/boolean FastDHT::batch_get(string namespace, string object_id, 
+		array key_list [, bool return_errno = false, 
+		int expires = FDHT_EXPIRES_NONE])
+batch get keys
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+	key_list: the key array to fetch
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as key not exist
+	expires: optional, unix timestamp, omitted or FDHT_EXPIRES_NONE do not 
+		change the expire time of the key
+return  return int value or false for error
+	return key => int value (errno) or false when set the key fail
+
+
+int/array FastDHT::batch_delete(string namespace, string object_id, array key_list)
+batch delete keys
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+	key_list: the key array to delete
+return 0 for success, != 0 for error
+	return key => errno array when set some key fail
 
