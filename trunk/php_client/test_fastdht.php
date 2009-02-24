@@ -3,7 +3,19 @@
 $namespace = '';
 $object_id = '';
 $key = 'key';
-$value = 'this is a test';
+$value = 1234;
+
+$fdht = new FastDHT(false);
+if (($result=$fdht->set($namespace, $object_id, $key, $value)) != 0)
+{
+	error_log("fastdht_set fail, errno: $result");
+}
+var_dump($fdht->get($namespace, $object_id, $key));
+var_dump($fdht->inc($namespace, $object_id, $key, 10));
+
+echo 'delete: ' . $fdht->delete($namespace, $object_id, $key) . "\n";
+
+
 
 if (($result=fastdht_set($namespace, $object_id, $key, $value)) != 0)
 {

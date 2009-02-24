@@ -54,6 +54,7 @@ const zend_fcall_info empty_fcall_info = { 0, NULL, NULL, NULL, NULL, 0, NULL, N
 		ZEND_FE(fastdht_set, NULL)
 		ZEND_FE(fastdht_get, NULL)
 		ZEND_FE(fastdht_inc, NULL)
+		ZEND_FE(fastdht_delete, NULL)
 		ZEND_FE(fastdht_batch_set, NULL)
 		ZEND_FE(fastdht_batch_get, NULL)
 		ZEND_FE(fastdht_batch_delete, NULL)
@@ -109,12 +110,9 @@ zend_module_entry fastdht_client_module_entry = {
 	memcpy(obj_info.szNameSpace, szNamespace, obj_info.namespace_len); \
 	memcpy(obj_info.szObjectId, szObjectId, obj_info.obj_id_len); \
 
-/*
-int fastdht_set(string namespace, string object_id, string key, 
-		string value [, int expires])
-return 0 for success, != 0 for error
-*/
-ZEND_FUNCTION(fastdht_set)
+
+static void php_fdht_set_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
 {
 	int argc;
 	char *szNamespace;
@@ -160,11 +158,18 @@ ZEND_FUNCTION(fastdht_set)
 }
 
 /*
-int fastdht_batch_set(string namespace, string object_id, array key_list, 
-		[, int expires])
+int fastdht_set(string namespace, string object_id, string key, 
+		string value [, int expires])
 return 0 for success, != 0 for error
 */
-ZEND_FUNCTION(fastdht_batch_set)
+ZEND_FUNCTION(fastdht_set)
+{
+	php_fdht_set_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
+static void php_fdht_batch_set_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
 {
 	int argc;
 	char *szNamespace;
@@ -307,11 +312,18 @@ ZEND_FUNCTION(fastdht_batch_set)
 }
 
 /*
-int fastdht_batch_get(string namespace, string object_id, array key_list, 
+int fastdht_batch_set(string namespace, string object_id, array key_list, 
 		[, int expires])
 return 0 for success, != 0 for error
 */
-ZEND_FUNCTION(fastdht_batch_get)
+ZEND_FUNCTION(fastdht_batch_set)
+{
+	php_fdht_batch_set_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+		&g_group_array, g_keep_alive);
+}
+
+static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
 {
 	int argc;
 	char *szNamespace;
@@ -438,10 +450,18 @@ ZEND_FUNCTION(fastdht_batch_get)
 }
 
 /*
-int fastdht_batch_delete(string namespace, string object_id, array key_list)
+int fastdht_batch_get(string namespace, string object_id, array key_list, 
+		[, int expires])
 return 0 for success, != 0 for error
 */
-ZEND_FUNCTION(fastdht_batch_delete)
+ZEND_FUNCTION(fastdht_batch_get)
+{
+	php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+		&g_group_array, g_keep_alive);
+}
+
+static void php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
 {
 	int argc;
 	char *szNamespace;
@@ -560,6 +580,16 @@ ZEND_FUNCTION(fastdht_batch_delete)
 	}
 }
 
+/*
+int fastdht_batch_delete(string namespace, string object_id, array key_list)
+return 0 for success, != 0 for error
+*/
+ZEND_FUNCTION(fastdht_batch_delete)
+{
+	php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+		&g_group_array, g_keep_alive);
+}
+
 static void php_fdht_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		GroupArray *pGroupArray, bool bKeepAlive)
 {
@@ -626,12 +656,8 @@ ZEND_FUNCTION(fastdht_get)
 			&g_group_array, g_keep_alive);
 }
 
-/*
-string/int fastdht_inc(string namespace, string object_id, string key, 
-		int increment [, int expires])
-return string value for success, int value (errno) for error
-*/
-ZEND_FUNCTION(fastdht_inc)
+static void php_fdht_inc_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
 {
 	int argc;
 	char *szNamespace;
@@ -687,10 +713,18 @@ ZEND_FUNCTION(fastdht_inc)
 }
 
 /*
-int fastdht_delete(string namespace, string object_id, string key)
-return 0 for success, != 0 for error
+string/int fastdht_inc(string namespace, string object_id, string key, 
+		int increment [, int expires])
+return string value for success, int value (errno) for error
 */
-ZEND_FUNCTION(fastdht_delete)
+ZEND_FUNCTION(fastdht_inc)
+{
+	php_fdht_inc_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
+static void php_fdht_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
 {
 	int argc;
 	char *szNamespace;
@@ -728,6 +762,16 @@ ZEND_FUNCTION(fastdht_delete)
 	*/
 
 	RETURN_LONG(fdht_delete(&key_info));
+}
+
+/*
+int fastdht_delete(string namespace, string object_id, string key)
+return 0 for success, != 0 for error
+*/
+ZEND_FUNCTION(fastdht_delete)
+{
+	php_fdht_delete_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
 }
 
 /* constructor/destructor */
@@ -815,6 +859,94 @@ PHP_METHOD(FastDHT, get)
 			i_obj->pGroupArray, true);
 }
 
+/*
+int $FastDHT->set(string namespace, string object_id, string key, 
+		string value [, int expires])
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, set)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_set_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
+/*
+string/int $FastDHT->inc(string namespace, string object_id, string key, 
+		int increment [, int expires])
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, inc)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_inc_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
+/*
+int $FastDHT->delete(string namespace, string object_id, string key)
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, delete)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_delete_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
+/*
+int $FastDHT->batch_get(string namespace, string object_id, array key_list, 
+		[, int expires])
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, batch_get)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
+/*
+int $FastDHT->batch_set(string namespace, string object_id, array key_list, 
+		[, int expires])
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, batch_set)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_batch_set_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
+/*
+int $FastDHT->batch_delete(string namespace, string object_id, array key_list)
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, batch_delete)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
+}
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo___construct, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
@@ -825,12 +957,59 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_get, 0, 0, 3)
 	ZEND_ARG_INFO(0, expires)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_set, 0, 0, 4)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, szKey)
+	ZEND_ARG_INFO(0, szValue)
+	ZEND_ARG_INFO(0, expires)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_inc, 0, 0, 4)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, szKey)
+	ZEND_ARG_INFO(0, increment)
+	ZEND_ARG_INFO(0, expires)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_delete, 0, 0, 3)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, szKey)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_batch_get, 0, 0, 3)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, key_list)
+	ZEND_ARG_INFO(0, expires)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_batch_set, 0, 0, 3)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, key_list)
+	ZEND_ARG_INFO(0, expires)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_batch_delete, 0, 0, 3)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, key_list)
+ZEND_END_ARG_INFO()
 
 /* {{{ fdht_class_methods */
 #define FDHT_ME(name, args) PHP_ME(FastDHT, name, args, ZEND_ACC_PUBLIC)
 static zend_function_entry fdht_class_methods[] = {
     FDHT_ME(__construct,        arginfo___construct)
     FDHT_ME(get,                arginfo_get)
+    FDHT_ME(set,                arginfo_set)
+    FDHT_ME(inc,                arginfo_inc)
+    FDHT_ME(delete,             arginfo_delete)
+    FDHT_ME(batch_get,          arginfo_batch_get)
+    FDHT_ME(batch_set,          arginfo_batch_set)
+    FDHT_ME(batch_delete,       arginfo_batch_delete)
     { NULL, NULL, NULL }
 };
 #undef FDHT_ME
