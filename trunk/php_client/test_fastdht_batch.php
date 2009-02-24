@@ -19,7 +19,7 @@ if ($result != 0)
 	error_log("fastdht_batch_set fail partially");
 }
 
-$key_value_pair = array('login', 'reg', 'intl', 'co');
+$key_value_pair = array('login', 'reg', 'intl', 'co', 'city');
 $result = $fdht->batch_get($namespace, $object_id, $key_value_pair);
 var_dump($result);
 

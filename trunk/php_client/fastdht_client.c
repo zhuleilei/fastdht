@@ -337,6 +337,7 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	int success_count;
 	char *szKey;
 	long index;
+	bool return_errno;
 	long expires;
 	int result;
 	FDHTObjectInfo obj_info;
@@ -354,10 +355,11 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		RETURN_LONG(EINVAL);
 	}
 
+	return_errno = false;
 	expires = FDHT_EXPIRES_NEVER;
-	if (zend_parse_parameters(argc TSRMLS_CC, "ssa|l", &szNamespace, 
+	if (zend_parse_parameters(argc TSRMLS_CC, "ssa|bl", &szNamespace, 
 		&obj_info.namespace_len, &szObjectId, &obj_info.obj_id_len, 
-		&key_values, &expires) == FAILURE)
+		&key_values, &return_errno, &expires) == FAILURE)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"fastdht_batch_set parameter parse error!", __LINE__);
@@ -428,7 +430,14 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 			_emalloc, &success_count);
 	if (result != 0)
 	{
-		RETURN_LONG(result);
+		if (return_errno)
+		{
+			RETURN_LONG(result);
+		}
+		else
+		{
+			RETURN_BOOL(false);
+		}
 	}
 
 	array_init(return_value);
@@ -444,15 +453,23 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		}
 		else
 		{
+			if (return_errno)
+			{
 			add_assoc_long_ex(return_value, pKeyValue->szKey, \
 				pKeyValue->key_len + 1, pKeyValue->status);
+			}
+			else
+			{
+			add_assoc_bool_ex(return_value, pKeyValue->szKey, \
+				pKeyValue->key_len + 1, false);
+			}
 		}
 	}
 }
 
 /*
-int fastdht_batch_get(string namespace, string object_id, array key_list, 
-		[, int expires])
+array/int/boolean fastdht_batch_get(string namespace, string object_id, \
+		array key_list, [, bool return_errno, int expires])
 return 0 for success, != 0 for error
 */
 ZEND_FUNCTION(fastdht_batch_get)
@@ -600,24 +617,26 @@ static void php_fdht_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	char *szKey;
 	char *pValue;
 	int value_len;
+	bool return_errno;
 	long expires;
 	int result;
 	FDHTKeyInfo key_info;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 3 && argc != 4)
+	if (argc < 3  || argc > 5)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_get parameters: %d != 3 or 4", 
+			"fastdht_get parameters: %d != 3 or 4 or 5", \
 			__LINE__, argc);
 
 		RETURN_LONG(EINVAL);
 	}
 
+	return_errno = false;
 	expires = FDHT_EXPIRES_NONE;
-	if (zend_parse_parameters(argc TSRMLS_CC, "sss|l", &szNamespace, 
+	if (zend_parse_parameters(argc TSRMLS_CC, "sss|bl", &szNamespace, 
 		&key_info.namespace_len, &szObjectId, &key_info.obj_id_len, 
-		&szKey, &key_info.key_len, &expires)
+		&szKey, &key_info.key_len, &return_errno, &expires)
 		 == FAILURE)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -640,15 +659,22 @@ static void php_fdht_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	if ((result=fdht_get_ex1(pGroupArray, bKeepAlive, &key_info, \
 			expires, &pValue, &value_len, _emalloc)) != 0)
 	{
-		RETURN_LONG(result);
+		if (return_errno)
+		{
+			RETURN_LONG(result);
+		}
+		else
+		{
+			RETURN_BOOL(false);
+		}
 	}
 
 	RETURN_STRINGL(pValue, value_len, 0);
 }
 
 /*
-string/int fastdht_get(string namespace, string object_id, string key
-		[, int expires])
+string/int/boolean fastdht_get(string namespace, string object_id, string key
+		[bool return_errno, int expires])
 return string value for success, int value (errno) for error
 */
 ZEND_FUNCTION(fastdht_get)
@@ -667,25 +693,27 @@ static void php_fdht_inc_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	char szValue[32];
 	int value_len;
 	long increment;
+	bool return_errno;
 	long expires;
 	int result;
 	FDHTKeyInfo key_info;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 4 && argc != 5)
+	if (argc != 4 && argc != 5 && argc != 6)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_inc parameters: %d != 4 or 5", 
+			"fastdht_inc parameters: %d != 4 or 5 or 6",  \
 			__LINE__, argc);
 
 		RETURN_LONG(EINVAL);
 	}
 
+	return_errno = false;
 	expires = FDHT_EXPIRES_NEVER;
-	if (zend_parse_parameters(argc TSRMLS_CC, "sssl|l", &szNamespace, 
+	if (zend_parse_parameters(argc TSRMLS_CC, "sssl|bl", &szNamespace, 
 		&key_info.namespace_len, &szObjectId, &key_info.obj_id_len, 
-		&szKey, &key_info.key_len, &increment, &expires)
-		 == FAILURE)
+		&szKey, &key_info.key_len, &increment, &return_errno, \
+		&expires) == FAILURE)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"fastdht_inc parameter parse error!", __LINE__);
@@ -707,15 +735,22 @@ static void php_fdht_inc_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	if ((result=fdht_inc_ex(pGroupArray, bKeepAlive, &key_info, \
 			expires, increment, szValue, &value_len)) != 0)
 	{
-		RETURN_LONG(result);
+		if (return_errno)
+		{
+			RETURN_LONG(result);
+		}
+		else
+		{
+			RETURN_BOOL(false);
+		}
 	}
 
 	RETURN_STRINGL(szValue, value_len, 1);
 }
 
 /*
-string/int fastdht_inc(string namespace, string object_id, string key, 
-		int increment [, int expires])
+string/int/boolean fastdht_inc(string namespace, string object_id, string key, 
+		int increment [, bool return_errno, int expires])
 return string value for success, int value (errno) for error
 */
 ZEND_FUNCTION(fastdht_inc)
@@ -860,8 +895,8 @@ static PHP_METHOD(FastDHT, __construct)
 }
 
 /*
-string/int $FastDHT->get(string namespace, string object_id, string key
-		[, int expires])
+string/int/bool FastDHT::get(string namespace, string object_id, string key
+		[, return_errno, int expires])
 return string value for success, int value (errno) for error
 */
 PHP_METHOD(FastDHT, get)
@@ -875,7 +910,7 @@ PHP_METHOD(FastDHT, get)
 }
 
 /*
-int $FastDHT->set(string namespace, string object_id, string key, 
+int FastDHT::set(string namespace, string object_id, string key, 
 		string value [, int expires])
 return 0 for success, != 0 for error
 */
@@ -890,7 +925,7 @@ PHP_METHOD(FastDHT, set)
 }
 
 /*
-string/int $FastDHT->inc(string namespace, string object_id, string key, 
+string/int FastDHT::inc(string namespace, string object_id, string key, 
 		int increment [, int expires])
 return 0 for success, != 0 for error
 */
@@ -905,7 +940,7 @@ PHP_METHOD(FastDHT, inc)
 }
 
 /*
-int $FastDHT->delete(string namespace, string object_id, string key)
+int FastDHT::delete(string namespace, string object_id, string key)
 return 0 for success, != 0 for error
 */
 PHP_METHOD(FastDHT, delete)
@@ -919,7 +954,7 @@ PHP_METHOD(FastDHT, delete)
 }
 
 /*
-int $FastDHT->batch_get(string namespace, string object_id, array key_list, 
+int FastDHT::batch_get(string namespace, string object_id, array key_list, 
 		[, int expires])
 return 0 for success, != 0 for error
 */
@@ -934,7 +969,7 @@ PHP_METHOD(FastDHT, batch_get)
 }
 
 /*
-int $FastDHT->batch_set(string namespace, string object_id, array key_list, 
+int FastDHT::batch_set(string namespace, string object_id, array key_list, 
 		[, int expires])
 return 0 for success, != 0 for error
 */
@@ -949,7 +984,7 @@ PHP_METHOD(FastDHT, batch_set)
 }
 
 /*
-int $FastDHT->batch_delete(string namespace, string object_id, array key_list)
+int FastDHT::batch_delete(string namespace, string object_id, array key_list)
 return 0 for success, != 0 for error
 */
 PHP_METHOD(FastDHT, batch_delete)
@@ -963,7 +998,7 @@ PHP_METHOD(FastDHT, batch_delete)
 }
 
 /*
-void $FastDHT->close()
+void FastDHT::close()
 */
 PHP_METHOD(FastDHT, close)
 {
