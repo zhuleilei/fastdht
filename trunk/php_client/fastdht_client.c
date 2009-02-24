@@ -154,7 +154,8 @@ static void php_fdht_set_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		szValue, value_len, expires);
 	*/
 
-	RETURN_LONG(fdht_set(&key_info, expires, szValue, value_len));
+	RETURN_LONG(fdht_set_ex(pGroupArray, bKeepAlive, &key_info, expires, \
+			szValue, value_len));
 }
 
 /*
@@ -284,8 +285,8 @@ static void php_fdht_batch_set_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	}
 	pValueEnd = pValue;
 
-	result = fdht_batch_set(&obj_info, key_list, key_count, \
-				expires, &success_count);
+	result = fdht_batch_set_ex(pGroupArray, bKeepAlive, &obj_info, \
+			key_list, key_count, expires, &success_count);
 	for (pValue=zvalues; pValue<pValueEnd; pValue++)
 	{
 		zval_dtor(pValue);
@@ -422,7 +423,7 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		pKeyValue++;
 	}
 
-	result = fdht_batch_get_ex1((&g_group_array), g_keep_alive, \
+	result = fdht_batch_get_ex1(pGroupArray, bKeepAlive, \
 			&obj_info, key_list, key_count, expires, \
 			_emalloc, &success_count);
 	if (result != 0)
@@ -558,8 +559,8 @@ static void php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		pKeyValue++;
 	}
 
-	result = fdht_batch_delete(&obj_info, key_list, key_count, \
-				&success_count);
+	result = fdht_batch_delete_ex(pGroupArray, bKeepAlive, &obj_info, \
+				key_list, key_count, &success_count);
 	if (result != 0)
 	{
 		RETURN_LONG(result);
@@ -703,8 +704,8 @@ static void php_fdht_inc_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	*/
 
 	value_len = sizeof(szValue);
-	if ((result=fdht_inc(&key_info, expires, increment, 
-			szValue, &value_len)) != 0)
+	if ((result=fdht_inc_ex(pGroupArray, bKeepAlive, &key_info, \
+			expires, increment, szValue, &value_len)) != 0)
 	{
 		RETURN_LONG(result);
 	}
@@ -761,7 +762,7 @@ static void php_fdht_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		szKey, key_info.key_len);
 	*/
 
-	RETURN_LONG(fdht_delete(&key_info));
+	RETURN_LONG(fdht_delete_ex(pGroupArray, bKeepAlive, &key_info));
 }
 
 /*
@@ -774,14 +775,29 @@ ZEND_FUNCTION(fastdht_delete)
 			&g_group_array, g_keep_alive);
 }
 
+static void php_fdht_close(php_fdht_t *i_obj TSRMLS_DC)
+{
+	if (i_obj->pGroupArray == NULL)
+	{
+		return;
+	}
+
+	if (i_obj->pGroupArray != &g_group_array)
+	{
+		fdht_disconnect_all_servers(i_obj->pGroupArray);
+	}
+	else if (!g_keep_alive)
+	{
+		fdht_disconnect_all_servers(i_obj->pGroupArray);
+	}
+}
+
 /* constructor/destructor */
 static void php_fdht_destroy(php_fdht_t *i_obj TSRMLS_DC)
 {
-	fprintf(stderr, "php_fdht_destroy , obj=%X, zo=%X\n", (int)i_obj, (int)(&i_obj->zo));
-	fprintf(stderr, "php_fdht_destroy , i_obj->pGroupArray=%X\n", (int)i_obj->pGroupArray);
+	php_fdht_close(i_obj);
 	if (i_obj->pGroupArray != NULL && i_obj->pGroupArray != &g_group_array)
 	{
-		fprintf(stderr, "free i_obj->pGroupArray=%X\n", (int)i_obj->pGroupArray);
 		fdht_free_group_array(i_obj->pGroupArray);
 		efree(i_obj->pGroupArray);
 		i_obj->pGroupArray = NULL;
@@ -795,7 +811,6 @@ ZEND_RSRC_DTOR_FUNC(php_fdht_dtor)
 	if (rsrc->ptr != NULL)
 	{
 		php_fdht_t *i_obj = (php_fdht_t *)rsrc->ptr;
-
 		php_fdht_destroy(i_obj TSRMLS_CC);
 		rsrc->ptr = NULL;
 	}
@@ -871,7 +886,7 @@ PHP_METHOD(FastDHT, set)
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
 	php_fdht_set_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
-			&g_group_array, g_keep_alive);
+			i_obj->pGroupArray, true);
 }
 
 /*
@@ -886,7 +901,7 @@ PHP_METHOD(FastDHT, inc)
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
 	php_fdht_inc_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
-			&g_group_array, g_keep_alive);
+			i_obj->pGroupArray, true);
 }
 
 /*
@@ -900,7 +915,7 @@ PHP_METHOD(FastDHT, delete)
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
 	php_fdht_delete_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
-			&g_group_array, g_keep_alive);
+			i_obj->pGroupArray, true);
 }
 
 /*
@@ -915,7 +930,7 @@ PHP_METHOD(FastDHT, batch_get)
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
 	php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
-			&g_group_array, g_keep_alive);
+			i_obj->pGroupArray, true);
 }
 
 /*
@@ -930,7 +945,7 @@ PHP_METHOD(FastDHT, batch_set)
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
 	php_fdht_batch_set_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
-			&g_group_array, g_keep_alive);
+			i_obj->pGroupArray, true);
 }
 
 /*
@@ -944,7 +959,19 @@ PHP_METHOD(FastDHT, batch_delete)
 
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
 	php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
-			&g_group_array, g_keep_alive);
+			i_obj->pGroupArray, true);
+}
+
+/*
+void $FastDHT->close()
+*/
+PHP_METHOD(FastDHT, close)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_close(i_obj);
 }
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo___construct, 0, 0, 0)
@@ -999,6 +1026,9 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_batch_delete, 0, 0, 3)
 	ZEND_ARG_INFO(0, key_list)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_close, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
 /* {{{ fdht_class_methods */
 #define FDHT_ME(name, args) PHP_ME(FastDHT, name, args, ZEND_ACC_PUBLIC)
 static zend_function_entry fdht_class_methods[] = {
@@ -1007,6 +1037,7 @@ static zend_function_entry fdht_class_methods[] = {
     FDHT_ME(set,                arginfo_set)
     FDHT_ME(inc,                arginfo_inc)
     FDHT_ME(delete,             arginfo_delete)
+    FDHT_ME(close,              arginfo_close)
     FDHT_ME(batch_get,          arginfo_batch_get)
     FDHT_ME(batch_set,          arginfo_batch_set)
     FDHT_ME(batch_delete,       arginfo_batch_delete)
@@ -1017,8 +1048,6 @@ static zend_function_entry fdht_class_methods[] = {
 
 static void php_fdht_free_storage(php_fdht_t *i_obj TSRMLS_DC)
 {
-	fprintf(stderr, "php_fdht_free_storage, obj=%X, zo=%X\n", (int)i_obj, (int)(&i_obj->zo));
-
 	zend_object_std_dtor(&i_obj->zo TSRMLS_CC);
 	php_fdht_destroy(i_obj TSRMLS_CC);
 }
@@ -1030,6 +1059,7 @@ zend_object_value php_fdht_new(zend_class_entry *ce TSRMLS_DC)
 	zval *tmp;
 
 	i_obj = ecalloc(1, sizeof(php_fdht_t));
+
 	zend_object_std_init( &i_obj->zo, ce TSRMLS_CC );
 	zend_hash_copy(i_obj->zo.properties, &ce->default_properties, \
 		(copy_ctor_func_t) zval_add_ref, (void *)&tmp, sizeof(zval *));
@@ -1118,7 +1148,6 @@ PHP_MINIT_FUNCTION(fastdht_client)
 	REGISTER_LONG_CONSTANT("FDHT_EXPIRES_NEVER", 0, CONST_CS|CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDHT_EXPIRES_NONE", -1, CONST_CS|CONST_PERSISTENT);
 
-	fprintf(stderr, "init done.\n");
 	return SUCCESS;
 }
 
