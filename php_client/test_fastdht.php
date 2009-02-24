@@ -5,7 +5,7 @@ $object_id = '';
 $key = 'key';
 $value = 1234;
 
-$fdht = new FastDHT(false);
+$fdht = new FastDHT(true);
 if (($result=$fdht->set($namespace, $object_id, $key, $value)) != 0)
 {
 	error_log("fastdht_set fail, errno: $result");
@@ -15,7 +15,7 @@ var_dump($fdht->inc($namespace, $object_id, $key, 10));
 
 echo 'delete: ' . $fdht->delete($namespace, $object_id, $key) . "\n";
 
-
+$fdht->close();
 
 if (($result=fastdht_set($namespace, $object_id, $key, $value)) != 0)
 {
