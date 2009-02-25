@@ -43,6 +43,9 @@ int fdht_client_init(const char *filename)
 		return result;
 	}
 
+	fdht_free_group_array(&g_group_array);
+	memset(&g_group_array, 0, sizeof(g_group_array));
+
 	//iniPrintItems(items, nItemCount);
 
 	while (1)

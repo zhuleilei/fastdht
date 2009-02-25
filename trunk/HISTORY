@@ -1,5 +1,5 @@
 
-Version 1.06  2009-02-24
+Version 1.06  2009-02-25
   * in config file conf/fdhtd.conf: add item "min_buff_size"
   * add batch get, can get multi keys once
   * add batch set, can set multi keys once
@@ -8,6 +8,7 @@ Version 1.06  2009-02-24
   * performance enhancement: in function get, delay expires (timeout) 
     use partial set
   * php extension support multi config file
+  * bug fix: fdht_client_init can be called more than once
 
 Version 1.05  2009-02-04
   * only start one dead_lock_detect thread to save resource
