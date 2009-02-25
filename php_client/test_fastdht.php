@@ -5,7 +5,7 @@ $object_id = '';
 $key = 'KEY123456';
 $value = '1234567890';
 
-$fdht = new FastDHT(true);
+$fdht = new FastDHT(0);
 
 if (($result=$fdht->set($namespace, $object_id, $key, $value)) != 0)
 {

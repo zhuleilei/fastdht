@@ -23,8 +23,19 @@ cp modules/fastdht_client.so  /usr/lib/php/20060613/
 #copy fastdfs_client.ini to PHP etc directory, eg. /etc/php/
 cp fastdfs_client.ini /etc/php/
 
+#modify config file fastdfs_client.ini, such as:
+vi /etc/php/fastdfs_client.ini
+
 #run test_fastdht.php
 php test_fastdht.php
+php test_fastdht_batch.php
+
+
+####parameters in fastdfs_client.ini####
+fastdht_client.config_count: config file count, default value is 1
+fastdht_client.config_file#: config filename, must include absolute path, 
+                             # means number, base 0,
+                             such as fastdht_client.config_file0
 
 
 
@@ -128,9 +139,10 @@ return 0 for success, != 0 for error
 
 FastDHT Class Info:
 
-class FastDHT([boolean bMultiThread = false]);
+class FastDHT([int config_index = 0, boolean bMultiThread = false]);
 constructor
 params:
+	config_index: use which config file, base 0
 	bMultiThread: if in multi-thread
 
 

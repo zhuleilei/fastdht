@@ -25,9 +25,19 @@
 
 typedef struct
 {
-	zend_object zo;
-	GroupArray *pGroupArray;
+        GroupArray *pGroupArray;
+        bool keep_alive;
+} FDHTConfigInfo;
+
+typedef struct
+{
+        zend_object zo;
+        FDHTConfigInfo *pConfigInfo;
+        GroupArray *pGroupArray;
 } php_fdht_t;
+
+static FDHTConfigInfo *config_list = NULL;
+static int config_count = 0;
 
 static int le_fdht;
 
@@ -817,11 +827,11 @@ static void php_fdht_close(php_fdht_t *i_obj TSRMLS_DC)
 		return;
 	}
 
-	if (i_obj->pGroupArray != &g_group_array)
+	if (i_obj->pGroupArray != i_obj->pConfigInfo->pGroupArray)
 	{
 		fdht_disconnect_all_servers(i_obj->pGroupArray);
 	}
-	else if (!g_keep_alive)
+	else if (!i_obj->pConfigInfo->keep_alive)
 	{
 		fdht_disconnect_all_servers(i_obj->pGroupArray);
 	}
@@ -831,7 +841,8 @@ static void php_fdht_close(php_fdht_t *i_obj TSRMLS_DC)
 static void php_fdht_destroy(php_fdht_t *i_obj TSRMLS_DC)
 {
 	php_fdht_close(i_obj);
-	if (i_obj->pGroupArray != NULL && i_obj->pGroupArray != &g_group_array)
+	if (i_obj->pGroupArray != NULL && i_obj->pGroupArray != \
+		i_obj->pConfigInfo->pGroupArray)
 	{
 		fdht_free_group_array(i_obj->pGroupArray);
 		efree(i_obj->pGroupArray);
@@ -851,17 +862,19 @@ ZEND_RSRC_DTOR_FUNC(php_fdht_dtor)
 	}
 }
 
-/* FastDHT::__construct([bool bMultiThread])
+/* FastDHT::__construct([int config_index = 0, bool bMultiThread = false])
    Creates a FastDHT object */
 static PHP_METHOD(FastDHT, __construct)
 {
+	long config_index;
 	bool bMultiThread;
 	zval *object = getThis();
 	php_fdht_t *i_obj;
 
+	config_index = 0;
 	bMultiThread = false;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|b", \
-			&bMultiThread) == FAILURE)
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lb", \
+			&config_index, &bMultiThread) == FAILURE)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"zend_parse_parameters fail!", __LINE__);
@@ -869,7 +882,17 @@ static PHP_METHOD(FastDHT, __construct)
 		return;
 	}
 
+	if (config_index < 0 || config_index >= config_count)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"invalid config_index: %d < 0 || >= %d", \
+			__LINE__, config_index, config_count);
+		ZVAL_NULL(object);
+		return;
+	}
+
 	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	i_obj->pConfigInfo = config_list + config_index;
 	if (bMultiThread)
 	{
 		i_obj->pGroupArray = (GroupArray *)emalloc(sizeof(GroupArray));
@@ -882,7 +905,8 @@ static PHP_METHOD(FastDHT, __construct)
 			return;
 		}
 
-		if (fdht_copy_group_array(i_obj->pGroupArray,&g_group_array)!=0)
+		if (fdht_copy_group_array(i_obj->pGroupArray, \
+			i_obj->pConfigInfo->pGroupArray) != 0)
 		{
 			ZVAL_NULL(object);
 			return;
@@ -890,7 +914,7 @@ static PHP_METHOD(FastDHT, __construct)
 	}
 	else
 	{
-		i_obj->pGroupArray = &g_group_array;
+		i_obj->pGroupArray = i_obj->pConfigInfo->pGroupArray;
 	}
 }
 
@@ -1149,36 +1173,144 @@ PHP_FASTDHT_API zend_class_entry *php_fdht_get_exception_base(int root TSRMLS_DC
 #endif
 }
 
+static int load_config_files()
+{
+	#define ITEM_NAME_CONF_COUNT "fastdht_client.config_count"
+	#define ITEM_NAME_CONF_FILE  "fastdht_client.config_file"
+	zval conf_c;
+	zval conf_filename;
+	char szItemName[sizeof(ITEM_NAME_CONF_FILE) + 10];
+	int nItemLen;
+	FDHTConfigInfo *pConfigInfo;
+	FDHTConfigInfo *pConfigEnd;
+	IniItemInfo *items;
+	int nItemCount;
+	int result;
+
+	if (zend_get_configuration_directive(ITEM_NAME_CONF_COUNT, 
+		sizeof(ITEM_NAME_CONF_COUNT), &conf_c) == SUCCESS)
+	{
+		config_count = atoi(conf_c.value.str.val);
+		if (config_count <= 0)
+		{
+			fprintf(stderr, "file: "__FILE__", line: %d, " \
+				"fastdht_client.ini, config_count: %d <= 0!\n",\
+				__LINE__, config_count);
+			return EINVAL;
+		}
+	}
+	else
+	{
+		 config_count = 1;
+	}
+
+	config_list = (FDHTConfigInfo *)malloc(sizeof(FDHTConfigInfo) * \
+			config_count);
+	if (config_list == NULL)
+	{
+		fprintf(stderr, "file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail!\n",\
+			__LINE__, sizeof(FDHTConfigInfo) * config_count);
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	pConfigEnd = config_list + config_count;
+	for (pConfigInfo=config_list; pConfigInfo<pConfigEnd; pConfigInfo++)
+	{
+		nItemLen = sprintf(szItemName, "%s%d", ITEM_NAME_CONF_FILE, \
+				pConfigInfo - config_list);
+		if (zend_get_configuration_directive(szItemName, \
+			nItemLen + 1, &conf_filename) != SUCCESS)
+		{
+			if (pConfigInfo != config_list)
+			{
+				fprintf(stderr, "file: "__FILE__", line: %d, " \
+					"fastdht_client.ini: get param %s " \
+					"fail!\n", __LINE__, szItemName);
+
+				return ENOENT;
+			}
+
+			if (zend_get_configuration_directive( \
+				ITEM_NAME_CONF_FILE, \
+				sizeof(ITEM_NAME_CONF_FILE), \
+				&conf_filename) != SUCCESS)
+			{
+				fprintf(stderr, "file: "__FILE__", line: %d, " \
+					"fastdht_client.ini: get param %s " \
+					"fail!\n",__LINE__,ITEM_NAME_CONF_FILE);
+
+				return ENOENT;
+			}
+		}
+
+		if (pConfigInfo == config_list)
+		{
+			result = fdht_client_init(conf_filename.value.str.val);
+			if (result != 0)
+			{
+				return result;
+			}
+
+			pConfigInfo->pGroupArray = &g_group_array;
+			pConfigInfo->keep_alive = g_keep_alive;
+		}
+		else
+		{
+			pConfigInfo->pGroupArray = (GroupArray *)malloc( \
+							sizeof(GroupArray));
+			if (pConfigInfo->pGroupArray == NULL)
+			{
+				fprintf(stderr, "file: "__FILE__", line: %d, " \
+					"malloc %d bytes fail!\n", \
+					__LINE__, sizeof(GroupArray));
+				return errno != 0 ? errno : ENOMEM;
+			}
+
+			if ((result=iniLoadItems(conf_filename.value.str.val, \
+					&items, &nItemCount)) != 0)
+			{
+				fprintf(stderr, "file: "__FILE__", line: %d, " \
+					"load conf file \"%s\" fail, " \
+					"ret code: %d", __LINE__, \
+					conf_filename.value.str.val, result);
+				return result;
+			}
+
+			pConfigInfo->keep_alive = iniGetBoolValue("keep_alive", \
+					items, nItemCount, false);
+			if ((result=fdht_load_groups(items, nItemCount, \
+					pConfigInfo->pGroupArray)) != 0)
+			{
+				iniFreeItems(items);
+				return result;
+			}
+			iniFreeItems(items);
+		}
+	}
+
+	return 0;
+}
 
 PHP_MINIT_FUNCTION(fastdht_client)
 {
-	#define ITEM_NAME_CONF_FILE "fastdht_client.config_file"
-	zval conf_filename;
 	zend_class_entry ce;
 
-	if (zend_get_configuration_directive(ITEM_NAME_CONF_FILE, 
-		sizeof(ITEM_NAME_CONF_FILE), &conf_filename) != SUCCESS)
-	{
-		fprintf(stderr, "file: "__FILE__", line: %d, " \
-			"get param: %s from fastdht_client.ini fail!\n", 
-			__LINE__, ITEM_NAME_CONF_FILE);
-
-		return FAILURE;
-	}
-
-	if (fdht_client_init(conf_filename.value.str.val) != 0)
+	if (load_config_files() != 0)
 	{
 		return FAILURE;
 	}
 
-	le_fdht = zend_register_list_destructors_ex(NULL, php_fdht_dtor, "FastDHT", module_number);
+	le_fdht = zend_register_list_destructors_ex(NULL, php_fdht_dtor, \
+			"FastDHT", module_number);
 
 	INIT_CLASS_ENTRY(ce, "FastDHT", fdht_class_methods);
 	fdht_ce = zend_register_internal_class(&ce TSRMLS_CC);
 	fdht_ce->create_object = php_fdht_new;
 
 	INIT_CLASS_ENTRY(ce, "FastDHTException", NULL);
-	fdht_exception_ce = zend_register_internal_class_ex(&ce, php_fdht_get_exception_base(0 TSRMLS_CC), NULL TSRMLS_CC);
+	fdht_exception_ce = zend_register_internal_class_ex(&ce, \
+		php_fdht_get_exception_base(0 TSRMLS_CC), NULL TSRMLS_CC);
 
 	REGISTER_LONG_CONSTANT("FDHT_EXPIRES_NEVER", 0, CONST_CS|CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDHT_EXPIRES_NONE", -1, CONST_CS|CONST_PERSISTENT);
@@ -1188,9 +1320,22 @@ PHP_MINIT_FUNCTION(fastdht_client)
 
 PHP_MSHUTDOWN_FUNCTION(fastdht_client)
 {
-	if (g_keep_alive)
+	FDHTConfigInfo *pConfigInfo;
+	FDHTConfigInfo *pConfigEnd;
+
+	if (config_list != NULL)
 	{
-		fdht_disconnect_all_servers(&g_group_array);
+		pConfigEnd = config_list + config_count;
+		for (pConfigInfo=config_list; pConfigInfo<pConfigEnd; \
+			pConfigInfo++)
+		{
+			if (pConfigInfo->keep_alive && \
+				pConfigInfo->pGroupArray != NULL)
+			{
+				fdht_disconnect_all_servers( \
+						pConfigInfo->pGroupArray);
+			}
+		}
 	}
 
 	fdht_client_destroy();
