@@ -1094,9 +1094,11 @@ bool is_filename_secure(const char *filename, const int len)
 
 void load_log_level(IniItemInfo *items, const int nItemCount)
 {
-	char *pLogLevel;
+	set_log_level(iniGetStrValue("log_level", items, nItemCount));
+}
 
-	pLogLevel = iniGetStrValue("log_level", items, nItemCount);
+void set_log_level(char *pLogLevel)
+{
 	if (pLogLevel != NULL)
 	{
 		toUppercase(pLogLevel);
