@@ -43,9 +43,6 @@ int fdht_client_init(const char *filename)
 		return result;
 	}
 
-	fdht_free_group_array(&g_group_array);
-	memset(&g_group_array, 0, sizeof(g_group_array));
-
 	//iniPrintItems(items, nItemCount);
 
 	while (1)
@@ -106,6 +103,33 @@ int fdht_client_init(const char *filename)
 	iniFreeItems(items);
 
 	return result;
+}
+
+int fdht_load_conf(const char *filename, GroupArray *pGroupArray, \
+		bool *bKeepAlive)
+{
+	IniItemInfo *items;
+	int nItemCount;
+	int result;
+
+	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"load conf file \"%s\" fail, " \
+			"ret code: %d", __LINE__, \
+			filename, result);
+		return result;
+	}
+
+	*bKeepAlive = iniGetBoolValue("keep_alive", items, nItemCount, false);
+	if ((result=fdht_load_groups(items, nItemCount, pGroupArray)) != 0)
+	{
+		iniFreeItems(items);
+		return result;
+	}
+
+	iniFreeItems(items);
+	return 0;
 }
 
 void fdht_client_destroy()

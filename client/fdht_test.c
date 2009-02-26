@@ -56,11 +56,6 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	if ((result=fdht_client_init(conf_filename)) != 0)
-	{
-		return result;
-	}
-
 	//g_keep_alive = true;
 	if (g_keep_alive)
 	{

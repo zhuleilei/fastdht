@@ -38,6 +38,17 @@ int fdht_client_init(const char *filename);
 
 
 /*
+init function
+param:
+	filename: client config filename
+	pGroupArray: return server list
+	bKeepAlive: return keep alive flag
+return: 0 for success, != 0 for fail (errno)
+*/
+int fdht_load_conf(const char *filename, GroupArray *pGroupArray, \
+		bool *bKeepAlive);
+
+/*
 destroy function, free resource
 param:
 return: none
