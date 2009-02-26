@@ -32,6 +32,22 @@ php test_fastdht_batch.php
 
 
 ####parameters in fastdfs_client.ini####
+fastdht_client.network_timeout: network timeout, 
+                                default value is 60 seconds
+
+fastdht_client.base_path: base absolute path, must set this item
+
+fastdht_client.log_level: standard log level as syslog, case insensitive, 
+value list:
+   emerg for emergency
+   alert
+   crit for critical
+   error
+   warn for warning
+   notice
+   info (default)
+   debug
+
 fastdht_client.config_count: config file count, default value is 1
 fastdht_client.config_file#: config filename, must include absolute path, 
                              # means number, base 0,

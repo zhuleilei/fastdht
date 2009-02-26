@@ -21,6 +21,8 @@
 #include <fdht_client.h>
 #include <fdht_func.h>
 #include <logger.h>
+#include "fdht_global.h"
+#include "shared_func.h"
 #include "fastdht_client.h"
 
 typedef struct
@@ -1177,14 +1179,18 @@ static int load_config_files()
 {
 	#define ITEM_NAME_CONF_COUNT "fastdht_client.config_count"
 	#define ITEM_NAME_CONF_FILE  "fastdht_client.config_file"
+	#define ITEM_NAME_BASE_PATH  	 "fastdht_client.base_path"
+	#define ITEM_NAME_NETWOK_TIMEOUT "fastdht_client.network_timeout"
+	#define ITEM_NAME_LOG_LEVEL      "fastdht_client.log_level"
 	zval conf_c;
+	zval base_path;
+	zval network_timeout;
+	zval log_level;
 	zval conf_filename;
 	char szItemName[sizeof(ITEM_NAME_CONF_FILE) + 10];
 	int nItemLen;
 	FDHTConfigInfo *pConfigInfo;
 	FDHTConfigInfo *pConfigEnd;
-	IniItemInfo *items;
-	int nItemCount;
 	int result;
 
 	if (zend_get_configuration_directive(ITEM_NAME_CONF_COUNT, 
@@ -1202,6 +1208,52 @@ static int load_config_files()
 	else
 	{
 		 config_count = 1;
+	}
+
+	if (zend_get_configuration_directive(ITEM_NAME_BASE_PATH, \
+			sizeof(ITEM_NAME_BASE_PATH), &base_path) != SUCCESS)
+	{
+		fprintf(stderr, "file: "__FILE__", line: %d, " \
+			"fastdht_client.ini must have item " \
+			"\"base_path\"!", __LINE__);
+		return ENOENT;
+	}
+
+	snprintf(g_base_path, sizeof(g_base_path), "%s", \
+		base_path.value.str.val);
+	chopPath(g_base_path);
+	if (!fileExists(g_base_path))
+	{
+		logError("\"%s\" can't be accessed, error info: %s", \
+			g_base_path, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+	if (!isDir(g_base_path))
+	{
+		logError("\"%s\" is not a directory!", g_base_path);
+		return ENOTDIR;
+	}
+
+	if (zend_get_configuration_directive(ITEM_NAME_NETWOK_TIMEOUT, \
+			sizeof(ITEM_NAME_NETWOK_TIMEOUT), \
+			&network_timeout) == SUCCESS)
+	{
+		g_network_timeout = atoi(network_timeout.value.str.val);
+		if (g_network_timeout <= 0)
+		{
+			g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
+		}
+	}
+	else
+	{
+		g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
+	}
+
+	if (zend_get_configuration_directive(ITEM_NAME_LOG_LEVEL, \
+			sizeof(ITEM_NAME_LOG_LEVEL), \
+			&log_level) == SUCCESS)
+	{
+		set_log_level(log_level.value.str.val);
 	}
 
 	config_list = (FDHTConfigInfo *)malloc(sizeof(FDHTConfigInfo) * \
@@ -1244,16 +1296,9 @@ static int load_config_files()
 			}
 		}
 
-		if (pConfigInfo == config_list)
+		if (pConfigInfo == config_list) //first config file
 		{
-			result = fdht_client_init(conf_filename.value.str.val);
-			if (result != 0)
-			{
-				return result;
-			}
-
 			pConfigInfo->pGroupArray = &g_group_array;
-			pConfigInfo->keep_alive = g_keep_alive;
 		}
 		else
 		{
@@ -1266,28 +1311,27 @@ static int load_config_files()
 					__LINE__, sizeof(GroupArray));
 				return errno != 0 ? errno : ENOMEM;
 			}
+		}
 
-			if ((result=iniLoadItems(conf_filename.value.str.val, \
-					&items, &nItemCount)) != 0)
-			{
-				fprintf(stderr, "file: "__FILE__", line: %d, " \
-					"load conf file \"%s\" fail, " \
-					"ret code: %d", __LINE__, \
-					conf_filename.value.str.val, result);
-				return result;
-			}
 
-			pConfigInfo->keep_alive = iniGetBoolValue("keep_alive", \
-					items, nItemCount, false);
-			if ((result=fdht_load_groups(items, nItemCount, \
-					pConfigInfo->pGroupArray)) != 0)
-			{
-				iniFreeItems(items);
-				return result;
-			}
-			iniFreeItems(items);
+		if ((result=fdht_load_conf(conf_filename.value.str.val,\
+			pConfigInfo->pGroupArray, \
+			&pConfigInfo->keep_alive)) != 0)
+		{
+			return result;
+		}
+
+		if (pConfigInfo == config_list) //first config file
+		{
+			g_keep_alive = pConfigInfo->keep_alive;
 		}
 	}
+
+	logInfo("base_path=%s, network_timeout=%d. " \
+		"in the first(default) config file: keep_alive=%d, " \
+		"group_count=%d, server_count=%d", \
+		g_base_path, g_network_timeout, g_keep_alive, \
+		g_group_array.group_count, g_group_array.server_count);
 
 	return 0;
 }
