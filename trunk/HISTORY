@@ -1,4 +1,7 @@
 
+Version 1.07  2009-02-27
+ * fastdht_client.ini: add parameter fastdht_client.log_filename
+
 Version 1.06  2009-02-26
   * in config file conf/fdhtd.conf: add item "min_buff_size"
   * add batch get, can get multi keys once

@@ -1182,10 +1182,12 @@ static int load_config_files()
 	#define ITEM_NAME_BASE_PATH  	 "fastdht_client.base_path"
 	#define ITEM_NAME_NETWOK_TIMEOUT "fastdht_client.network_timeout"
 	#define ITEM_NAME_LOG_LEVEL      "fastdht_client.log_level"
+	#define ITEM_NAME_LOG_FILENAME   "fastdht_client.log_filename"
 	zval conf_c;
 	zval base_path;
 	zval network_timeout;
 	zval log_level;
+	zval log_filename;
 	zval conf_filename;
 	char szItemName[sizeof(ITEM_NAME_CONF_FILE) + 10];
 	int nItemLen;
@@ -1254,6 +1256,17 @@ static int load_config_files()
 			&log_level) == SUCCESS)
 	{
 		set_log_level(log_level.value.str.val);
+	}
+
+
+	if (zend_get_configuration_directive(ITEM_NAME_LOG_FILENAME, \
+			sizeof(ITEM_NAME_LOG_FILENAME), \
+			&log_filename) == SUCCESS)
+	{
+		if (log_filename.value.str.len > 0)
+		{
+			log_init(log_filename.value.str.val);
+		}
 	}
 
 	config_list = (FDHTConfigInfo *)malloc(sizeof(FDHTConfigInfo) * \
