@@ -88,20 +88,20 @@ static int fdht_binlog_fsync(const bool bNeedLock);
 static int fdht_report_sync_done(FDHTServerInfo *pDestServer)
 {
 	int result;
-	ProtoHeader *pHeader;
-	char out_buff[sizeof(ProtoHeader) + 8];
+	FDHTProtoHeader *pHeader;
+	char out_buff[sizeof(FDHTProtoHeader) + 8];
 	char in_buff[1];
 	char *pInBuff;
 	int in_bytes;
 
 	memset(out_buff, 0, sizeof(out_buff));
-	pHeader = (ProtoHeader *)out_buff;
+	pHeader = (FDHTProtoHeader *)out_buff;
 	pHeader->cmd = FDHT_PROTO_CMD_SYNC_NOTIFY;
 	int2buff(4, pHeader->pkg_len);
-	int2buff(g_server_port, out_buff + sizeof(ProtoHeader));
+	int2buff(g_server_port, out_buff + sizeof(FDHTProtoHeader));
 
 	if ((result=tcpsenddata(pDestServer->sock, out_buff, \
-		sizeof(ProtoHeader) + 4, g_network_timeout)) != 0)
+		sizeof(FDHTProtoHeader) + 4, g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"send data to server %s:%d fail, " \
@@ -144,26 +144,26 @@ static int fdht_report_sync_done(FDHTServerInfo *pDestServer)
 static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 {
 	int result;
-	ProtoHeader *pHeader;
-	char out_buff[sizeof(ProtoHeader) + 16];
+	FDHTProtoHeader *pHeader;
+	char out_buff[sizeof(FDHTProtoHeader) + 16];
 	char in_buff[IP_ADDRESS_SIZE + 16];
 	int in_bytes;
 	char sync_src_ip_addr[IP_ADDRESS_SIZE];
 	int sync_src_port;
 
 	memset(out_buff, 0, sizeof(out_buff));
-	pHeader = (ProtoHeader *)out_buff;
+	pHeader = (FDHTProtoHeader *)out_buff;
 	pHeader->cmd = FDHT_PROTO_CMD_SYNC_REQ;
 	int2buff(13, pHeader->pkg_len);
 
-	int2buff(g_server_port, out_buff + sizeof(ProtoHeader));
-	*(out_buff + sizeof(ProtoHeader) + 4) = g_sync_old_done;
+	int2buff(g_server_port, out_buff + sizeof(FDHTProtoHeader));
+	*(out_buff + sizeof(FDHTProtoHeader) + 4) = g_sync_old_done;
 	long2buff(g_server_stat.success_set_count+g_server_stat.success_inc_count
 		+ g_server_stat.success_delete_count,
-		out_buff + sizeof(ProtoHeader) + 5);
+		out_buff + sizeof(FDHTProtoHeader) + 5);
 
 	if ((result=tcpsenddata(pDestServer->sock, out_buff, \
-		sizeof(ProtoHeader) + 13, g_network_timeout)) != 0)
+		sizeof(FDHTProtoHeader) + 13, g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"send data to server %s:%d fail, " \

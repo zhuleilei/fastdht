@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 		szValue[i] = (char)rand();
 	}
 
-	g_keep_alive = true;
+	//g_keep_alive = true;
 	if (g_keep_alive)
 	{
 		if ((result=fdht_connect_all_servers(&g_group_array, true, \
@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	printf("g_keep_alive=%d\n", g_keep_alive);
 	success_count = 0;
 	fail_count = 0;
 	for (i=1; i<=20000; i++)
@@ -114,6 +115,7 @@ int main(int argc, char *argv[])
 		}
 		if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)
 		{
+			printf("%d. result=%d\n", i, result);
 			fail_count++;
 		}
 		else
