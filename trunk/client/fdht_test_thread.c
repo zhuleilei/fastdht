@@ -72,7 +72,6 @@ int main(int argc, char *argv[])
 			printf("fdht_connect_all_servers fail, " \
 				"error code: %d, error info: %s\n", \
 				result, strerror(result));
-			return result;
 		}
 	}
 

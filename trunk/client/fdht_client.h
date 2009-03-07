@@ -27,6 +27,9 @@ typedef void* (*MallocFunc)(size_t size);
 
 extern GroupArray g_group_array; //group info, including server list
 extern bool g_keep_alive;  //persistent connection flag
+extern bool g_use_proxy;
+extern char g_proxy_ip[IP_ADDRESS_SIZE];
+extern int g_proxy_port;
 
 /*
 init function

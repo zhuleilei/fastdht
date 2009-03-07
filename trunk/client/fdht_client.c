@@ -29,6 +29,16 @@ bool g_keep_alive = false;
 extern int g_network_timeout;
 extern char g_base_path[MAX_PATH_SIZE];
 
+/*
+bool g_use_proxy = false;
+char g_proxy_ip[IP_ADDRESS_SIZE] = {0};
+int g_proxy_port = 0;
+*/
+
+bool g_use_proxy = true;
+char g_proxy_ip[IP_ADDRESS_SIZE] = "127.0.0.1";
+int g_proxy_port = 12345;
+
 int fdht_client_init(const char *filename)
 {
 	char *pBasePath;
@@ -137,6 +147,19 @@ void fdht_client_destroy()
 	fdht_free_group_array(&g_group_array);
 }
 
+static int fdht_client_connect_server(FDHTServerInfo *pServer)
+{
+	if (g_use_proxy)
+	{
+		return fdht_connect_proxy_server(g_proxy_ip, g_proxy_port, \
+				pServer);
+	}
+	else
+	{
+		return fdht_connect_server(pServer);
+	}
+}
+
 #define get_readable_connection(pServerArray, bKeepAlive, hash_code, err_no) \
 	  get_connection(pServerArray, bKeepAlive, hash_code, err_no)
 
@@ -162,7 +185,7 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 			return *ppServer;
 		}
 
-		if (fdht_connect_server(*ppServer) == 0)
+		if (fdht_client_connect_server(*ppServer) == 0)
 		{
 			if (bKeepAlive)
 			{
@@ -180,7 +203,7 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 			return *ppServer;
 		}
 
-		if (fdht_connect_server(*ppServer) == 0)
+		if (fdht_client_connect_server(*ppServer) == 0)
 		{
 			if (bKeepAlive)
 			{
@@ -300,9 +323,9 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 		char **ppValue, int *value_len, MallocFunc malloc_func)
 {
 	int result;
-	ProtoHeader *pHeader;
+	FDHTProtoHeader *pHeader;
 	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
-	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16];
+	char buff[sizeof(FDHTProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16];
 	int in_bytes;
 	int vlen;
 	int group_id;
@@ -323,7 +346,7 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	//printf("get group_id=%d\n", group_id);
 
 	memset(buff, 0, sizeof(buff));
-	pHeader = (ProtoHeader *)buff;
+	pHeader = (FDHTProtoHeader *)buff;
 
 	pHeader->cmd = FDHT_PROTO_CMD_GET;
 	pHeader->keep_alive = bKeepAlive;
@@ -335,7 +358,7 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 	while (1)
 	{
-		p = buff + sizeof(ProtoHeader);
+		p = buff + sizeof(FDHTProtoHeader);
 		PACK_BODY_UNTIL_KEY(pKeyInfo, p)
 		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
@@ -444,9 +467,9 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		const int key_count, const time_t expires, int *success_count)
 {
 	int result;
-	ProtoHeader *pHeader;
+	FDHTProtoHeader *pHeader;
 	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
-	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + \
+	char buff[sizeof(FDHTProtoHeader) + FDHT_MAX_FULL_KEY_LEN + \
 		(8 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ + \
 		32 * 1024];
 	char *pBuff;
@@ -486,7 +509,7 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		total_key_len += pKeyValuePair->key_len;
 		total_value_len += pKeyValuePair->value_len;
 	}
-	pkg_total_len = sizeof(ProtoHeader) + 12 + pObjectInfo->namespace_len + \
+	pkg_total_len = sizeof(FDHTProtoHeader) + 12 + pObjectInfo->namespace_len + \
 			pObjectInfo->obj_id_len + 8 * key_count + \
 			total_key_len + total_value_len;
 
@@ -508,7 +531,7 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	}
 
 	memset(pBuff, 0, pkg_total_len);
-	pHeader = (ProtoHeader *)pBuff;
+	pHeader = (FDHTProtoHeader *)pBuff;
 
 	pHeader->cmd = FDHT_PROTO_CMD_BATCH_SET;
 	pHeader->keep_alive = bKeepAlive;
@@ -516,7 +539,7 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	int2buff((int)expires, pHeader->expires);
 	int2buff(key_hash_code, pHeader->key_hash_code);
 
-	p = pBuff + sizeof(ProtoHeader);
+	p = pBuff + sizeof(FDHTProtoHeader);
 	PACK_BODY_OBJECT(pObjectInfo, p)
 	int2buff(key_count, p);
 	p += 4;
@@ -534,7 +557,7 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 	do
 	{
-		int2buff(pkg_total_len - sizeof(ProtoHeader), pHeader->pkg_len);
+		int2buff(pkg_total_len - sizeof(FDHTProtoHeader), pHeader->pkg_len);
 		if ((result=tcpsenddata(pServer->sock, pBuff, pkg_total_len, \
 			g_network_timeout)) != 0)
 		{
@@ -620,9 +643,9 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		const int key_count, int *success_count)
 {
 	int result;
-	ProtoHeader *pHeader;
+	FDHTProtoHeader *pHeader;
 	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
-	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 8 + \
+	char buff[sizeof(FDHTProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 8 + \
 		(5 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ];
 	int in_bytes;
 	int total_key_len;
@@ -651,14 +674,14 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	}
 
 	memset(buff, 0, sizeof(buff));
-	pHeader = (ProtoHeader *)buff;
+	pHeader = (FDHTProtoHeader *)buff;
 
 	pHeader->cmd = FDHT_PROTO_CMD_BATCH_DEL;
 	pHeader->keep_alive = bKeepAlive;
 	int2buff((int)time(NULL), pHeader->timestamp);
 	int2buff(key_hash_code, pHeader->key_hash_code);
 
-	p = buff + sizeof(ProtoHeader);
+	p = buff + sizeof(FDHTProtoHeader);
 	PACK_BODY_OBJECT(pObjectInfo, p)
 	int2buff(key_count, p);
 	p += 4;
@@ -676,7 +699,7 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 	do
 	{
-		int2buff((p - buff) - sizeof(ProtoHeader), pHeader->pkg_len);
+		int2buff((p - buff) - sizeof(FDHTProtoHeader), pHeader->pkg_len);
 		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
@@ -758,9 +781,9 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 		MallocFunc malloc_func, int *success_count)
 {
 	int result;
-	ProtoHeader *pHeader;
+	FDHTProtoHeader *pHeader;
 	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
-	char buff[sizeof(ProtoHeader) + FDHT_MAX_FULL_KEY_LEN + \
+	char buff[sizeof(FDHTProtoHeader) + FDHT_MAX_FULL_KEY_LEN + \
 		(4 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ + \
 		32 * 1024];
 	int in_bytes;
@@ -791,7 +814,7 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	}
 
 	memset(buff, 0, sizeof(buff));
-	pHeader = (ProtoHeader *)buff;
+	pHeader = (FDHTProtoHeader *)buff;
 
 	pHeader->cmd = FDHT_PROTO_CMD_BATCH_GET;
 	pHeader->keep_alive = bKeepAlive;
@@ -799,7 +822,7 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	int2buff((int)expires, pHeader->expires);
 	int2buff(key_hash_code, pHeader->key_hash_code);
 
-	p = buff + sizeof(ProtoHeader);
+	p = buff + sizeof(FDHTProtoHeader);
 	PACK_BODY_OBJECT(pObjectInfo, p)
 	int2buff(key_count, p);
 	p += 4;
@@ -815,7 +838,7 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	pInBuff = buff;
 	do
 	{
-		int2buff((p - buff) - sizeof(ProtoHeader), pHeader->pkg_len);
+		int2buff((p - buff) - sizeof(FDHTProtoHeader), pHeader->pkg_len);
 		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
@@ -1026,7 +1049,7 @@ int fdht_inc_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		const int increase, char *pValue, int *value_len)
 {
 	int result;
-	ProtoHeader *pHeader;
+	FDHTProtoHeader *pHeader;
 	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
 	char buff[FDHT_MAX_FULL_KEY_LEN + 32];
 	char *in_buff;
@@ -1049,7 +1072,7 @@ int fdht_inc_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	//printf("inc group_id=%d\n", group_id);
 
 	memset(buff, 0, sizeof(buff));
-	pHeader = (ProtoHeader *)buff;
+	pHeader = (FDHTProtoHeader *)buff;
 
 	pHeader->cmd = FDHT_PROTO_CMD_INC;
 	pHeader->keep_alive = bKeepAlive;
@@ -1061,7 +1084,7 @@ int fdht_inc_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 	while (1)
 	{
-		p = buff + sizeof(ProtoHeader);
+		p = buff + sizeof(FDHTProtoHeader);
 		PACK_BODY_UNTIL_KEY(pKeyInfo, p)
 		int2buff(increase, p);
 		p += 4;

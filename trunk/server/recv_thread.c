@@ -235,7 +235,8 @@ static void client_sock_read(int sock, short event, void *arg)
 	if (event == EV_TIMEOUT)
 	{
 	
-		if (((ProtoHeader *)pTask->data)->keep_alive)
+		if (pTask->offset == 0 && \
+			((FDHTProtoHeader *)pTask->data)->keep_alive)
 		{
 			if (event_add(&pTask->ev, &g_network_tv) != 0)
 			{
@@ -261,7 +262,7 @@ static void client_sock_read(int sock, short event, void *arg)
 
 	if (pTask->length == 0) //recv header
 	{
-		recv_bytes = sizeof(ProtoHeader);
+		recv_bytes = sizeof(FDHTProtoHeader) - pTask->offset;
 	}
 	else
 	{
@@ -333,7 +334,22 @@ static void client_sock_read(int sock, short event, void *arg)
 
 	if (pTask->length == 0) //header
 	{
-		pTask->length = buff2int(((ProtoHeader *)pTask->data)->pkg_len);
+		if (pTask->offset + bytes < sizeof(FDHTProtoHeader))
+		{
+			if (event_add(&pTask->ev, &g_network_tv) != 0)
+			{
+				close(pTask->ev.ev_fd);
+				free_queue_push(pTask);
+
+				logError("file: "__FILE__", line: %d, " \
+					"event_add fail.", __LINE__);
+			}
+
+			pTask->offset += bytes;
+			return;
+		}
+
+		pTask->length = buff2int(((FDHTProtoHeader *)pTask->data)->pkg_len);
 		if (pTask->length < 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -345,7 +361,7 @@ static void client_sock_read(int sock, short event, void *arg)
 			return;
 		}
 
-		pTask->length += sizeof(ProtoHeader);
+		pTask->length += sizeof(FDHTProtoHeader);
 		if (pTask->length > g_max_pkg_size)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -358,7 +374,7 @@ static void client_sock_read(int sock, short event, void *arg)
 			return;
 		}
 
-		//printf("pkg cmd: %d\n", ((ProtoHeader *)pTask->data)->cmd);
+		//printf("pkg cmd: %d\n", ((FDHTProtoHeader *)pTask->data)->cmd);
 		//printf("pkg length: %d\n", pTask->length);
 	}
 

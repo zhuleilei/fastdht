@@ -71,6 +71,9 @@ typedef int fdht_pkg_size_t;
 
 typedef struct
 {
+#ifdef FDHT_SESSION_MODE
+	char session_id[8];
+#endif
 	char pkg_len[FDHT_PROTO_PKG_LEN_SIZE];  //body length
 	char key_hash_code[FDHT_PROTO_PKG_LEN_SIZE]; //the key hash code
 	char timestamp[FDHT_PROTO_PKG_LEN_SIZE]; //current time
@@ -80,7 +83,7 @@ typedef struct
 	char cmd;
 	char keep_alive;
 	char status;
-} ProtoHeader;
+} FDHTProtoHeader;
 
 #ifdef __cplusplus
 extern "C" {
@@ -108,6 +111,17 @@ int fdht_connect_server(FDHTServerInfo *pServer);
 * return:
 **/
 void fdht_disconnect_server(FDHTServerInfo *pServer);
+
+/**
+* connect to the proxy server
+* params:
+*       proxy_ip_addr: proxy server ip addr
+*       proxy_port: proxy server port
+*	pServer: dest server
+* return: 0 success, !=0 fail, return the error code
+**/
+int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
+		FDHTServerInfo *pServer);
 
 int fdht_client_set(FDHTServerInfo *pServer, const char keep_alive, \
 	const time_t timestamp, const time_t expires, const int prot_cmd, \

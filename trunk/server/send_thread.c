@@ -189,7 +189,7 @@ static void client_sock_write(int sock, short event, void *arg)
 	pTask->offset += bytes;
 	if (pTask->offset >= pTask->length)
 	{
-		if (((ProtoHeader *)pTask->data)->keep_alive)
+		if (((FDHTProtoHeader *)pTask->data)->keep_alive)
 		{
 			recv_queue_push(pTask);  //persistent connection
 		}
