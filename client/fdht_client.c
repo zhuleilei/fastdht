@@ -29,15 +29,15 @@ bool g_keep_alive = false;
 extern int g_network_timeout;
 extern char g_base_path[MAX_PATH_SIZE];
 
-/*
 bool g_use_proxy = false;
 char g_proxy_ip[IP_ADDRESS_SIZE] = {0};
 int g_proxy_port = 0;
-*/
 
+/*
 bool g_use_proxy = true;
 char g_proxy_ip[IP_ADDRESS_SIZE] = "127.0.0.1";
 int g_proxy_port = 12345;
+*/
 
 int fdht_client_init(const char *filename)
 {

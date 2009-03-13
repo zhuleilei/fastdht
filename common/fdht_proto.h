@@ -71,9 +71,12 @@ typedef int fdht_pkg_size_t;
 
 typedef struct
 {
+	/*
 #ifdef FDHT_SESSION_MODE
 	char session_id[8];
 #endif
+	*/
+
 	char pkg_len[FDHT_PROTO_PKG_LEN_SIZE];  //body length
 	char key_hash_code[FDHT_PROTO_PKG_LEN_SIZE]; //the key hash code
 	char timestamp[FDHT_PROTO_PKG_LEN_SIZE]; //current time
