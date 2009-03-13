@@ -91,6 +91,7 @@ int main(int argc, char *argv[])
 	}
 
 	g_keep_alive = true;
+	/*
 	if (g_keep_alive)
 	{
 		if ((result=fdht_connect_all_servers(&g_group_array, true, \
@@ -102,6 +103,7 @@ int main(int argc, char *argv[])
 			return result;
 		}
 	}
+	*/
 
 	key_info.key_len = sprintf(key_info.szKey, "k%015d", rand());
 	if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)

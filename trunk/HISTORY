@@ -1,7 +1,9 @@
 
-Version 1.07  2009-02-27
+Version 1.07  2009-03-13
  * fastdht_client.ini: add parameter fastdht_client.log_filename
  * a header can be recv more than one time (recv header particially)
+ * for compatible with other language such as Java, change hash function 
+   return type from unsigned int to int
 
 Version 1.06  2009-02-26
   * in config file conf/fdhtd.conf: add item "min_buff_size"

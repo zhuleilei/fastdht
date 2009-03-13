@@ -592,12 +592,12 @@ void hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args)
 }
 
 // RS Hash Function
-unsigned int RSHash(const void *key, const int key_len)
+int RSHash(const void *key, const int key_len)
 {
     unsigned char *pKey;
     unsigned char *pEnd;
-    unsigned int a = 63689;
-    unsigned int hash = 0;
+    int a = 63689;
+    int hash = 0;
 
     pEnd = (unsigned char *)key + key_len;
     for (pKey = (unsigned char *)key; pKey != pEnd; pKey++)
@@ -612,7 +612,7 @@ unsigned int RSHash(const void *key, const int key_len)
 #define JS_HASH_FUNC(init_value) \
     unsigned char *pKey; \
     unsigned char *pEnd; \
-    unsigned int hash; \
+    int hash; \
  \
     hash = init_value; \
     pEnd = (unsigned char *)key + key_len; \
@@ -625,13 +625,13 @@ unsigned int RSHash(const void *key, const int key_len)
 
 
 // JS Hash Function
-unsigned int JSHash(const void *key, const int key_len)
+int JSHash(const void *key, const int key_len)
 {
 	JS_HASH_FUNC(1315423911)
 }
  
-unsigned int JSHash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int JSHash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	JS_HASH_FUNC(init_value)
 }
@@ -639,14 +639,14 @@ unsigned int JSHash_ex(const void *key, const int key_len, \
 #define PJW_HASH_FUNC(init_value) \
     unsigned char *pKey; \
     unsigned char *pEnd; \
-    unsigned int BitsInUnignedInt = (unsigned int)(sizeof(unsigned int) * 8); \
-    unsigned int ThreeQuarters    = (unsigned int)((BitsInUnignedInt * 3) / 4);\
-    unsigned int OneEighth        = (unsigned int)(BitsInUnignedInt / 8); \
+    int BitsInUnignedInt = (int)(sizeof(int) * 8); \
+    int ThreeQuarters    = (int)((BitsInUnignedInt * 3) / 4);\
+    int OneEighth        = (int)(BitsInUnignedInt / 8); \
  \
-    unsigned int HighBits         = (unsigned int)(0xFFFFFFFF) << \
+    int HighBits         = (int)(0xFFFFFFFF) << \
 				(BitsInUnignedInt - OneEighth); \
-    unsigned int hash; \
-    unsigned int test; \
+    int hash; \
+    int test; \
  \
     hash = init_value; \
     pEnd = (unsigned char *)key + key_len; \
@@ -663,13 +663,13 @@ unsigned int JSHash_ex(const void *key, const int key_len, \
 
 
 // P.J.Weinberger Hash Function, same as ELF Hash
-unsigned int PJWHash(const void *key, const int key_len)
+int PJWHash(const void *key, const int key_len)
 {
 	PJW_HASH_FUNC(0)
 }
  
-unsigned int PJWHash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int PJWHash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	PJW_HASH_FUNC(init_value)
 }
@@ -677,8 +677,8 @@ unsigned int PJWHash_ex(const void *key, const int key_len, \
 #define ELF_HASH_FUNC(init_value) \
     unsigned char *pKey; \
     unsigned char *pEnd; \
-    unsigned int hash; \
-    unsigned int x; \
+    int hash; \
+    int x; \
  \
     hash = init_value; \
     pEnd = (unsigned char *)key + key_len; \
@@ -696,13 +696,13 @@ unsigned int PJWHash_ex(const void *key, const int key_len, \
 
 
 // ELF Hash Function, same as PJW Hash
-unsigned int ELFHash(const void *key, const int key_len)
+int ELFHash(const void *key, const int key_len)
 {
 	ELF_HASH_FUNC(0)
 }
 
-unsigned int ELFHash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int ELFHash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	ELF_HASH_FUNC(init_value)
 }
@@ -710,8 +710,8 @@ unsigned int ELFHash_ex(const void *key, const int key_len, \
 #define BKDR_HASH_FUNC(init_value) \
     unsigned char *pKey; \
     unsigned char *pEnd; \
-    unsigned int seed = 131;  /* 31 131 1313 13131 131313 etc..*/ \
-    unsigned int hash; \
+    int seed = 131;  /* 31 131 1313 13131 131313 etc..*/ \
+    int hash; \
  \
     hash = init_value; \
     pEnd = (unsigned char *)key + key_len; \
@@ -724,13 +724,13 @@ unsigned int ELFHash_ex(const void *key, const int key_len, \
 
 
 // BKDR Hash Function
-unsigned int BKDRHash(const void *key, const int key_len)
+int BKDRHash(const void *key, const int key_len)
 {
 	BKDR_HASH_FUNC(0)
 }
 
-unsigned int BKDRHash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int BKDRHash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	BKDR_HASH_FUNC(init_value)
 }
@@ -738,7 +738,7 @@ unsigned int BKDRHash_ex(const void *key, const int key_len, \
 #define SDBM_HASH_FUNC(init_value) \
     unsigned char *pKey; \
     unsigned char *pEnd; \
-    unsigned int hash; \
+    int hash; \
  \
     hash = init_value; \
     pEnd = (unsigned char *)key + key_len; \
@@ -751,19 +751,19 @@ unsigned int BKDRHash_ex(const void *key, const int key_len, \
 
 
 // SDBM Hash Function
-unsigned int SDBMHash(const void *key, const int key_len)
+int SDBMHash(const void *key, const int key_len)
 {
 	SDBM_HASH_FUNC(0)
 }
 
-unsigned int SDBMHash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int SDBMHash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	SDBM_HASH_FUNC(init_value)
 }
 
 #define TIME33_HASH_FUNC(init_value) \
-	unsigned int nHash; \
+	int nHash; \
 	unsigned char *pKey; \
 	unsigned char *pEnd; \
  \
@@ -777,13 +777,13 @@ unsigned int SDBMHash_ex(const void *key, const int key_len, \
 	return nHash; \
 
 
-unsigned int Time33Hash(const void *key, const int key_len)
+int Time33Hash(const void *key, const int key_len)
 {
 	TIME33_HASH_FUNC(0)
 }
 
-unsigned int Time33Hash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int Time33Hash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	TIME33_HASH_FUNC(init_value)
 }
@@ -791,7 +791,7 @@ unsigned int Time33Hash_ex(const void *key, const int key_len, \
 #define DJB_HASH_FUNC(init_value) \
     unsigned char *pKey; \
     unsigned char *pEnd; \
-    unsigned int hash; \
+    int hash; \
  \
     hash = init_value; \
     pEnd = (unsigned char *)key + key_len; \
@@ -804,13 +804,13 @@ unsigned int Time33Hash_ex(const void *key, const int key_len, \
 
 
 // DJB Hash Function
-unsigned int DJBHash(const void *key, const int key_len)
+int DJBHash(const void *key, const int key_len)
 {
 	DJB_HASH_FUNC(5381)
 }
 
-unsigned int DJBHash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int DJBHash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	DJB_HASH_FUNC(init_value)
 }
@@ -819,7 +819,7 @@ unsigned int DJBHash_ex(const void *key, const int key_len, \
     unsigned char *pKey; \
     unsigned char *pEnd; \
     int i; \
-    unsigned int hash; \
+    int hash; \
  \
     hash = init_value; \
  \
@@ -840,22 +840,22 @@ unsigned int DJBHash_ex(const void *key, const int key_len, \
 
 
 // AP Hash Function
-unsigned int APHash(const void *key, const int key_len)
+int APHash(const void *key, const int key_len)
 {
 	AP_HASH_FUNC(0)
 }
 
-unsigned int APHash_ex(const void *key, const int key_len, \
-	const unsigned int init_value)
+int APHash_ex(const void *key, const int key_len, \
+	const int init_value)
 {
 	AP_HASH_FUNC(init_value)
 }
 
-unsigned int calc_hashnr (const void* key, const int key_len)
+int calc_hashnr (const void* key, const int key_len)
 {
   unsigned char *pKey;
   unsigned char *pEnd;
-  unsigned int nr = 1, nr2 = 4;
+  int nr = 1, nr2 = 4;
 
   pEnd = (unsigned char *)key + key_len;
   for (pKey = (unsigned char *)key; pKey != pEnd; pKey++)
@@ -871,7 +871,7 @@ unsigned int calc_hashnr (const void* key, const int key_len)
 #define CALC_HASHNR1_FUNC(init_value) \
   unsigned char *pKey; \
   unsigned char *pEnd; \
-  unsigned int hash; \
+  int hash; \
  \
   hash = init_value; \
   pEnd = (unsigned char *)key + key_len; \
@@ -882,19 +882,19 @@ unsigned int calc_hashnr (const void* key, const int key_len)
   } \
   return hash; \
 
-unsigned int calc_hashnr1(const void* key, const int key_len)
+int calc_hashnr1(const void* key, const int key_len)
 {
 	CALC_HASHNR1_FUNC(0)
 }
 
-unsigned int calc_hashnr1_ex(const void* key, const int key_len, \
-	const unsigned int init_value)
+int calc_hashnr1_ex(const void* key, const int key_len, \
+	const int init_value)
 {
 	CALC_HASHNR1_FUNC(init_value)
 }
 
 #define SIMPLE_HASH_FUNC(init_value) \
-  unsigned int h; \
+  int h; \
   unsigned char *p; \
   unsigned char *pEnd; \
  \
@@ -907,13 +907,13 @@ unsigned int calc_hashnr1_ex(const void* key, const int key_len, \
  \
   return h; \
 
-unsigned int simple_hash(const void* key, const int key_len)
+int simple_hash(const void* key, const int key_len)
 {
 	SIMPLE_HASH_FUNC(0)
 }
 
-unsigned int simple_hash_ex(const void* key, const int key_len, \
-	const unsigned int init_value)
+int simple_hash_ex(const void* key, const int key_len, \
+	const int init_value)
 {
 	SIMPLE_HASH_FUNC(init_value)
 }
@@ -988,7 +988,7 @@ static unsigned int crc_table[256] = {
 #define CRC32_BODY(init_value) \
 	unsigned char *pKey; \
 	unsigned char *pEnd; \
-	unsigned int crc; \
+	int crc; \
  \
 	crc = init_value; \
 	pEnd = (unsigned char *)key + key_len; \
@@ -997,15 +997,15 @@ static unsigned int crc_table[256] = {
 		crc = crc_table[(crc ^ *pKey) & 0xFF] ^ (crc >> 8); \
 	} \
 
-unsigned int CRC32(void *key, const int key_len)
+int CRC32(void *key, const int key_len)
 {
 	CRC32_BODY(CRC32_XINIT)
 
 	return crc ^ CRC32_XOROT;
 }
 
-unsigned int CRC32_ex(void *key, const int key_len, \
-	const unsigned int init_value)
+int CRC32_ex(void *key, const int key_len, \
+	const int init_value)
 {
 	CRC32_BODY(init_value)
 

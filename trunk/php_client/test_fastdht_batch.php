@@ -10,7 +10,7 @@ $key_value_pair['reg'] = 1235301445;
 $key_value_pair['intl'] = 'zh';
 $key_value_pair['co'] = 'CN';
 $key_value_pair['dz'] = 8;
-$key_value_pair['01'] = 8;
+$key_value_pair['-1'] = 8;
 
 $fdht = new FastDHT(0);
 $result = $fdht->batch_set($namespace, $object_id, $key_value_pair);
