@@ -669,6 +669,14 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		g_write_to_binlog_flag = iniGetBoolValue("write_to_binlog", \
 					items, nItemCount, true);
 
+		g_sync_binlog_buff_interval = iniGetIntValue( \
+				"sync_binlog_buff_interval", items, nItemCount, \
+				SYNC_BINLOG_BUFF_DEF_INTERVAL);
+		if (g_sync_binlog_buff_interval <= 0)
+		{
+			g_sync_binlog_buff_interval = SYNC_BINLOG_BUFF_DEF_INTERVAL;
+		}
+
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -687,7 +695,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"clear_expired_time_base=%s, " \
 			"clear_expired_interval=%ds, " \
 			"db_dead_lock_detect_interval=%dms, " \
-			"write_to_binlog=%d", \
+			"write_to_binlog=%d, sync_binlog_buff_interval=%ds", \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_network_timeout, \
@@ -700,7 +708,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_sync_log_buff_interval, sz_sync_db_time_base, \
 			g_sync_db_interval, sz_clear_expired_time_base, \
 			g_clear_expired_interval, \
-			g_db_dead_lock_detect_interval, g_write_to_binlog_flag);
+			g_db_dead_lock_detect_interval, g_write_to_binlog_flag, \
+			g_sync_binlog_buff_interval);
 
 		break;
 	}

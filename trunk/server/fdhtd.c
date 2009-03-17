@@ -299,6 +299,10 @@ static int fdht_init_schedule()
 	{
 		entry_count++;
 	}
+	if (g_write_to_binlog_flag)
+	{
+		entry_count++;
+	}
 	if (g_clear_expired_interval > 0)
 	{
 		for (i=0; i<g_db_count; i++)
@@ -341,6 +345,17 @@ static int fdht_init_schedule()
 		pScheduleEntry->time_base.minute = g_sync_db_time_base.minute;
 		pScheduleEntry->interval = g_sync_db_interval;
 		pScheduleEntry->task_func = fdht_memp_trickle_dbs;
+		pScheduleEntry->func_args = NULL;
+		pScheduleEntry++;
+	}
+
+	if (g_write_to_binlog_flag)
+	{
+		pScheduleEntry->id = pScheduleEntry - scheduleArray.entries+1;
+		pScheduleEntry->time_base.hour = TIME_NONE;
+		pScheduleEntry->time_base.minute = TIME_NONE;
+		pScheduleEntry->interval = g_sync_binlog_buff_interval;
+		pScheduleEntry->task_func = fdht_binlog_sync_func;
 		pScheduleEntry->func_args = NULL;
 		pScheduleEntry++;
 	}

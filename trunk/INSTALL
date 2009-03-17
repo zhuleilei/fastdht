@@ -27,7 +27,7 @@ make; make install
 # http://code.google.com/p/fastdht/downloads/list
 # then unpack the source package as:
 # tar xzf FastDHT_v1.xx.tar.gz
-tar xzf FastDHT_v1.05.tar.gz
+tar xzf FastDHT_v1.08.tar.gz
 cd FastDHT
 ./make.sh; ./make.sh install
 
@@ -139,6 +139,11 @@ sync_db_interval=86400
 # default value is 1
 write_to_binlog=1
 
+# sync binlog buff / cache to disk every interval seconds
+# this parameter is valid when write_to_binlog set to 1
+# default value is 60 seconds
+sync_binlog_buff_interval=60
+
 # the base time for clear expired keys, time format: HH:MM
 # empty for the current time when the program starts
 # default value is 04:00
@@ -161,16 +166,16 @@ db_dead_lock_detect_interval=1000
 
 Item detail
 1. common items
----------------------------------------------------
-|  item name            |  type  | default | Must |
----------------------------------------------------
-| group_count           | int    |         |  Y   |
----------------------------------------------------
-| group#                | string |         |  Y   |
----------------------------------------------------
-| network_timeout       | int    | 30(s)   |  N   |
----------------------------------------------------
-| log_level             | string | info    |  N   |
+----------------------------------------------------
+|  item name             |  type  | default | Must |
+----------------------------------------------------
+| group_count            | int    |         |  Y   |
+----------------------------------------------------
+| group#                 | string |         |  Y   |
+----------------------------------------------------
+| network_timeout        | int    | 30(s)   |  N   |
+----------------------------------------------------
+| log_level              | string | info    |  N   |
 ----------------------------------------------------
 
 memo:
@@ -225,6 +230,8 @@ memo:
 | db_dead_lock_detect_interval| int|1000(ms)|  N   |
 ----------------------------------------------------
 | write_to_binlog        | boolean|   1     |  N   |
+----------------------------------------------------
+| sync_binlog_buff_interval| int  |   60(s) |  N   |
 ----------------------------------------------------
 
 memo:
