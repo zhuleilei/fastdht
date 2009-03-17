@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <netinet/in.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/file.h>
@@ -109,7 +110,7 @@ char *getAppAbsolutePath(const char *exeName, char *szAbsPath, \
 		return NULL;
 	}
 	
-	p = rindex(exeName, '/');
+	p = strrchr(exeName, '/');
 	if (p == NULL)
 	{
 		szPath[0] = '\0';
@@ -192,7 +193,7 @@ int getUserProcIds(const char *progName, const bool bAllOwners, \
 		return -1;
 	}
 
-	ptr = rindex(progName, '/');
+	ptr = strrchr(progName, '/');
 	if (ptr == NULL)
 	{
 		strcpy(pTargetProg, progName);
@@ -236,7 +237,7 @@ int getUserProcIds(const char *progName, const bool bAllOwners, \
 				continue;
 			}
 			
-			ptr = rindex(buf, '/');
+			ptr = strrchr(buf, '/');
 			if (ptr == NULL)
 			{
 				snprintf(procname, 64, "%s", buf);

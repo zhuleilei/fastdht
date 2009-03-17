@@ -1,7 +1,7 @@
 <?php
 
-$namespace = '';
-$object_id = '';
+$namespace = 'bbs';
+$object_id = 'test';
 $key = 'KEY123456';
 $value = '1234567890';
 
