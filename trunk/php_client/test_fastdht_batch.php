@@ -1,7 +1,7 @@
 <?php
 
 $namespace = 'user';
-$object_id = 'happy_fish';
+$object_id = 'test';
 
 $key_value_pair = array();
 
@@ -10,7 +10,6 @@ $key_value_pair['reg'] = 1235301445;
 $key_value_pair['intl'] = 'zh';
 $key_value_pair['co'] = 'CN';
 $key_value_pair['dz'] = 8;
-$key_value_pair['-1'] = 8;
 
 $fdht = new FastDHT(0);
 $result = $fdht->batch_set($namespace, $object_id, $key_value_pair);
@@ -20,6 +19,7 @@ if ($result != 0)
 	error_log("fastdht_batch_set fail partially");
 }
 
+$fdht = new FastDHT(0);
 $key_value_pair = array('login', 'reg', 'intl', 'co', 'city');
 $result = $fdht->batch_get($namespace, $object_id, $key_value_pair);
 var_dump($result);
