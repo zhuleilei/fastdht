@@ -39,6 +39,7 @@ extern bool g_write_to_binlog_flag;
 extern int g_thread_count;
 extern int g_sync_wait_usec;
 extern int g_sync_log_buff_interval;
+extern int g_sync_binlog_buff_interval;
 extern TimeInfo g_sync_db_time_base;
 extern int g_sync_db_interval;
 extern TimeInfo g_clear_expired_time_base;

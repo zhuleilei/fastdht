@@ -973,6 +973,14 @@ static int rewind_to_prev_rec_end(BinLogReader *pReader, \
 	return 0;
 }
 
+void fdht_binlog_sync_func(void *args)
+{
+	if (pbinlog_write_cache_current - binlog_write_cache_buff > 0)
+	{
+		fdht_binlog_fsync(true);
+	}
+}
+
 static int fdht_binlog_fsync(const bool bNeedLock)
 {
 	int result;
@@ -1536,15 +1544,12 @@ static void* fdht_sync_thread_entrance(void* arg)
 	int previousCode;
 	int nContinuousFail;
 	time_t last_active_time;
-	time_t last_check_sync_cache_time;
 	
 	pDestServer = (FDHTGroupServer *)arg;
 
 	memset(local_ip_addr, 0, sizeof(local_ip_addr));
 	memset(&reader, 0, sizeof(reader));
 	memset(&record, 0, sizeof(record));
-
-	last_check_sync_cache_time = time(NULL);
 
 	strcpy(fdht_server.ip_addr, pDestServer->ip_addr);
 	fdht_server.port = pDestServer->port;
@@ -1697,15 +1702,6 @@ static void* fdht_sync_thread_entrance(void* arg)
 					}
 
 					last_active_time = time(NULL);
-				}
-
-				if ((pbinlog_write_cache_current - \
-						binlog_write_cache_buff) > 0&&\
-					time(NULL)-last_check_sync_cache_time \
-						 >= 60)
-				{
-					last_check_sync_cache_time = time(NULL);
-					fdht_binlog_fsync(true);
 				}
 
 				usleep(g_sync_wait_usec);

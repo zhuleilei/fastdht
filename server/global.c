@@ -25,6 +25,7 @@ bool g_write_to_binlog_flag = true;
 int g_thread_count = 0;
 int g_sync_wait_usec = DEFAULT_SYNC_WAIT_MSEC;
 int g_sync_log_buff_interval = SYNC_LOG_BUFF_DEF_INTERVAL;
+int g_sync_binlog_buff_interval = SYNC_BINLOG_BUFF_DEF_INTERVAL;
 TimeInfo g_sync_db_time_base = {TIME_NONE, TIME_NONE};
 int g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
 TimeInfo g_clear_expired_time_base = {TIME_NONE, TIME_NONE};
