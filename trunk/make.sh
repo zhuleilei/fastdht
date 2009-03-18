@@ -8,7 +8,7 @@ int main()
 }
 EOF
 
-cc $tmp_src_filename
+gcc $tmp_src_filename
 bytes=`./a.out`
 
 /bin/rm -f  a.out $tmp_src_filename
@@ -31,15 +31,22 @@ TARGET_PATH=/usr/local/bin
 CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64'
 #CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D__DEBUG__'
 
+LIBS=''
 uname=`uname`
 if [ "$uname" = "Linux" ]; then
   CFLAGS="$CFLAGS -DOS_LINUX"
 elif [ "$uname" = "FreeBSD" ]; then
   CFLAGS="$CFLAGS -DOS_FREEBSD"
+elif [ "$uname" = "SunOS" ]; then
+  CFLAGS="$CFLAGS -DOS_SUNOS"
+  LIBS="$LIBS -lsocket -lnsl -lresolv"
+  export CC=gcc
+elif [ "$uname" = "AIX" ]; then
+  CFLAGS="$CFLAGS -DOS_AIX"
+  export CC=gcc
 fi
 
-LIBS=''
-if [ -f /usr/lib/libpthread.so ] || [ -f /usr/local/lib/libpthread.so ] || [ -f /usr/lib64/libpthread.so ]; then
+if [ -f /usr/lib/libpthread.so ] || [ -f /usr/local/lib/libpthread.so ] || [ -f /usr/lib64/libpthread.so ] || [ -f /usr/lib/libpthread.a ] || [ -f /usr/local/lib/libpthread.a ] || [ -f /usr/lib64/libpthread.a ]; then
   LIBS="$LIBS -lpthread"
 else
   line=`nm -D /usr/lib/libc_r.so | grep pthread_create | grep -w T`
