@@ -30,7 +30,6 @@ typedef struct
 	int binlog_index;
 	int binlog_fd;
 	off_t binlog_offset;
-	int64_t row_count;
 } CompressReader;
 
 typedef struct
@@ -44,6 +43,13 @@ typedef struct
 	off_t offset;
 	int record_length;
 } CompressRecord;
+
+typedef struct
+{
+	off_t offset;
+	int record_length;
+	char op_type;
+} CompressRawRow;
 
 static int g_binlog_index;
 
@@ -126,6 +132,7 @@ int main(int argc, char *argv[])
 			return EINVAL;
 		}
 
+		/*
 		if (start_index >= g_binlog_index)
 		{
 			printf("The compress index: %d >= current binlog " \
@@ -133,13 +140,12 @@ int main(int argc, char *argv[])
 				start_index, g_binlog_index);
 			return EINVAL;
 		}
+		*/
 	}
 
 	for (index=start_index; index<=end_index; index++)
 	{
 		reader.binlog_index = index;
-		reader.binlog_offset = 0;
-		reader.row_count = 0;
 		if ((result=compress_binlog_file(&reader, &record)) != 0)
 		{
 			return result;
@@ -222,6 +228,7 @@ static int compress_open_readable_binlog(CompressReader *pReader)
 			errno, strerror(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
+	pReader->binlog_offset = 0;
 
 	return 0;
 }
@@ -393,10 +400,10 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 	pRecord->record_length = CALC_RECORD_LENGTH((&(pRecord->key_info)), \
 					pRecord->value_len);
 
-	pReader->row_count++;
+	pReader->binlog_offset += pRecord->record_length;
 
 	/*
-	//printf("timestamp=%d, op_type=%c, key len=%d, value len=%d, " \
+	printf("timestamp=%d, op_type=%c, key len=%d, value len=%d, " \
 		"record length=%d, offset=%d\n", \
 		(int)pRecord->timestamp, pRecord->op_type, \
 		pRecord->key_info.key_len, pRecord->value_len, \
@@ -409,21 +416,77 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 static int compress_binlog_file(CompressReader *pReader, CompressRecord *pRecord)
 {
 	int result;
+	int row_count;
+	CompressRawRow *rows;
 
 	if ((result=compress_open_readable_binlog(pReader)) != 0)
 	{
 		return result;
 	}
 
-	do
+	row_count = 0;
+	while (1)
 	{
 		result = compress_binlog_read(pReader, pRecord);
-	} while (result == 0);
+		if (result != 0)
+		{
+			break;
+		}
+
+		row_count++;
+	}
 
 	if (result != 0 && result != ENOENT)
 	{
 		return result;
 	}
+
+	if (row_count == 0)
+	{
+		return result;
+	}
+
+	rows = (CompressRawRow *)malloc(sizeof(CompressRawRow) * row_count);
+	if (rows == NULL)
+	{
+		printf("malloc %d bytes fail, errno: %d, error info: %s\n", 
+			sizeof(CompressRawRow) * row_count, 
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	printf("row_count=%d\n", row_count);
+
+	pReader->binlog_offset = 0;
+	if (lseek(pReader->binlog_fd, 0, SEEK_SET) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"lseek from binlog file \"%s\" fail, " \
+			"file offset: "INT64_PRINTF_FORMAT", " \
+			"errno: %d, error info: %s", __LINE__, \
+			compress_get_binlog_filename(pReader, NULL), \
+			pReader->binlog_offset, errno, strerror(errno));
+		return errno != 0 ? errno : EIO;
+	}
+
+	row_count = 0;
+	while (1)
+	{
+		result = compress_binlog_read(pReader, pRecord);
+		if (result != 0)
+		{
+			break;
+		}
+
+		row_count++;
+	}
+
+	printf("row_count=%d\n", row_count);
+	if (result != 0 && result != ENOENT)
+	{
+		return result;
+	}
+	free(rows);
 
 	return result;
 }
