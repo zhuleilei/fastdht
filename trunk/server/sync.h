@@ -19,6 +19,18 @@
 #define FDHT_OP_TYPE_REPLICA_SET	's'
 #define FDHT_OP_TYPE_REPLICA_DEL	'd'
 
+#define SYNC_BINLOG_FILE_PREFIX		"binlog"
+#define SYNC_BINLOG_INDEX_FILENAME	SYNC_BINLOG_FILE_PREFIX".index"
+#define SYNC_MARK_FILE_EXT		".mark"
+#define SYNC_BINLOG_FILE_EXT_FMT	".%05d"
+#define SYNC_DIR_NAME			"sync"
+
+#define BINLOG_FIX_FIELDS_LENGTH  4 * 10 + 3 * 4 + 1 + 8 * 1
+
+#define CALC_RECORD_LENGTH(pKeyInfo, value_len)  BINLOG_FIX_FIELDS_LENGTH + \
+			pKeyInfo->namespace_len + 1 + pKeyInfo->obj_id_len + \
+			1 + pKeyInfo->key_len + 1 + value_len + 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif

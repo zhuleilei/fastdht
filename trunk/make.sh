@@ -62,6 +62,13 @@ perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
 perl -pi -e "s#\\\$\(TARGET_PATH\)#$TARGET_PATH#g" Makefile
 make $1 $2
 
+cd ../tool 
+cp Makefile.in Makefile
+perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
+perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
+perl -pi -e "s#\\\$\(TARGET_PATH\)#$TARGET_PATH#g" Makefile
+make $1 $2
+
 cd ../client
 cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
