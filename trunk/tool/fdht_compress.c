@@ -133,7 +133,6 @@ int main(int argc, char *argv[])
 			return EINVAL;
 		}
 
-		/*
 		if (start_index >= g_binlog_index)
 		{
 			printf("The compress index: %d >= current binlog " \
@@ -141,10 +140,8 @@ int main(int argc, char *argv[])
 				start_index, g_binlog_index);
 			return EINVAL;
 		}
-		*/
 	}
 
-	printf("end_index=%d\n", end_index);
 	for (index=start_index; index<=end_index; index++)
 	{
 		reader.binlog_index = index;
