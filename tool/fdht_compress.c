@@ -26,6 +26,8 @@
 #include "sockopt.h"
 #include "sync.h"
 
+#define BINLOG_COMPRESSED_INDEX_FILENAME  SYNC_BINLOG_FILE_PREFIX".compressed.index"
+
 typedef struct
 {
 	int binlog_index;
@@ -56,7 +58,6 @@ typedef struct
 	CompressReader *pReader;
 	int dest_fd;
 	int row_count;
-	int fail_count;
 	char *buff;
 	int buff_size;
 } CompressWalkArg;
@@ -64,6 +65,8 @@ typedef struct
 static int g_binlog_index;
 
 static int get_current_binlog_index();
+static int get_binlog_compressed_index();
+static int write_to_binlog_compressed_index(const int compressed_index);
 static int compress_open_readable_binlog(CompressReader *pReader);
 static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord);
 static int compress_binlog_file(CompressReader *pReader);
@@ -80,8 +83,11 @@ int main(int argc, char *argv[])
 	if (argc < 3)
 	{
 		printf("Usage: %s <base_path> <binglog file index>\n" \
-			"\tfile index based 0, \"all\" means compressing all " \
-			"binlog files\n", argv[0]);
+			"\t file index based 0, \n" \
+			"\t \"all\" means compressing all binlog files\n" \
+			"\t \"auto\" means compressing binglog " \
+			"files automaticlly\n" \
+			"\t index number means single binlog file\n", argv[0]);
 		return EINVAL;
 	}
 
@@ -122,6 +128,19 @@ int main(int argc, char *argv[])
 		start_index = 0;
 		end_index = g_binlog_index - 1;
 	}
+	else if (strcmp(argv[2], "auto") == 0)
+	{
+		if ((result=get_binlog_compressed_index(&start_index)) != 0)
+		{
+			return result;
+		}
+
+		end_index = g_binlog_index - 1;
+		if (start_index > end_index)
+		{
+			return 0;
+		}
+	}
 	else
 	{
 		char *pEnd;
@@ -149,8 +168,98 @@ int main(int argc, char *argv[])
 		{
 			return result;
 		}
+
+		if (strcmp(argv[2], "auto") == 0)
+		{
+			if ((result=write_to_binlog_compressed_index(index + 1)) != 0)
+			{
+				return result;
+			}
+		}
 	}
 
+	return 0;
+}
+
+static int get_binlog_compressed_index(int *compressed_index)
+{
+	char full_filename[MAX_PATH_SIZE];
+	char file_buff[64];
+	int result;
+	int bytes;
+	int fd;
+
+	snprintf(full_filename, sizeof(full_filename), \
+		"%s/data/"SYNC_DIR_NAME"/%s", g_base_path, \
+		BINLOG_COMPRESSED_INDEX_FILENAME);
+	if ((fd=open(full_filename, O_RDONLY)) < 0)
+	{
+		*compressed_index = 0;
+		if ((result=write_to_binlog_compressed_index(\
+				*compressed_index)) != 0)
+		{
+			return result;
+		}
+
+		return 0;
+	}
+
+	bytes = read(fd, file_buff, sizeof(file_buff) - 1);
+	close(fd);
+	if (bytes <= 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"read file \"%s\" fail, bytes read: %d", \
+			__LINE__, full_filename, bytes);
+		return errno != 0 ? errno : EIO;
+	}
+
+	file_buff[bytes] = '\0';
+	*compressed_index = atoi(file_buff);
+	if (*compressed_index < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"in file \"%s\", compressed binlog index: %d < 0", \
+			__LINE__, full_filename, *compressed_index);
+		return EINVAL;
+	}
+
+	return 0;
+}
+
+static int write_to_binlog_compressed_index(const int compressed_index)
+{
+	char full_filename[MAX_PATH_SIZE];
+	char buff[16];
+	int fd;
+	int len;
+
+	snprintf(full_filename, sizeof(full_filename), \
+			"%s/data/"SYNC_DIR_NAME"/%s", g_base_path, \
+			BINLOG_COMPRESSED_INDEX_FILENAME);
+	if ((fd=open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"open file \"%s\" fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, full_filename, \
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	len = sprintf(buff, "%d", compressed_index);
+	if (write(fd, buff, len) != len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"write to file \"%s\" fail, " \
+			"errno: %d, error info: %s",  \
+			__LINE__, full_filename, \
+			errno, strerror(errno));
+		close(fd);
+		return errno != 0 ? errno : EIO;
+	}
+
+	close(fd);
 	return 0;
 }
 
@@ -162,7 +271,8 @@ static int get_current_binlog_index()
 	int fd;
 
 	snprintf(full_filename, sizeof(full_filename), \
-		"%s/data/sync/%s", g_base_path, SYNC_BINLOG_INDEX_FILENAME);
+		"%s/data/"SYNC_DIR_NAME"/%s", g_base_path, \
+		SYNC_BINLOG_INDEX_FILENAME);
 	if ((fd=open(full_filename, O_RDONLY)) < 0)
 	{
 		printf("open file %s fail, errno: %d, error info: %s\n", \
@@ -415,7 +525,7 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 	return 0;
 }
 
-static void compress_write_to_binlog(const int index, const HashData *data, void *args)
+static int compress_write_to_binlog(const int index, const HashData *data, void *args)
 {
 	CompressWalkArg *pWalkArg;
 	CompressRawRow *pRow;
@@ -433,13 +543,11 @@ static void compress_write_to_binlog(const int index, const HashData *data, void
 		pTmp = (char *)malloc(new_size);
 		if (pTmp == NULL)
 		{
-			pWalkArg->fail_count++;
-
 			logError("file: "__FILE__", line: %d, " \
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", __LINE__, \
 				new_size, errno, strerror(errno));
-			return;
+			return errno != 0 ? errno : ENOMEM;
 		}
 
 		free(pWalkArg->buff);
@@ -449,44 +557,40 @@ static void compress_write_to_binlog(const int index, const HashData *data, void
 
 	if (lseek(pWalkArg->pReader->binlog_fd, pRow->offset, SEEK_SET) < 0)
 	{
-		pWalkArg->fail_count++;
-
 		logError("file: "__FILE__", line: %d, " \
 			"lseek from binlog file \"%s\" fail, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pWalkArg->pReader, NULL), \
 			pRow->offset, errno, strerror(errno));
-		return;
+		return errno != 0 ? errno : EIO;
 	}
 
 	if (read(pWalkArg->pReader->binlog_fd, pWalkArg->buff, 
 			pRow->record_length) != pRow->record_length)
 	{
-		pWalkArg->fail_count++;
-
 		logError("file: "__FILE__", line: %d, " \
 			"read from binlog file \"%s\" fail, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pWalkArg->pReader, NULL), \
 			pRow->offset, errno, strerror(errno));
-		return;
+		return errno != 0 ? errno : EIO;
 	}
 
 	if (write(pWalkArg->dest_fd, pWalkArg->buff, 
 			pRow->record_length) != pRow->record_length)
 	{
-		pWalkArg->fail_count++;
-
 		logError("file: "__FILE__", line: %d, " \
 			"write to new binlog file \"%s.new\" fail, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pWalkArg->pReader, NULL), \
 			pRow->offset, errno, strerror(errno));
-		return;
+		return errno != 0 ? errno : EIO;
 	}
+
+	return 0;
 }
 
 static int compress_binlog_file(CompressReader *pReader)
@@ -538,8 +642,6 @@ static int compress_binlog_file(CompressReader *pReader)
 		return errno != 0 ? errno : ENOMEM;
 	}
 
-	printf("row_count=%d\n", row_count);
-
 	pReader->binlog_offset = 0;
 	if (lseek(pReader->binlog_fd, 0, SEEK_SET) < 0)
 	{
@@ -584,7 +686,6 @@ static int compress_binlog_file(CompressReader *pReader)
 		pRow++;
 	}
 
-	printf("row_count=%d\n", pRow - rows);
 	if (result != 0 && result != ENOENT)
 	{
 		return result;
@@ -626,9 +727,8 @@ static int compress_binlog_file(CompressReader *pReader)
 		return errno != 0 ? errno : EACCES;
 	}
 
-	hash_walk(&key_hash, compress_write_to_binlog, &walk_arg);
-	printf("row_count=%d, fail_count=%d\n", walk_arg.row_count, walk_arg.fail_count);
-
+	result = hash_walk(&key_hash, compress_write_to_binlog, &walk_arg);
+	
 	close(walk_arg.dest_fd);
 	close(pReader->binlog_fd);
 	pReader->binlog_fd = -1;
@@ -637,18 +737,23 @@ static int compress_binlog_file(CompressReader *pReader)
 	hash_destroy(&key_hash);
 	free(rows);
 
-	if (walk_arg.fail_count == 0)
+	if (result != 0)
 	{
-		if (rename(new_filename, full_filename) != 0)
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"rename file from %s to %s fail, " \
-				"errno: %d, error info: %s", \
-				__LINE__, new_filename, full_filename, 
-				errno, strerror(errno));
-			return errno != 0 ? errno : EACCES;
-		}
+		return result;
 	}
+
+	if (rename(new_filename, full_filename) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"rename file from %s to %s fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, new_filename, full_filename, 
+			errno, strerror(errno));
+		return errno != 0 ? errno : EACCES;
+	}
+
+	printf("binlog: %s, row count before compress=%d, after compress=%d\n" \
+		, full_filename, row_count, walk_arg.row_count);
 
 	return result;
 }
