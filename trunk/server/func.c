@@ -349,6 +349,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	GroupArray groupArray;
 	char sz_sync_db_time_base[16];
 	char sz_clear_expired_time_base[16];
+	char sz_compress_binlog_time_base[16];
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
 	{
@@ -624,7 +625,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		
 		if ((result=get_time_item_from_conf(items, nItemCount, \
 			"sync_db_time_base", &g_sync_db_time_base, \
-			TIME_NONE, TIME_NONE)) != 0)
+			0, 0)) != 0)
 		{
 			break;
 		}
@@ -646,7 +647,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		
 		if ((result=get_time_item_from_conf(items, nItemCount, \
 			"clear_expired_time_base", &g_clear_expired_time_base, \
-			TIME_NONE, TIME_NONE)) != 0)
+			4, 0)) != 0)
 		{
 			break;
 		}
@@ -677,6 +678,28 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_sync_binlog_buff_interval = SYNC_BINLOG_BUFF_DEF_INTERVAL;
 		}
 
+		if ((result=get_time_item_from_conf(items, nItemCount, \
+			"compress_binlog_time_base", &g_compress_binlog_time_base, \
+			2, 0)) != 0)
+		{
+			break;
+		}
+
+		if (g_compress_binlog_time_base.hour == TIME_NONE)
+		{
+			strcpy(sz_compress_binlog_time_base, "current time");
+		}
+		else
+		{
+			sprintf(sz_compress_binlog_time_base, "%02d:%02d", \
+				g_compress_binlog_time_base.hour, \
+				g_compress_binlog_time_base.minute);
+		}
+
+		g_compress_binlog_interval = iniGetIntValue( \
+			"compress_binlog_interval", items, nItemCount, \
+			COMPRESS_BINLOG_DEF_INTERVAL);
+
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -695,7 +718,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"clear_expired_time_base=%s, " \
 			"clear_expired_interval=%ds, " \
 			"db_dead_lock_detect_interval=%dms, " \
-			"write_to_binlog=%d, sync_binlog_buff_interval=%ds", \
+			"write_to_binlog=%d, sync_binlog_buff_interval=%ds, " \
+			"compress_binlog_time_base=%s, " \
+			"compress_binlog_interval=%ds", \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_network_timeout, \
@@ -709,7 +734,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_sync_db_interval, sz_clear_expired_time_base, \
 			g_clear_expired_interval, \
 			g_db_dead_lock_detect_interval, g_write_to_binlog_flag, \
-			g_sync_binlog_buff_interval);
+			g_sync_binlog_buff_interval, sz_compress_binlog_time_base,\
+			g_compress_binlog_interval);
 
 		break;
 	}

@@ -45,6 +45,8 @@ extern int g_sync_db_interval;
 extern TimeInfo g_clear_expired_time_base;
 extern int g_clear_expired_interval;
 extern int g_db_dead_lock_detect_interval;
+extern TimeInfo g_compress_binlog_time_base;
+extern int g_compress_binlog_interval;
 
 extern struct timeval g_network_tv;
 

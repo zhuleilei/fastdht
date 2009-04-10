@@ -4,7 +4,7 @@ Version 1.08  2009-04-10
    "sync_binlog_buff_interval" to conf file fdhtd.conf
  * add restart daemon shell script: restart.sh
  * add compress binlog tool
- * hash_walk change return type to int
+ * hash_walk change return type from void to int
 
 Version 1.07  2009-03-13
  * fastdht_client.ini: add parameter fastdht_client.log_filename
