@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 	key_list[1].key_len = sprintf(key_list[1].szKey, "reg");
 	key_list[2].key_len = sprintf(key_list[2].szKey, "intl");
 	key_list[3].key_len = sprintf(key_list[3].szKey, "co");
-	while (1)
+	do
 	{
 		key_list[0].pValue = "happy_fish";
 		key_list[0].value_len = strlen(key_list[0].pValue);
@@ -148,9 +148,7 @@ int main(int argc, char *argv[])
 		}
 
 		printf("fdht_batch_delete success count: %d\n", success_count);
-
-		break;
-	}
+	} while(0);
 
 	if (g_keep_alive)
 	{
