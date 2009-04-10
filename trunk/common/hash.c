@@ -562,17 +562,18 @@ int hash_delete(HashArray *pHash, const void *key, const int key_len)
 	return 0;
 }
 
-void hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args)
+int hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args)
 {
 	ChainList *plist;
 	ChainList *list_end;
 	ChainNode *pnode;
 	HashData *hash_data;
 	int index;
+	int result;
 
 	if (pHash == NULL || pHash->items == NULL || walkFunc == NULL)
 	{
-		return;
+		return ENOENT;
 	}
 
 	index = 0;
@@ -583,12 +584,17 @@ void hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args)
 		while (pnode != NULL)
 		{
 			hash_data = (HashData *) pnode->data;
-			walkFunc(index, hash_data, args);
+			if ((result=walkFunc(index, hash_data, args)) != 0)
+			{
+				return result;
+			}
 
 			pnode = pnode->next;
 			index++;
 		}
 	}
+
+	return 0;
 }
 
 // RS Hash Function

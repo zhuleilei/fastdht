@@ -38,7 +38,14 @@ typedef struct tagHashData
 	unsigned int hash_code;
 } HashData;
 
-typedef void (*HashWalkFunc)(const int index, const HashData *data, void *args);
+/*
+hash walk function
+index: item index based 0
+data: hash data, including key and value
+args: passed by hash_walk function
+return 0 for success, != 0 for error
+*/
+typedef int (*HashWalkFunc)(const int index, const HashData *data, void *args);
 
 int hash_init(HashArray *pHash, HashFunc hash_func, \
 		const unsigned int capacity, const double load_factor);
@@ -47,7 +54,7 @@ int hash_insert(HashArray *pHash, const void *key, const int key_len, \
 		void *value);
 void *hash_find(HashArray *pHash, const void *key, const int key_len);
 int hash_delete(HashArray *pHash, const void *key, const int key_len);
-void hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args);
+int hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args);
 int hash_best_op(HashArray *pHash, const int suggest_capacity);
 void hash_stat_print(HashArray *pHash);
 
