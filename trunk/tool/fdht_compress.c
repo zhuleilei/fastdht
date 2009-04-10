@@ -604,6 +604,10 @@ static int compress_binlog_file(CompressReader *pReader)
 	CompressWalkArg walk_arg;
 	char full_filename[MAX_PATH_SIZE];
 	char new_filename[MAX_PATH_SIZE];
+	time_t current_time;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	int full_key_len;
+	char *p;
 
 	memset(&record, 0, sizeof(record));
 	if ((result=compress_open_readable_binlog(pReader)) != 0)
@@ -662,6 +666,7 @@ static int compress_binlog_file(CompressReader *pReader)
 		return result;
 	}
 
+	current_time = time(NULL);
 	pRow = rows;
 	while (1)
 	{
@@ -671,19 +676,37 @@ static int compress_binlog_file(CompressReader *pReader)
 			break;
 		}
 
-		pRow->offset = record.offset;
-		pRow->record_length = record.record_length;
-
-		if ((result=hash_insert(&key_hash, record.key_info.szKey, \
-			record.key_info.key_len, pRow)) < 0)
+		FDHT_PACK_FULL_KEY(record.key_info, full_key, full_key_len, p)
+		if ((record.expires != FDHT_EXPIRES_NEVER && \
+			record.expires < current_time) || \
+		     (record.op_type == FDHT_OP_TYPE_SOURCE_DEL || \
+		      record.op_type == FDHT_OP_TYPE_REPLICA_DEL))
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"hash_insert fail, errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
-			break;
+			if ((result=hash_delete(&key_hash, full_key, \
+					full_key_len)) < 0)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"hash_insert fail, errno: %d, error info: %s", \
+					__LINE__, result, strerror(result));
+				break;
+			}
 		}
+		else
+		{
+			pRow->offset = record.offset;
+			pRow->record_length = record.record_length;
 
-		pRow++;
+			if ((result=hash_insert(&key_hash, full_key, \
+					full_key_len, pRow)) < 0)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"hash_insert fail, errno: %d, error info: %s", \
+					__LINE__, result, strerror(result));
+				break;
+			}
+
+			pRow++;
+		}
 	}
 
 	if (result != 0 && result != ENOENT)
