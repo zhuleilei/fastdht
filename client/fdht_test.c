@@ -71,7 +71,8 @@ int main(int argc, char *argv[])
 
 	srand(time(NULL));
 
-	expires = time(NULL) + 3600;
+	//expires = time(NULL) + 3600;
+	expires = FDHT_EXPIRES_NEVER;
 	memset(&key_info, 0, sizeof(key_info));
 	key_info.namespace_len = sprintf(key_info.szNameSpace, "bbs");
 	key_info.obj_id_len = sprintf(key_info.szObjectId, "test");

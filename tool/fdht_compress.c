@@ -813,7 +813,7 @@ static int compress_binlog_file(CompressReader *pReader)
 	close(pReader->binlog_fd);
 	pReader->binlog_fd = -1;
 
-	//unlink(sorted_filename);
+	unlink(sorted_filename);
 
 	if (result != 0)
 	{

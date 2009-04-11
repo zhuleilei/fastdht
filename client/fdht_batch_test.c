@@ -73,7 +73,8 @@ int main(int argc, char *argv[])
 
 	srand(time(NULL));
 
-	expires = time(NULL) + 3600;
+	expires = FDHT_EXPIRES_NEVER;
+	//expires = time(NULL) + 3600;
 	memset(&object_info, 0, sizeof(object_info));
 	object_info.namespace_len = sprintf(object_info.szNameSpace, "user");
 	object_info.obj_id_len = sprintf(object_info.szObjectId, "happy_fish");
