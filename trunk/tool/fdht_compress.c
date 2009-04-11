@@ -25,6 +25,7 @@
 #include "ini_file_reader.h"
 #include "sockopt.h"
 #include "sync.h"
+#include "fdfs_base64.h"
 
 #define BINLOG_COMPRESSED_INDEX_FILENAME  SYNC_BINLOG_FILE_PREFIX".compressed.index"
 
@@ -49,8 +50,11 @@ typedef struct
 
 typedef struct
 {
+	char key[(FDHT_MAX_FULL_KEY_LEN / 3) * 4];
+	char op_type;
 	off_t offset;
 	int record_length;
+	time_t expires;  //key expires, 0 for never expired
 } CompressRawRow;
 
 typedef struct
@@ -63,6 +67,7 @@ typedef struct
 } CompressWalkArg;
 
 static int g_binlog_index;
+static time_t g_current_time;
 
 static int get_current_binlog_index();
 static int get_binlog_compressed_index();
@@ -91,6 +96,7 @@ int main(int argc, char *argv[])
 		return EINVAL;
 	}
 
+	base64_init(0);
 	memset(&reader, 0, sizeof(reader));
 	reader.binlog_fd = -1;
 
@@ -525,15 +531,18 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 	return 0;
 }
 
-static int compress_write_to_binlog(const int index, const HashData *data, void *args)
+static int compress_write_to_binlog(CompressWalkArg *pWalkArg, CompressRawRow *pRow)
 {
-	CompressWalkArg *pWalkArg;
-	CompressRawRow *pRow;
-
-	pWalkArg = (CompressWalkArg *)args;
+	if ((pRow->expires != FDHT_EXPIRES_NEVER && \
+		pRow->expires < g_current_time) || \
+		(pRow->op_type == FDHT_OP_TYPE_SOURCE_DEL || \
+		pRow->op_type == FDHT_OP_TYPE_REPLICA_DEL))
+	{
+		return 0;
+	}
+	
 	pWalkArg->row_count++;
 
-	pRow = (CompressRawRow *)data->value;
 	if (pRow->record_length > pWalkArg->buff_size)
 	{
 		char *pTmp;
@@ -555,6 +564,8 @@ static int compress_write_to_binlog(const int index, const HashData *data, void 
 		pWalkArg->buff_size = new_size;
 	}
 
+	if (pWalkArg->pReader->binlog_offset != pRow->offset)
+	{
 	if (lseek(pWalkArg->pReader->binlog_fd, pRow->offset, SEEK_SET) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -564,6 +575,7 @@ static int compress_write_to_binlog(const int index, const HashData *data, void 
 			compress_get_binlog_filename(pWalkArg->pReader, NULL), \
 			pRow->offset, errno, strerror(errno));
 		return errno != 0 ? errno : EIO;
+	}
 	}
 
 	if (read(pWalkArg->pReader->binlog_fd, pWalkArg->buff, 
@@ -590,6 +602,7 @@ static int compress_write_to_binlog(const int index, const HashData *data, void 
 		return errno != 0 ? errno : EIO;
 	}
 
+	pWalkArg->pReader->binlog_offset = pRow->offset + pRow->record_length;
 	return 0;
 }
 
@@ -597,22 +610,44 @@ static int compress_binlog_file(CompressReader *pReader)
 {
 	int result;
 	int row_count;
-	CompressRawRow *rows;
-	CompressRawRow *pRow;
+	int item_count;
+	int bytes;
 	CompressRecord record;
-	HashArray key_hash;
+	CompressRawRow current_row;
+	CompressRawRow previous_row;
 	CompressWalkArg walk_arg;
+	int tmp_fd;
+	int sorted_fd;
 	char full_filename[MAX_PATH_SIZE];
+	char tmp_filename[MAX_PATH_SIZE];
+	char sorted_filename[MAX_PATH_SIZE];
 	char new_filename[MAX_PATH_SIZE];
-	time_t current_time;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	char base64_key[(FDHT_MAX_FULL_KEY_LEN / 3) * 4];
+	char buff[(FDHT_MAX_FULL_KEY_LEN / 3) * 4 + 256];
+	char sort_progam[32];
 	int full_key_len;
+	int base64_key_len;
+	int buff_len;
 	char *p;
 
 	memset(&record, 0, sizeof(record));
 	if ((result=compress_open_readable_binlog(pReader)) != 0)
 	{
 		return result;
+	}
+
+	compress_get_binlog_filename(pReader, full_filename);
+	snprintf(tmp_filename, sizeof(tmp_filename), "%s.tmp", full_filename);
+	snprintf(sorted_filename, sizeof(sorted_filename), \
+			"%s.sorted", full_filename);
+	if ((tmp_fd=open(tmp_filename, O_WRONLY | O_CREAT | 
+			O_TRUNC, 0666)) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"open file %s fail, errno: %d, error info: %s", \
+			__LINE__, tmp_filename, errno, strerror(errno));
+		return errno != 0 ? errno : EACCES;
 	}
 
 	row_count = 0;
@@ -624,8 +659,26 @@ static int compress_binlog_file(CompressReader *pReader)
 			break;
 		}
 
+		FDHT_PACK_FULL_KEY(record.key_info, full_key, full_key_len, p)
+
+		base64_encode_ex(full_key, full_key_len, base64_key, \
+			&base64_key_len, false);
+
+		buff_len = sprintf(buff, "%s %d %c "INT64_PRINTF_FORMAT" %d\n", \
+			base64_key, (int)record.expires, record.op_type, \
+			record.offset, record.record_length);
+		if (write(tmp_fd, buff, buff_len) != buff_len)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"write to file %s fail, " \
+				"errno: %d, error info: %s",\
+				__LINE__, tmp_filename, errno, strerror(errno));
+			return errno != 0 ? errno : EACCES;
+		}
+
 		row_count++;
 	}
+	close(tmp_fd);
 
 	if (result != 0 && result != ENOENT)
 	{
@@ -637,85 +690,60 @@ static int compress_binlog_file(CompressReader *pReader)
 		return result;
 	}
 
-	rows = (CompressRawRow *)malloc(sizeof(CompressRawRow) * row_count);
-	if (rows == NULL)
+	if (fileExists("/bin/sort"))
 	{
-		printf("malloc %d bytes fail, errno: %d, error info: %s\n", 
-			sizeof(CompressRawRow) * row_count, 
-			errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
+		strcpy(sort_progam, "/bin/sort");
+	}
+	else
+	{
+		strcpy(sort_progam, "/usr/bin/sort");
+	}
+	sprintf(buff, "%s --stable --key=1,1 --output=%s %s", sort_progam, \
+			sorted_filename, tmp_filename);
+
+	result = system(buff);
+	unlink(tmp_filename);
+	if (result != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"sort file %s fail, status: %d", \
+			__LINE__, tmp_filename, result);
+		return errno != 0 ? errno : ENOENT;
 	}
 
-	pReader->binlog_offset = 0;
+	if ((sorted_fd=open(sorted_filename, O_RDONLY, 0666)) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"open file %s fail, errno: %d, error info: %s", \
+			__LINE__, sorted_filename, errno, strerror(errno));
+		return errno != 0 ? errno : EACCES;
+	}
+
 	if (lseek(pReader->binlog_fd, 0, SEEK_SET) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"lseek from binlog file \"%s\" fail, " \
-			"file offset: "INT64_PRINTF_FORMAT", " \
+			"file offset: 0, " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pReader, NULL), \
-			pReader->binlog_offset, errno, strerror(errno));
+			errno, strerror(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
-	if ((result=hash_init(&key_hash, PJWHash, row_count, 1.0)) != 0)
+        memset(&walk_arg, 0, sizeof(walk_arg));
+	compress_get_binlog_filename(pReader, full_filename);
+	snprintf(new_filename, sizeof(new_filename), "%s.new", full_filename);
+	if (( walk_arg.dest_fd=open(new_filename, O_WRONLY | O_CREAT | 
+			O_TRUNC, 0666)) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"hash_init fail, errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-		return result;
+			"open file %s fail, errno: %d, error info: %s", \
+			__LINE__, new_filename, errno, strerror(errno));
+		return errno != 0 ? errno : EACCES;
 	}
 
-	current_time = time(NULL);
-	pRow = rows;
-	while (1)
-	{
-		result = compress_binlog_read(pReader, &record);
-		if (result != 0)
-		{
-			break;
-		}
+	g_current_time = time(NULL);
 
-		FDHT_PACK_FULL_KEY(record.key_info, full_key, full_key_len, p)
-		if ((record.expires != FDHT_EXPIRES_NEVER && \
-			record.expires < current_time) || \
-		     (record.op_type == FDHT_OP_TYPE_SOURCE_DEL || \
-		      record.op_type == FDHT_OP_TYPE_REPLICA_DEL))
-		{
-			if ((result=hash_delete(&key_hash, full_key, \
-					full_key_len)) < 0)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"hash_insert fail, errno: %d, error info: %s", \
-					__LINE__, result, strerror(result));
-				break;
-			}
-		}
-		else
-		{
-			pRow->offset = record.offset;
-			pRow->record_length = record.record_length;
-
-			if ((result=hash_insert(&key_hash, full_key, \
-					full_key_len, pRow)) < 0)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"hash_insert fail, errno: %d, error info: %s", \
-					__LINE__, result, strerror(result));
-				break;
-			}
-
-			pRow++;
-		}
-	}
-
-	if (result != 0 && result != ENOENT)
-	{
-		return result;
-	}
-
-	result = 0;
-	memset(&walk_arg, 0, sizeof(walk_arg));
 	walk_arg.pReader = pReader;
 	walk_arg.buff_size = 64 * 1024;
 	walk_arg.buff = (char *)malloc(walk_arg.buff_size);
@@ -727,38 +755,65 @@ static int compress_binlog_file(CompressReader *pReader)
 			walk_arg.buff_size, errno, strerror(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
+	walk_arg.pReader->binlog_offset = 0;
 
-	if (lseek(pReader->binlog_fd, 0, SEEK_SET) < 0)
+	memset(&previous_row, 0, sizeof(CompressRawRow));
+	memset(&current_row, 0, sizeof(CompressRawRow));
+	while (1)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"lseek from binlog file \"%s\" fail, " \
-			"file offset: "INT64_PRINTF_FORMAT", " \
-			"errno: %d, error info: %s", __LINE__, \
-			compress_get_binlog_filename(pReader, NULL), \
-			pReader->binlog_offset, errno, strerror(errno));
-		return errno != 0 ? errno : EIO;
+		memcpy(&previous_row, &current_row, sizeof(CompressRawRow));
+
+		if ((bytes=fd_gets(sorted_fd, buff, sizeof(buff), 32)) < 0)
+		{
+			result = errno != 0 ? errno : EIO;
+			break;
+		}
+
+		if (bytes == 0)
+		{
+			break;
+		}
+
+		item_count=sscanf(buff, "%s %d %c "INT64_PRINTF_FORMAT" %d", \
+			current_row.key, (int *)&current_row.expires, \
+			&current_row.op_type, &current_row.offset, \
+			&current_row.record_length);
+		if (item_count != 5)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"sscanf file %s fail, scan items: %d != 5", \
+				__LINE__, sorted_filename, item_count);
+			return errno != 0 ? errno : EACCES;
+		}
+
+		if (*previous_row.key == '\0' || strcmp(previous_row.key, 
+			current_row.key) == 0)
+		{
+			continue;
+		}
+
+		if ((result=compress_write_to_binlog(&walk_arg, \
+				&previous_row)) != 0)
+		{
+			return result;
+		}
 	}
 
-	compress_get_binlog_filename(pReader, full_filename);
-	snprintf(new_filename, sizeof(new_filename), "%s.new", full_filename);
-	if ((walk_arg.dest_fd=open(new_filename, O_WRONLY | O_CREAT | 
-			O_TRUNC, 0666)) < 0)
+	if (*previous_row.key != '\0')
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"open file %s fail, errno: %d, error info: %s", \
-			__LINE__, new_filename, errno, strerror(errno));
-		return errno != 0 ? errno : EACCES;
+		if ((result=compress_write_to_binlog(&walk_arg, \
+				&previous_row)) != 0)
+		{
+			return result;
+		}
 	}
 
-	result = hash_walk(&key_hash, compress_write_to_binlog, &walk_arg);
-	
+	close(sorted_fd);
 	close(walk_arg.dest_fd);
 	close(pReader->binlog_fd);
 	pReader->binlog_fd = -1;
 
-	free(walk_arg.buff);
-	hash_destroy(&key_hash);
-	free(rows);
+	//unlink(sorted_filename);
 
 	if (result != 0)
 	{
