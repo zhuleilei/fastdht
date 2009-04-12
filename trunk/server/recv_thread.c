@@ -322,7 +322,7 @@ static void client_sock_read(int sock, short event, void *arg)
 	}
 	else if (bytes == 0)
 	{
-		logWarning("file: "__FILE__", line: %d, " \
+		logDebug("file: "__FILE__", line: %d, " \
 			"client ip: %s, recv failed, " \
 			"connection disconnected.", \
 			__LINE__, pTask->client_ip);

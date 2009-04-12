@@ -135,7 +135,7 @@ allow_hosts=*
 # <= 0 for never sync
 sync_db_interval=86400
 
-# if write to binlog file, set to 0 to disable replication
+# if write to binlog file. set to 0 to disable replication
 # default value is 1
 write_to_binlog=1
 
@@ -158,6 +158,21 @@ clear_expired_interval=0
 # default value is 1000 milliseconds
 # <= 0 for never detect
 db_dead_lock_detect_interval=1000
+
+# the base time for compressing binlog file, time format: HH:MM
+# empty for the current time when the program starts
+# default value is 02:00
+compress_binlog_time_base=02:00
+
+# try to compress binlog file every interval seconds
+# default value is 86400 seconds (try to compress every day)
+# <= 0 for never compress
+compress_binlog_interval=86400
+
+# if write to binlog file, set to 0 to disable replication
+# use "#include filename" (not include double quotes) directive to load 
+# FastDHT server list when the filename is a relative path such as pure 
+# filename, the base path is the base path of current/this config file
 
 #include fdht_servers.conf
 
@@ -223,7 +238,7 @@ memo:
 ----------------------------------------------------
 | sync_db_interval       | int    | 86400(s)|  N   |
 ----------------------------------------------------
-| clear_expired_time_base| string |  40:00  |  N   |
+| clear_expired_time_base| string |  04:00  |  N   |
 ----------------------------------------------------
 | expired_time_interval  | int    |  0(s)   |  N   |
 ----------------------------------------------------
@@ -232,6 +247,10 @@ memo:
 | write_to_binlog        | boolean|   1     |  N   |
 ----------------------------------------------------
 | sync_binlog_buff_interval| int  |   60(s) |  N   |
+----------------------------------------------------
+| compress_binlog_time_base| string|  02:00 |  N   |
+----------------------------------------------------
+| compress_binlog_interval | int   |86400(s)|  N   |
 ----------------------------------------------------
 
 memo:

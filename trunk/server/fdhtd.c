@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -44,6 +45,7 @@ static int fdht_init_schedule();
 static void sigQuitHandler(int sig);
 static void sigHupHandler(int sig);
 static void sigUsrHandler(int sig);
+static void sigChildHandler(int sig);
 
 static int create_sock_io_threads(int server_sock);
 
@@ -126,6 +128,16 @@ int main(int argc, char *argv[])
 		sigaction(SIGABRT, &act, NULL) < 0 || \
 		sigaction(SIGSEGV, &act, NULL) < 0 || \
 		sigaction(SIGQUIT, &act, NULL) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call sigaction fail, errno: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
+		fdht_func_destroy();
+		return errno;
+	}
+
+	act.sa_handler = sigChildHandler;
+	if(sigaction(SIGCHLD, &act, NULL) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
@@ -241,6 +253,18 @@ static void sigUsrHandler(int sig)
 	*/
 }
 
+static void sigChildHandler(int sig)
+{
+	int status;
+	pid_t pid;
+	while ((pid=waitpid(0, &status, WNOHANG)) >= 0)
+	{
+		logDebug("file: "__FILE__", line: %d, " \
+			"child process %d exits, status=%d.", \
+			__LINE__, pid, status);
+	}
+}
+
 static int create_sock_io_threads(int server_sock)
 {
 	int result;
@@ -288,6 +312,36 @@ static int create_sock_io_threads(int server_sock)
 	return result;
 }
 
+static void fdht_compress_binlog_func(void *arg)
+{
+	pid_t pid;
+	char *cmd;
+
+	pid = fork();
+	if (pid < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fork fail, errno: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
+		return;
+	}
+
+	if (pid > 0) //parrent proccess
+	{
+		return;
+	}
+
+	cmd = "/usr/local/bin/fdht_compress";
+	//child process
+	if (execl(cmd, cmd, g_base_path, "auto", NULL) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"execl fail, errno: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
+	}
+	exit(errno);  //exit child proccess
+}
+
 static int fdht_init_schedule()
 {
 	int entry_count;
@@ -300,6 +354,10 @@ static int fdht_init_schedule()
 		entry_count++;
 	}
 	if (g_write_to_binlog_flag)
+	{
+		entry_count++;
+	}
+	if (g_compress_binlog_interval > 0)
 	{
 		entry_count++;
 	}
@@ -356,6 +414,17 @@ static int fdht_init_schedule()
 		pScheduleEntry->time_base.minute = TIME_NONE;
 		pScheduleEntry->interval = g_sync_binlog_buff_interval;
 		pScheduleEntry->task_func = fdht_binlog_sync_func;
+		pScheduleEntry->func_args = NULL;
+		pScheduleEntry++;
+	}
+
+	if (g_compress_binlog_interval > 0)
+	{
+		pScheduleEntry->id = pScheduleEntry - scheduleArray.entries+1;
+		pScheduleEntry->time_base.hour = g_compress_binlog_time_base.hour;
+		pScheduleEntry->time_base.minute = g_compress_binlog_time_base.minute;
+		pScheduleEntry->interval = g_compress_binlog_interval;
+		pScheduleEntry->task_func = fdht_compress_binlog_func;
 		pScheduleEntry->func_args = NULL;
 		pScheduleEntry++;
 	}

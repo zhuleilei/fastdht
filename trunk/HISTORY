@@ -1,10 +1,12 @@
-Version 1.08  2009-04-10
+Version 1.08  2009-04-12
  * common/shared_func.c: rindex change to strrchr, add #include <netinet/in.h>
  * use scheduling thread to sync binlog buff / cache to disk, add parameter 
    "sync_binlog_buff_interval" to conf file fdhtd.conf
  * add restart daemon shell script: restart.sh
  * add compress binlog tool
  * hash_walk change return type from void to int
+ * compress binlog tool can be run by scheduler, fdhtd.conf add parameters:
+   compress_binlog_time_base and compress_binlog_interval
 
 Version 1.07  2009-03-13
  * fastdht_client.ini: add parameter fastdht_client.log_filename
