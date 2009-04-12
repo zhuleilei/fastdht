@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	//expires = time(NULL) + 3600;
 	memset(&object_info, 0, sizeof(object_info));
 	object_info.namespace_len = sprintf(object_info.szNameSpace, "user");
-	object_info.obj_id_len = sprintf(object_info.szObjectId, "happy_fish");
+	object_info.obj_id_len = sprintf(object_info.szObjectId, "happyfish");
 
 
 	memset(key_list, 0, sizeof(key_list));
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 	key_list[3].key_len = sprintf(key_list[3].szKey, "co");
 	do
 	{
-		key_list[0].pValue = "happy_fish";
+		key_list[0].pValue = "happyfish";
 		key_list[0].value_len = strlen(key_list[0].pValue);
 		key_list[1].pValue = "1235277184";
 		key_list[1].value_len = strlen(key_list[1].pValue);

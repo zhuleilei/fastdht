@@ -109,11 +109,13 @@ int main(int argc, char *argv[])
 		return ENOENT;
 	}
 
+	log_init("fdht_compress");
+
 	snprintf(binlog_filepath, sizeof(binlog_filepath), \
 		"%s/data/sync", g_base_path);
 	if (!fileExists(binlog_filepath))
 	{
-		printf("binlog path %s not exist!\n", binlog_filepath);
+		logError("binlog path %s not exist!", binlog_filepath);
 		return ENOENT;
 	}
 
@@ -126,8 +128,8 @@ int main(int argc, char *argv[])
 	{
 		if (g_binlog_index == 0)
 		{
-			printf("Current binlog index: %d == 0, " \
-				"can't compress!\n", g_binlog_index);
+			logError("Current binlog index: %d == 0, " \
+				"can't compress!", g_binlog_index);
 			return EINVAL;
 		}
 
@@ -154,37 +156,40 @@ int main(int argc, char *argv[])
 		start_index = end_index = (int)strtol(argv[2], &pEnd, 10);
 		if ((pEnd != NULL && *pEnd != '\0') || start_index < 0)
 		{
-			printf("Invalid binlog file index: %s\n", argv[2]);
+			logError("Invalid binlog file index: %s", argv[2]);
 			return EINVAL;
 		}
 
 		if (start_index >= g_binlog_index)
 		{
-			printf("The compress index: %d >= current binlog " \
-				"index: %d, can't compress!\n", \
+			logError("The compress index: %d >= current binlog " \
+				"index: %d, can't compress!", \
 				start_index, g_binlog_index);
 			return EINVAL;
 		}
 	}
 
+	result = 0;
 	for (index=start_index; index<=end_index; index++)
 	{
 		reader.binlog_index = index;
 		if ((result=compress_binlog_file(&reader)) != 0)
 		{
-			return result;
+			break;
 		}
 
 		if (strcmp(argv[2], "auto") == 0)
 		{
 			if ((result=write_to_binlog_compressed_index(index + 1)) != 0)
 			{
-				return result;
+				break;
 			}
 		}
 	}
 
-	return 0;
+	log_destory();
+
+	return result;
 }
 
 static int get_binlog_compressed_index(int *compressed_index)
@@ -281,8 +286,9 @@ static int get_current_binlog_index()
 		SYNC_BINLOG_INDEX_FILENAME);
 	if ((fd=open(full_filename, O_RDONLY)) < 0)
 	{
-		printf("open file %s fail, errno: %d, error info: %s\n", \
-			full_filename, errno, strerror(errno));
+		logError("file: "__FILE__", line: %d, " \
+			"open file %s fail, errno: %d, error info: %s", \
+			__LINE__, full_filename, errno, strerror(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -830,7 +836,7 @@ static int compress_binlog_file(CompressReader *pReader)
 		return errno != 0 ? errno : EACCES;
 	}
 
-	printf("binlog: %s, row count before compress=%d, after compress=%d\n" \
+	logInfo("binlog: %s, row count before compress=%d, after compress=%d" \
 		, full_filename, row_count, walk_arg.row_count);
 
 	return result;
