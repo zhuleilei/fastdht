@@ -362,7 +362,7 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	if (argc != 3 && argc != 4)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_set parameters count: %d != 3 or 4", \
+			"fastdht_batch_get parameters count: %d != 3 or 4", \
 			__LINE__, argc);
 		RETURN_LONG(EINVAL);
 	}
@@ -374,7 +374,7 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		&key_values, &return_errno, &expires) == FAILURE)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_batch_set parameter parse error!", __LINE__);
+			"fastdht_batch_get parameter parse error!", __LINE__);
 		RETURN_LONG(EINVAL);
 	}
 
@@ -383,7 +383,7 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_batch_set, invalid key_count: %d!", \
+			"fastdht_batch_get, invalid key_count: %d!", \
 			__LINE__, key_count);
 		RETURN_LONG(EINVAL);
 	}
@@ -515,7 +515,7 @@ static void php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	if (argc != 3)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_set parameters count: %d != 3", \
+			"fastdht_batch_delete parameters count: %d != 3", \
 			__LINE__, argc);
 		RETURN_LONG(EINVAL);
 	}
@@ -525,7 +525,7 @@ static void php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		&key_values) == FAILURE)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_batch_set parameter parse error!", __LINE__);
+			"fastdht_batch_delete parameter parse error!", __LINE__);
 		RETURN_LONG(EINVAL);
 	}
 
@@ -534,7 +534,7 @@ static void php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	if (key_count <= 0 || key_count > FDHT_MAX_KEY_COUNT_PER_REQ)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"fastdht_batch_set, invalid key_count: %d!", \
+			"fastdht_batch_delete, invalid key_count: %d!", \
 			__LINE__, key_count);
 		RETURN_LONG(EINVAL);
 	}
