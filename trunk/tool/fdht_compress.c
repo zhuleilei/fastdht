@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 			return result;
 		}
 
-		end_index = g_binlog_index - 1;
+		end_index = g_binlog_index - 2; //make sure syncing is done
 		if (start_index > end_index)
 		{
 			return 0;
