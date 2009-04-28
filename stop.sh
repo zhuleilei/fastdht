@@ -24,7 +24,6 @@ else
 fi
 
 program=`/bin/echo $1 | $AWK -F '/' '{print $NF;}'`
-param=''
 grep_cmd="$GREP -w $program"
 
 list='2 3 4 5 6 7 8 9'
@@ -33,7 +32,6 @@ for i in $list; do
   if [ -z "$p" ]; then
     break
   fi
-  param="$param $p"
   first_ch=`$EXPR substr "$p" 1 1`
   if [ "$first_ch" = "-" ]; then
       p="'\\$p'"
@@ -77,13 +75,11 @@ fi
 cmd="/bin/ps auxww | $grep_cmd | $GREP -v grep | $GREP -v $0 | /usr/bin/wc -l"
 count=`/bin/sh -c "$cmd"`
 if [ $count -eq 0 ]; then
-  /bin/echo "starting $program ..."
-  exec $1 $param
-  exit $?
+   exit 0
 else
   cmd="/bin/ps auxww | $grep_cmd | $GREP -v grep | $GREP -v $0"
   /bin/sh -c "$cmd"
-  /bin/echo "already running $program count: $count, restart aborted!"
+  /bin/echo "already running $program count: $count, stop fail!"
   exit 16
 fi
 

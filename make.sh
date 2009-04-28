@@ -55,6 +55,16 @@ else
   fi
 fi
 
+if [ "$1" = "install" ]; then
+  cp -f restart.sh $TARGET_PATH
+  cp -f stop.sh $TARGET_PATH
+
+  if [ "$uname" = "Linux" ]; then
+    cp -f init.d/fdhtd /etc/rc.d/init.d/
+    /sbin/chkconfig --add fdhtd
+  fi
+fi
+
 cd server
 cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
