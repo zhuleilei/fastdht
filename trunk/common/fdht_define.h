@@ -11,7 +11,6 @@
 #ifndef _FDHT_DEFINE_H_
 #define _FDHT_DEFINE_H_
 
-#include <pthread.h>
 #include "common_define.h"
 
 #define FDHT_SERVER_DEFAULT_PORT  24000
