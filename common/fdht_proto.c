@@ -206,7 +206,7 @@ int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
 		char ip_addr[IP_ADDRESS_SIZE];
 		char szPort[4];
 	} FNIOProtoServerInfo;
-
+	char szConnResult[4];
 	int result;
 	int ip_addr_len;
 	FNIOProtoServerInfo dest_server_info;
@@ -234,6 +234,31 @@ int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
 			"errno: %d, error info: %s", __LINE__, \
 			server.ip_addr, server.port, \
 			result, strerror(result));
+		close(server.sock);
+		return result;
+	}
+
+	if ((result=tcprecvdata(server.sock, szConnResult, 4, \
+		 g_network_timeout)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"recv data from proxy server %s:%d fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			server.ip_addr, server.port, \
+			result, strerror(result));
+		close(server.sock);
+		return result;
+	}
+
+	result = buff2int(szConnResult);
+	if (result != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"connect to server %s:%d fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			pServer->ip_addr, pServer->port, \
+			result, strerror(result));
+		close(server.sock);
 		return result;
 	}
 
