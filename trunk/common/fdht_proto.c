@@ -21,6 +21,7 @@
 #include "sockopt.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
+#include "fnio_proto.h"
 
 extern int g_network_timeout;
 
@@ -201,33 +202,37 @@ int fdht_connect_server(FDHTServerInfo *pServer)
 int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
 		FDHTServerInfo *pServer)
 {
-	typedef struct {
-		char szIpAddrLen[4];
-		char ip_addr[IP_ADDRESS_SIZE];
-		char szPort[4];
-	} FNIOProtoServerInfo;
-	char szConnResult[4];
 	int result;
 	int ip_addr_len;
-	FNIOProtoServerInfo dest_server_info;
+	int pkg_len;
+	char out_buff[sizeof(FNIOProtoHeader) + sizeof(FNIOProtoServerInfo)];
+	char in_buff[sizeof(FNIOProtoHeader) + 4];
+	FNIOProtoHeader *pHeader;
+	FNIOProtoServerInfo *pDestServerInfo;
 	FDHTServerInfo server;
 
-	memset(&dest_server_info, 0, sizeof(dest_server_info));
-	ip_addr_len = snprintf(dest_server_info.ip_addr, \
-			sizeof(dest_server_info.ip_addr), "%s", pServer->ip_addr);
-	int2buff(ip_addr_len, dest_server_info.szIpAddrLen);
-	int2buff(pServer->port, dest_server_info.szPort);
+	memset(out_buff, 0, sizeof(out_buff));
+
+	pHeader = (FNIOProtoHeader *)out_buff;
+	pDestServerInfo = (FNIOProtoServerInfo *)(out_buff + 
+			sizeof(FNIOProtoHeader));
+	int2buff(sizeof(FNIOProtoServerInfo), pHeader->pkg_len);
+
+	ip_addr_len = snprintf(pDestServerInfo->ip_addr, \
+			sizeof(pDestServerInfo->ip_addr), \
+			"%s", pServer->ip_addr);
+	int2buff(ip_addr_len, pDestServerInfo->szIpAddrLen);
+	int2buff(pServer->port, pDestServerInfo->szPort);
 
 	strcpy(server.ip_addr, proxy_ip_addr);
 	server.port = proxy_port;
-
 	if ((result=fdht_connect_server(&server)) != 0)
 	{
 		return result;
 	}
 
-	if ((result=tcpsenddata(server.sock, &dest_server_info, \
-		sizeof(dest_server_info), g_network_timeout)) != 0)
+	if ((result=tcpsenddata(server.sock, out_buff, \
+		sizeof(out_buff), g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"send data to proxy server %s:%d fail, " \
@@ -238,7 +243,7 @@ int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
 		return result;
 	}
 
-	if ((result=tcprecvdata(server.sock, szConnResult, 4, \
+	if ((result=tcprecvdata(server.sock, in_buff, sizeof(in_buff), \
 		 g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -250,7 +255,18 @@ int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
 		return result;
 	}
 
-	result = buff2int(szConnResult);
+	pkg_len = buff2int(((FNIOProtoHeader *)in_buff)->pkg_len);
+	if (pkg_len != 4)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"proxy server %s:%d, invalid pkg_len: %d != 4", \
+			__LINE__, server.ip_addr, server.port, \
+			pkg_len);
+		close(server.sock);
+		return EINVAL;
+	}
+
+	result = buff2int(in_buff + sizeof(FNIOProtoHeader));
 	if (result != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
