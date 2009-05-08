@@ -973,12 +973,10 @@ int gethostaddrs(char ip_addrs[][IP_ADDRESS_SIZE], \
 			break;
 		}
 
-		logInfo("k=%d\n", k);
 		addr = (struct sockaddr_in*)&req.ifr_addr;
 		if (inet_ntop(AF_INET, &addr->sin_addr, ip_addrs[*count], \
 			IP_ADDRESS_SIZE) != NULL)
 		{
-			logInfo("local ip addr=%s", ip_addrs[*count]);
 			(*count)++;
 		}
 	}
