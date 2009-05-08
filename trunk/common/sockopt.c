@@ -25,6 +25,10 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 
+#ifdef OS_SUNOS
+#include <sys/sockio.h>
+#endif
+
 #ifdef USE_SENDFILE
 
 #ifdef OS_LINUX
@@ -945,10 +949,24 @@ int gethostaddrs(char ip_addrs[][IP_ADDRESS_SIZE], \
 		return errno != 0 ? errno : EMFILE;
 	}
 
+#ifdef OS_FREEBSD
+  #define IF_NAME_PREFIX   "bge"
+#else
+  #ifdef OS_SUNOS
+      #define IF_NAME_PREFIX   "e1000g"
+  #else
+      #ifdef OS_AIX
+          #define IF_NAME_PREFIX   "en"
+      #else
+          #define IF_NAME_PREFIX   "eth"
+      #endif
+  #endif
+#endif
+
 	memset(&req, 0, sizeof(req));
 	for (k=0; k<max_count; k++)
 	{
-		sprintf(req.ifr_name, "eth%d", k);
+		sprintf(req.ifr_name, "%s%d", IF_NAME_PREFIX, k);
 		ret = ioctl(sock, SIOCGIFADDR, &req);
 		if (ret == -1)
 		{
