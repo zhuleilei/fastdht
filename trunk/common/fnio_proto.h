@@ -24,8 +24,8 @@ typedef struct {
 } FNIOProtoServerInfo;
 
 typedef struct {
-	char session_id[8];
 	char pkg_len[4];
+	char session_id[8];
 } FNIOProtoHeader;
 
 #ifdef __cplusplus
