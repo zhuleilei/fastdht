@@ -37,7 +37,7 @@ int g_proxy_port = 0;
 
 bool g_use_proxy = true;
 char g_proxy_ip[IP_ADDRESS_SIZE] = "127.0.0.1";
-int g_proxy_port = 12345;
+int g_proxy_port = 12200;
 
 int fdht_client_init(const char *filename)
 {
