@@ -1183,3 +1183,73 @@ int fdht_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	return result;
 }
 
+int fdht_connect_all_servers(GroupArray *pGroupArray, const bool bKeepAlive, \
+			int *success_count, int *fail_count)
+{
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+	int conn_result;
+	int result;
+
+	*success_count = 0;
+	*fail_count = 0;
+	if (pGroupArray->servers == NULL)
+	{
+		return ENOENT;
+	}
+
+	result = 0;
+
+	pServerEnd = pGroupArray->servers + pGroupArray->server_count;
+	for (pServerInfo=pGroupArray->servers; \
+			pServerInfo<pServerEnd; pServerInfo++)
+	{
+		if ((conn_result=fdht_client_connect_server(pServerInfo)) != 0)
+		{
+			result = conn_result;
+			(*fail_count)++;
+		}
+		else //connect success
+		{
+			(*success_count)++;
+			if (bKeepAlive || g_use_proxy)
+			{
+				tcpsetnodelay(pServerInfo->sock);
+			}
+		}
+	}
+
+	if (result != 0)
+	{
+		return result;
+	}
+	else
+	{
+		return  *success_count > 0 ? 0: ENOENT;
+	}
+}
+
+void fdht_disconnect_all_servers(GroupArray *pGroupArray)
+{
+	FDHTServerInfo *pServerInfo;
+	FDHTServerInfo *pServerEnd;
+
+	if (pGroupArray->servers != NULL)
+	{
+		pServerEnd = pGroupArray->servers + pGroupArray->server_count;
+		for (pServerInfo=pGroupArray->servers; \
+				pServerInfo<pServerEnd; pServerInfo++)
+		{
+			if (pServerInfo->sock > 0)
+			{
+				if (!g_use_proxy)
+				{
+					fdht_quit(pServerInfo);
+				}
+				close(pServerInfo->sock);
+				pServerInfo->sock = -1;
+			}
+		}
+	}
+}
+

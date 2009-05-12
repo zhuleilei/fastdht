@@ -234,7 +234,6 @@ static void client_sock_read(int sock, short event, void *arg)
 
 	if (event == EV_TIMEOUT)
 	{
-	
 		if (pTask->offset == 0 && \
 			((FDHTProtoHeader *)pTask->data)->keep_alive)
 		{
@@ -250,8 +249,10 @@ static void client_sock_read(int sock, short event, void *arg)
 		else
 		{
 			logError("file: "__FILE__", line: %d, " \
-				"client ip: %s, recv timeout", \
-				__LINE__, pTask->client_ip);
+				"client ip: %s, recv timeout, " \
+				"recv offset: %d, expect length: %d", \
+				__LINE__, pTask->client_ip, \
+				pTask->offset, pTask->length);
 
 			close(pTask->ev.ev_fd);
 			free_queue_push(pTask);
