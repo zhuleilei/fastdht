@@ -51,6 +51,12 @@ return: 0 for success, != 0 for fail (errno)
 int fdht_load_conf(const char *filename, GroupArray *pGroupArray, \
 		bool *bKeepAlive);
 
+
+int fdht_connect_all_servers(GroupArray *pGroupArray, const bool bKeepAlive, \
+			int *success_count, int *fail_count);
+
+void fdht_disconnect_all_servers(GroupArray *pGroupArray);
+
 /*
 destroy function, free resource
 param:
