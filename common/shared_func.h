@@ -67,6 +67,8 @@ void freeSplit(char **p);
 
 int splitEx(char *src, const char seperator, char **pCols, const int nMaxCols);
 int my_strtok(char *src, const char *delim, char **pCols, const int nMaxCols);
+int str_replace(const char *s, const int src_len, const char *replaced, 
+	        const char *new_str, char *dest, const int dest_size);
 
 bool fileExists(const char *filename);
 bool isDir(const char *filename);
