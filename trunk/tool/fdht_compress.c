@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 		return ENOENT;
 	}
 
-	log_init("fdht_compress");
+	log_init(g_base_path, "fdht_compress");
 
 	snprintf(binlog_filepath, sizeof(binlog_filepath), \
 		"%s/data/sync", g_base_path);

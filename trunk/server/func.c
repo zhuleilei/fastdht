@@ -403,7 +403,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		load_log_level(items, nItemCount);
-		if ((result=log_init("fdhtd")) != 0)
+		if ((result=log_init(g_base_path, "fdhtd")) != 0)
 		{
 			break;
 		}
