@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	log_init("fdht_test_get");
+	log_init(g_base_path, "fdht_test_get");
 	log_set_cache(false);
 
 	memset(&act, 0, sizeof(act));
@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
 	}
 
 	g_keep_alive = true;
-	/*
 	if (g_keep_alive)
 	{
 		if ((result=fdht_connect_all_servers(&g_group_array, true, \
@@ -103,7 +102,6 @@ int main(int argc, char *argv[])
 			return result;
 		}
 	}
-	*/
 
 	key_info.key_len = sprintf(key_info.szKey, "k%015d", rand());
 	if ((result=fdht_set(&key_info, expires, szValue, value_len)) != 0)

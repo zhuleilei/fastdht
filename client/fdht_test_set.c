@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	log_init("fdht_test_set");
+	log_init(g_base_path, "fdht_test_set");
 	log_set_cache(false);
 
 	memset(&act, 0, sizeof(act));
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 		szValue[i] = (char)rand();
 	}
 
-	//g_keep_alive = true;
+	g_keep_alive = true;
 	if (g_keep_alive)
 	{
 		if ((result=fdht_connect_all_servers(&g_group_array, true, \
