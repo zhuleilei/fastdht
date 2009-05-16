@@ -1,4 +1,4 @@
-Version 1.09  2009-05-08
+Version 1.09  2009-05-16
  * correct php extension error info
  * fdht_compress.c: make sure syncing is done
  * add shell script: stop.sh, restart.sh modified
