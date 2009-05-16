@@ -331,12 +331,16 @@ static void fdht_compress_binlog_func(void *arg)
 		return;
 	}
 
-	cmd = "/usr/local/bin/fdht_compress";
 	//child process
+	cmd = "/usr/local/bin/fdht_compress";
+	if (!fileExists(cmd))
+	{
+		cmd = "/usr/bin/fdht_compress";
+	}
 	if (execl(cmd, cmd, g_base_path, "auto", NULL) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"execl fail, errno: %d, error info: %s", \
+			"execl fdht_compress fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
 	}
 	exit(errno);  //exit child proccess
