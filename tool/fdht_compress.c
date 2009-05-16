@@ -626,6 +626,7 @@ static int compress_binlog_file(CompressReader *pReader)
 	int sorted_fd;
 	char full_filename[MAX_PATH_SIZE];
 	char tmp_filename[MAX_PATH_SIZE];
+	char tmp_filepath[MAX_PATH_SIZE];
 	char sorted_filename[MAX_PATH_SIZE];
 	char new_filename[MAX_PATH_SIZE];
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
@@ -642,6 +643,9 @@ static int compress_binlog_file(CompressReader *pReader)
 	{
 		return result;
 	}
+
+	
+	snprintf(tmp_filepath, sizeof(tmp_filepath), "%s/tmp", g_base_path);
 
 	compress_get_binlog_filename(pReader, full_filename);
 	snprintf(tmp_filename, sizeof(tmp_filename), "%s.tmp", full_filename);
@@ -704,8 +708,9 @@ static int compress_binlog_file(CompressReader *pReader)
 	{
 		strcpy(sort_progam, "/usr/bin/sort");
 	}
-	sprintf(buff, "%s --stable --key=1,1 --output=%s %s", sort_progam, \
-			sorted_filename, tmp_filename);
+	sprintf(buff, "%s --stable --key=1,1 --temporary-directory=%s " \
+			"--output=%s %s", sort_progam, \
+			tmp_filepath, sorted_filename, tmp_filename);
 
 	result = system(buff);
 	unlink(tmp_filename);
