@@ -1232,7 +1232,8 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 			"%s: %d <= 0", __LINE__, caption, \
 			get_binlog_readable_filename(pReader, NULL), \
 			pReader->binlog_offset, caption, value); \
-		return EINVAL; \
+		result = EINVAL; \
+		break; \
 	} \
 	if (value > max_length) \
 	{ \
@@ -1242,7 +1243,8 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 			"%s: %d > %d", __LINE__, caption, \
 			get_binlog_readable_filename(pReader, NULL), \
 			pReader->binlog_offset, caption, value, max_length); \
-		return EINVAL; \
+		result = EINVAL; \
+		break; \
 	} \
 
 
@@ -1259,6 +1261,7 @@ int fdht_binlog_read(BinLogReader *pReader, \
 	time_t *ptExpires;
 	int *piTimestamp;
 	int *piExpires;
+	int total_read_bytes;
 
 	*record_length = 0;
 	while (1)
@@ -1304,14 +1307,11 @@ int fdht_binlog_read(BinLogReader *pReader, \
 		break;
 	}
 
+	total_read_bytes = read_bytes;
+	do
+	{
 	if (read_bytes != BINLOG_FIX_FIELDS_LENGTH)
 	{
-		if ((result=rewind_to_prev_rec_end(pReader, \
-				read_bytes)) != 0)
-		{
-			return result;
-		}
-
 		logWarning("file: "__FILE__", line: %d, " \
 			"read from binlog file \"%s\" fail, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
@@ -1319,7 +1319,8 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			__LINE__, get_binlog_readable_filename(pReader, NULL),\
 			pReader->binlog_offset, read_bytes, \
 			BINLOG_FIX_FIELDS_LENGTH);
-		return ENOENT;
+		result = ENOENT;
+		break;
 	}
 
 	*(buff + read_bytes) = '\0';
@@ -1338,10 +1339,38 @@ int fdht_binlog_read(BinLogReader *pReader, \
 		logError("file: "__FILE__", line: %d, " \
 			"data format invalid, binlog file: %s, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
-			"read item: %d != 6", \
+			"read item: %d != 8", \
 			__LINE__, get_binlog_readable_filename(pReader, NULL),\
 			pReader->binlog_offset, nItem);
-		return ENOENT;
+		result = EINVAL;
+		break;
+	}
+
+	if (pRecord->timestamp <= 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"invalid timestamp: %d, binlog file: %s, " \
+			"file offset: "INT64_PRINTF_FORMAT,  \
+			__LINE__, (int)pRecord->timestamp, \
+			get_binlog_readable_filename(pReader, NULL), \
+			pReader->binlog_offset);
+		result = EINVAL;
+		break;
+	}
+
+	if (pRecord->op_type != FDHT_OP_TYPE_SOURCE_SET && \
+		pRecord->op_type != FDHT_OP_TYPE_SOURCE_DEL &&  \
+		pRecord->op_type != FDHT_OP_TYPE_REPLICA_SET && \
+		pRecord->op_type != FDHT_OP_TYPE_REPLICA_DEL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"invalid op type: %c(0x%02X), binlog file: %s, " \
+			"file offset: "INT64_PRINTF_FORMAT,  \
+			__LINE__, pRecord->op_type, pRecord->op_type, \
+			get_binlog_readable_filename(pReader, NULL), \
+			pReader->binlog_offset);
+		result = EINVAL;
+		break;
 	}
 
 	CHECK_FIELD_VALUE(pRecord, pRecord->key_info.namespace_len, \
@@ -1353,6 +1382,18 @@ int fdht_binlog_read(BinLogReader *pReader, \
 	CHECK_FIELD_VALUE(pRecord, pRecord->key_info.key_len, \
 			FDHT_MAX_SUB_KEY_LEN, "key length")
 
+	if (pRecord->key_info.key_len == 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"data format invalid, binlog file: %s, " \
+			"file offset: "INT64_PRINTF_FORMAT", " \
+			"read item: %d != 8", \
+			__LINE__, get_binlog_readable_filename(pReader, NULL),\
+			pReader->binlog_offset, nItem);
+		result = EINVAL;
+		break;
+	}
+
 	if (pRecord->value.length < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -1361,7 +1402,8 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			"value length: %d < 0", \
 			__LINE__, get_binlog_readable_filename(pReader, NULL), \
 			pReader->binlog_offset, pRecord->value.length);
-		return EINVAL;
+		result = EINVAL;
+		break;
 	}
 
 	full_key_len = pRecord->key_info.namespace_len + 1 + \
@@ -1376,23 +1418,21 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			"errno: %d, error info: %s", __LINE__, \
 			get_binlog_readable_filename(pReader, NULL), \
 			pReader->binlog_offset, errno, strerror(errno));
-		return errno != 0 ? errno : EIO;
+		result = errno != 0 ? errno : EIO;
+		break;
 	}
+
+	total_read_bytes += read_bytes;
 	if (read_bytes != full_key_len)
 	{
-		if ((result=rewind_to_prev_rec_end(pReader, \
-			BINLOG_FIX_FIELDS_LENGTH + read_bytes)) != 0)
-		{
-			return result;
-		}
-
 		logWarning("file: "__FILE__", line: %d, " \
 			"read from binlog file \"%s\" fail, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"read bytes: %d != %d", \
 			__LINE__, get_binlog_readable_filename(pReader, NULL),\
 			pReader->binlog_offset, read_bytes, full_key_len);
-		return ENOENT;
+		result = ENOENT;
+		break;
 	}
 
 	p = buff;
@@ -1429,7 +1469,8 @@ int fdht_binlog_read(BinLogReader *pReader, \
 
 			
 			pRecord->value.data = p;
-			return errno != 0 ? errno : ENOMEM;
+			result = errno != 0 ? errno : ENOMEM;
+			break;
 		}
 
 		free(p);
@@ -1445,17 +1486,13 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			"errno: %d, error info: %s", __LINE__, \
 			get_binlog_readable_filename(pReader, NULL), \
 			pReader->binlog_offset, errno, strerror(errno));
-		return errno != 0 ? errno : EIO;
+		result = errno != 0 ? errno : EIO;
+		break;
 	}
+
+	total_read_bytes += read_bytes;
 	if (read_bytes != pRecord->value.length + 1)
 	{
-		if ((result=rewind_to_prev_rec_end(pReader, \
-			BINLOG_FIX_FIELDS_LENGTH + full_key_len + \
-			read_bytes)) != 0)
-		{
-			return result;
-		}
-
 		logWarning("file: "__FILE__", line: %d, " \
 			"read from binlog file \"%s\" fail, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
@@ -1463,7 +1500,29 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			__LINE__, get_binlog_readable_filename(pReader, NULL),\
 			pReader->binlog_offset, read_bytes, \
 			pRecord->value.length + 1);
-		return ENOENT;
+		result = ENOENT;
+		break;
+	}
+
+	if (*(pRecord->value.data + pRecord->value.length) != '\n')
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"read from binlog file \"%s\" fail, " \
+			"file offset: "INT64_PRINTF_FORMAT", " \
+			"record not ended with new line char (\\n)", __LINE__, \
+			get_binlog_readable_filename(pReader, NULL), \
+			pReader->binlog_offset);
+		result = EINVAL;
+		break;
+	}
+
+	result = 0;
+	} while(0);
+
+	if (result != 0)
+	{
+		rewind_to_prev_rec_end(pReader, total_read_bytes);
+		return result;
 	}
 
 	*record_length = CALC_RECORD_LENGTH((&(pRecord->key_info)), \
@@ -1699,6 +1758,14 @@ static void* fdht_sync_thread_entrance(void* arg)
 			}
 			else if (read_result != 0)
 			{
+				if (read_result == EINVAL) //invalid binlog format
+				{
+					logCrit("file: "__FILE__", line: %d, " \
+						"invalid binlog file format, " \
+						"program exit!", __LINE__);
+					fdht_terminate();
+				}
+
 				break;
 			}
 

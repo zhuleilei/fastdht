@@ -13,6 +13,10 @@
 
 #include "common_define.h"
 
+#define FNIO_PROTO_SOURCE_PROXY  'P'
+#define FNIO_PROTO_SOURCE_DATA   'D'
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,6 +30,7 @@ typedef struct {
 typedef struct {
 	char pkg_len[4];
 	char session_id[8];
+	char source;
 } FNIOProtoHeader;
 
 #ifdef __cplusplus
