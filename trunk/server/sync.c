@@ -1387,9 +1387,9 @@ int fdht_binlog_read(BinLogReader *pReader, \
 		logError("file: "__FILE__", line: %d, " \
 			"data format invalid, binlog file: %s, " \
 			"file offset: "INT64_PRINTF_FORMAT", " \
-			"read item: %d != 8", \
+			"key length: %d is invalid", \
 			__LINE__, get_binlog_readable_filename(pReader, NULL),\
-			pReader->binlog_offset, nItem);
+			pReader->binlog_offset, pRecord->key_info.key_len);
 		result = EINVAL;
 		break;
 	}
