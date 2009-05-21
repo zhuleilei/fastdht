@@ -29,14 +29,9 @@ bool g_keep_alive = false;
 extern int g_network_timeout;
 extern char g_base_path[MAX_PATH_SIZE];
 
-bool g_use_proxy = false;
-char g_proxy_ip[IP_ADDRESS_SIZE] = {0};
-int g_proxy_port = FDHT_DEFAULT_PROXY_PORT;
-
 int fdht_client_init(const char *filename)
 {
 	char *pBasePath;
-	char *pProxyIpAddr;
 	IniItemInfo *items;
 	int nItemCount;
 	char szProxyPrompt[64];
@@ -94,37 +89,11 @@ int fdht_client_init(const char *filename)
 			break;
 		}
 
-
-		g_use_proxy = iniGetBoolValue("use_proxy", \
-				items, nItemCount, false);
-		if (g_use_proxy)
+		if (g_group_array.use_proxy)
 		{
-			pProxyIpAddr = iniGetStrValue("proxy_addr", \
-					items, nItemCount);
-			if (pProxyIpAddr == NULL)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"item \"proxy_addr\" not exists!", \
-					__LINE__);
-				result = ENOENT;
-				break;
-			}
-			snprintf(g_proxy_ip, sizeof(g_proxy_ip), \
-				"%s", pProxyIpAddr);
-
-			g_proxy_port = iniGetIntValue("proxy_port", \
-				items, nItemCount, FDHT_DEFAULT_PROXY_PORT);
-			if (g_proxy_port <= 0 || g_proxy_port > 65535)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"proxy_port: %d is invalid!", \
-					__LINE__, g_proxy_port);
-				result = EINVAL;
-				break;
-			}
-
 			sprintf(szProxyPrompt, "proxy_addr=%s, proxy_port=%d, ",
-				g_proxy_ip, g_proxy_port);
+				g_group_array.proxy_server.ip_addr, 
+				g_group_array.proxy_server.port);
 		}
 		else
 		{
@@ -138,7 +107,7 @@ int fdht_client_init(const char *filename)
 			"network_timeout=%d, keep_alive=%d, use_proxy=%d, %s"\
 			"group_count=%d, server_count=%d", __LINE__, \
 			g_base_path, g_network_timeout, g_keep_alive, \
-			g_use_proxy, szProxyPrompt, \
+			g_group_array.use_proxy, szProxyPrompt, \
 			g_group_array.group_count, g_group_array.server_count);
 
 		break;
@@ -181,19 +150,6 @@ void fdht_client_destroy()
 	fdht_free_group_array(&g_group_array);
 }
 
-static int fdht_client_connect_server(FDHTServerInfo *pServer)
-{
-	if (g_use_proxy)
-	{
-		return fdht_connect_proxy_server(g_proxy_ip, g_proxy_port, \
-				pServer);
-	}
-	else
-	{
-		return fdht_connect_server(pServer);
-	}
-}
-
 #define get_readable_connection(pServerArray, bKeepAlive, hash_code, err_no) \
 	  get_connection(pServerArray, bKeepAlive, hash_code, err_no)
 
@@ -219,7 +175,7 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 			return *ppServer;
 		}
 
-		if (fdht_client_connect_server(*ppServer) == 0)
+		if (fdht_connect_server(*ppServer) == 0)
 		{
 			if (bKeepAlive)
 			{
@@ -237,7 +193,7 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 			return *ppServer;
 		}
 
-		if (fdht_client_connect_server(*ppServer) == 0)
+		if (fdht_connect_server(*ppServer) == 0)
 		{
 			if (bKeepAlive)
 			{
@@ -1238,7 +1194,7 @@ int fdht_connect_all_servers(GroupArray *pGroupArray, const bool bKeepAlive, \
 	for (pServerInfo=pGroupArray->servers; \
 			pServerInfo<pServerEnd; pServerInfo++)
 	{
-		if ((conn_result=fdht_client_connect_server(pServerInfo)) != 0)
+		if ((conn_result=fdht_connect_server(pServerInfo)) != 0)
 		{
 			result = conn_result;
 			(*fail_count)++;
@@ -1246,7 +1202,7 @@ int fdht_connect_all_servers(GroupArray *pGroupArray, const bool bKeepAlive, \
 		else //connect success
 		{
 			(*success_count)++;
-			if (bKeepAlive || g_use_proxy)
+			if (bKeepAlive || pGroupArray->use_proxy)
 			{
 				tcpsetnodelay(pServerInfo->sock);
 			}
@@ -1276,7 +1232,7 @@ void fdht_disconnect_all_servers(GroupArray *pGroupArray)
 		{
 			if (pServerInfo->sock > 0)
 			{
-				if (!g_use_proxy)
+				if (!pGroupArray->use_proxy)
 				{
 					fdht_quit(pServerInfo);
 				}
