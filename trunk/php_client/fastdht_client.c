@@ -1265,7 +1265,7 @@ static int load_config_files()
 	{
 		if (log_filename.value.str.len > 0)
 		{
-			log_init(log_filename.value.str.val);
+			log_init(g_base_path, log_filename.value.str.val);
 		}
 	}
 

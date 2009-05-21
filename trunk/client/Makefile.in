@@ -21,7 +21,8 @@ SHARED_OBJS = ../common/hash.lo ../common/chain.lo \
 
 HEADER_FILES = ../common/common_define.h ../common/fdht_define.h  \
                ../common/fdht_func.h  ../common/fdht_global.h  \
-               ../common/fdht_proto.h  ../common/fdht_types.h \
+               ../common/fdht_proto.h  ../common/fdht_proto_types.h \
+               ../common/fdht_types.h \
                ../common/fdfs_base64.h ../common/shared_func.h \
                ../common/ini_file_reader.h ../common/_os_bits.h \
                ../common/sockopt.h ../common/sched_thread.h \
