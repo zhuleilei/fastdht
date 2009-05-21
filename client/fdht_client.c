@@ -29,21 +29,17 @@ bool g_keep_alive = false;
 extern int g_network_timeout;
 extern char g_base_path[MAX_PATH_SIZE];
 
-/*
 bool g_use_proxy = false;
 char g_proxy_ip[IP_ADDRESS_SIZE] = {0};
-int g_proxy_port = 0;
-*/
-
-bool g_use_proxy = true;
-char g_proxy_ip[IP_ADDRESS_SIZE] = "127.0.0.1";
-int g_proxy_port = 12200;
+int g_proxy_port = FDHT_DEFAULT_PROXY_PORT;
 
 int fdht_client_init(const char *filename)
 {
 	char *pBasePath;
+	char *pProxyIpAddr;
 	IniItemInfo *items;
 	int nItemCount;
+	char szProxyPrompt[64];
 	int result;
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
@@ -98,13 +94,51 @@ int fdht_client_init(const char *filename)
 			break;
 		}
 
+
+		g_use_proxy = iniGetBoolValue("use_proxy", \
+				items, nItemCount, false);
+		if (g_use_proxy)
+		{
+			pProxyIpAddr = iniGetStrValue("proxy_addr", \
+					items, nItemCount);
+			if (pProxyIpAddr == NULL)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"item \"proxy_addr\" not exists!", \
+					__LINE__);
+				result = ENOENT;
+				break;
+			}
+			snprintf(g_proxy_ip, sizeof(g_proxy_ip), \
+				"%s", pProxyIpAddr);
+
+			g_proxy_port = iniGetIntValue("proxy_port", \
+				items, nItemCount, FDHT_DEFAULT_PROXY_PORT);
+			if (g_proxy_port <= 0 || g_proxy_port > 65535)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"proxy_port: %d is invalid!", \
+					__LINE__, g_proxy_port);
+				result = EINVAL;
+				break;
+			}
+
+			sprintf(szProxyPrompt, "proxy_addr=%s, proxy_port=%d, ",
+				g_proxy_ip, g_proxy_port);
+		}
+		else
+		{
+			*szProxyPrompt = '\0';
+		}
+
 		load_log_level(items, nItemCount);
 
 		logInfo("file: "__FILE__", line: %d, " \
 			"base_path=%s, " \
-			"network_timeout=%d, keep_alive=%d, "\
+			"network_timeout=%d, keep_alive=%d, use_proxy=%d, %s"\
 			"group_count=%d, server_count=%d", __LINE__, \
 			g_base_path, g_network_timeout, g_keep_alive, \
+			g_use_proxy, szProxyPrompt, \
 			g_group_array.group_count, g_group_array.server_count);
 
 		break;

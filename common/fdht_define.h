@@ -14,6 +14,7 @@
 #include "common_define.h"
 
 #define FDHT_SERVER_DEFAULT_PORT  24000
+#define FDHT_DEFAULT_PROXY_PORT   12200
 #define FDHT_MAX_PKG_SIZE         64 * 1024
 #define FDHT_MIN_BUFF_SIZE        64 * 1024
 #define FDHT_DEFAULT_MAX_THREADS  64
