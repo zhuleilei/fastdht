@@ -24,7 +24,6 @@
 #include "sockopt.h"
 #include "shared_func.h"
 #include "ini_file_reader.h"
-#include "fdht_proto.h"
 #include "fdht_func.h"
 
 int fdht_split_ids(const char *szIds, int **ppIds, int *id_count)
