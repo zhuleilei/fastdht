@@ -334,8 +334,8 @@ static void fdht_insert_sorted_servers(GroupArray *pGroupArray, \
 	memcpy(pCurrent,  pInsertedServer, sizeof(FDHTServerInfo));
 }
 
-int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
-		GroupArray *pGroupArray)
+int fdht_load_groups_ex(IniItemInfo *items, const int nItemCount, \
+		GroupArray *pGroupArray, const bool bLoadProxyParams)
 {
 	IniItemInfo *pItemInfo;
 	IniItemInfo *pItemEnd;
@@ -350,6 +350,7 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 	FDHTServerInfo *pFound;
 	int alloc_server_count;
 	char *ip_port[2];
+	char *pProxyIpAddr;
 
 	pGroupArray->group_count = iniGetIntValue("group_count", \
 			items, nItemCount, 0);
@@ -586,6 +587,57 @@ int fdht_load_groups(IniItemInfo *items, const int nItemCount, \
 		}
 	}
 
+	memset(&pGroupArray->proxy_server, 0, sizeof(FDHTServerInfo));
+	if (!bLoadProxyParams)
+	{
+		return 0;
+	}
+
+	pGroupArray->use_proxy = iniGetBoolValue("use_proxy", \
+			items, nItemCount, false);
+	if (!pGroupArray->use_proxy)
+	{
+		return 0;
+	}
+
+	pProxyIpAddr = iniGetStrValue("proxy_addr", \
+			items, nItemCount);
+	if (pProxyIpAddr == NULL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"item \"proxy_addr\" not exists!", \
+			__LINE__);
+		return ENOENT;
+	}
+	snprintf(pGroupArray->proxy_server.ip_addr, \
+		sizeof(pGroupArray->proxy_server.ip_addr), \
+		"%s", pProxyIpAddr);
+
+	pGroupArray->proxy_server.port = iniGetIntValue("proxy_port", \
+		items, nItemCount, FDHT_DEFAULT_PROXY_PORT);
+	if (pGroupArray->proxy_server.port <= 0 || \
+		pGroupArray->proxy_server.port > 65535)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"proxy_port: %d is invalid!", \
+			__LINE__, pGroupArray->proxy_server.port);
+		return EINVAL;
+	}
+
+	pGroupArray->proxy_server.sock = -1;
+	pServerArray = pGroupArray->groups;
+	for (group_id=0; group_id<pGroupArray->group_count; group_id++)
+	{
+		ppServer = pServerArray->servers;
+		pServerEnd = ppServers[group_id] + pServerArray->count;
+		for (pServerInfo=ppServers[group_id]; \
+				pServerInfo<pServerEnd; pServerInfo++)
+		{
+			*ppServer = &pGroupArray->proxy_server;
+			ppServer++;
+		}
+	}
+
 	return 0;
 }
 
@@ -656,21 +708,36 @@ int fdht_copy_group_array(GroupArray *pDestGroupArray, \
 		for (ppServerInfo=pServerArray->servers; \
 			ppServerInfo<ppServerEnd; ppServerInfo++)
 		{
-			*ppServerInfo = pDestGroupArray->servers + \
-				(*ppSrcServer - pSrcGroupArray->servers);
+			if (pSrcGroupArray->use_proxy)
+			{
+				*ppServerInfo = &pDestGroupArray->proxy_server;
+			}
+			else
+			{
+				*ppServerInfo = pDestGroupArray->servers + \
+					(*ppSrcServer - pSrcGroupArray->servers);
+			}
 			ppSrcServer++;
 		}
 
 		pSrcArray++;
 	}
 
-	pServerEnd = pDestGroupArray->servers + pDestGroupArray->server_count;
-	for (pServerInfo=pDestGroupArray->servers; \
-			pServerInfo<pServerEnd; pServerInfo++)
+	if (pSrcGroupArray->use_proxy)
 	{
-		if (pServerInfo->sock > 0)
+		pDestGroupArray->proxy_server.sock = -1;
+	}
+	else
+	{
+		pServerEnd = pDestGroupArray->servers + \
+				pDestGroupArray->server_count;
+		for (pServerInfo=pDestGroupArray->servers; \
+			pServerInfo<pServerEnd; pServerInfo++)
 		{
-			pServerInfo->sock = -1;
+			if (pServerInfo->sock > 0)
+			{
+				pServerInfo->sock = -1;
+			}
 		}
 	}
 
@@ -699,14 +766,26 @@ void fdht_free_group_array(GroupArray *pGroupArray)
 			pServerArray->servers = NULL;
 		}
 
-		pServerEnd = pGroupArray->servers + pGroupArray->server_count;
-		for (pServerInfo=pGroupArray->servers; \
-				pServerInfo<pServerEnd; pServerInfo++)
+		if (pGroupArray->use_proxy)
 		{
-			if (pServerInfo->sock > 0)
+			if (pGroupArray->proxy_server.sock > 0)
 			{
-				close(pServerInfo->sock);
-				pServerInfo->sock = -1;
+				close(pGroupArray->proxy_server.sock);
+				pGroupArray->proxy_server.sock = -1;
+			}
+		}
+		else
+		{
+			pServerEnd = pGroupArray->servers + \
+					pGroupArray->server_count;
+			for (pServerInfo=pGroupArray->servers; \
+				pServerInfo<pServerEnd; pServerInfo++)
+			{
+				if (pServerInfo->sock > 0)
+				{
+					close(pServerInfo->sock);
+					pServerInfo->sock = -1;
+				}
 			}
 		}
 
