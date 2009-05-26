@@ -625,18 +625,6 @@ int fdht_load_groups_ex(IniItemInfo *items, const int nItemCount, \
 	}
 
 	pGroupArray->proxy_server.sock = -1;
-	pServerArray = pGroupArray->groups;
-	for (group_id=0; group_id<pGroupArray->group_count; group_id++)
-	{
-		ppServer = pServerArray->servers;
-		pServerEnd = ppServers[group_id] + pServerArray->count;
-		for (pServerInfo=ppServers[group_id]; \
-				pServerInfo<pServerEnd; pServerInfo++)
-		{
-			*ppServer = &pGroupArray->proxy_server;
-			ppServer++;
-		}
-	}
 
 	return 0;
 }
@@ -708,36 +696,21 @@ int fdht_copy_group_array(GroupArray *pDestGroupArray, \
 		for (ppServerInfo=pServerArray->servers; \
 			ppServerInfo<ppServerEnd; ppServerInfo++)
 		{
-			if (pSrcGroupArray->use_proxy)
-			{
-				*ppServerInfo = &pDestGroupArray->proxy_server;
-			}
-			else
-			{
-				*ppServerInfo = pDestGroupArray->servers + \
+			*ppServerInfo = pDestGroupArray->servers + \
 					(*ppSrcServer - pSrcGroupArray->servers);
-			}
 			ppSrcServer++;
 		}
 
 		pSrcArray++;
 	}
 
-	if (pSrcGroupArray->use_proxy)
-	{
-		pDestGroupArray->proxy_server.sock = -1;
-	}
-	else
-	{
-		pServerEnd = pDestGroupArray->servers + \
-				pDestGroupArray->server_count;
-		for (pServerInfo=pDestGroupArray->servers; \
+	pServerEnd = pDestGroupArray->servers + pDestGroupArray->server_count;
+	for (pServerInfo=pDestGroupArray->servers; \
 			pServerInfo<pServerEnd; pServerInfo++)
+	{
+		if (pServerInfo->sock >= 0)
 		{
-			if (pServerInfo->sock > 0)
-			{
-				pServerInfo->sock = -1;
-			}
+			pServerInfo->sock = -1;
 		}
 	}
 
@@ -766,32 +739,19 @@ void fdht_free_group_array(GroupArray *pGroupArray)
 			pServerArray->servers = NULL;
 		}
 
-		if (pGroupArray->use_proxy)
-		{
-			if (pGroupArray->proxy_server.sock > 0)
-			{
-				close(pGroupArray->proxy_server.sock);
-				pGroupArray->proxy_server.sock = -1;
-			}
-		}
-		else
-		{
-			pServerEnd = pGroupArray->servers + \
-					pGroupArray->server_count;
-			for (pServerInfo=pGroupArray->servers; \
+		pServerEnd = pGroupArray->servers + pGroupArray->server_count;
+		for (pServerInfo=pGroupArray->servers; \
 				pServerInfo<pServerEnd; pServerInfo++)
+		{
+			if (pServerInfo->sock >= 0)
 			{
-				if (pServerInfo->sock > 0)
-				{
-					close(pServerInfo->sock);
-					pServerInfo->sock = -1;
-				}
+				close(pServerInfo->sock);
+				pServerInfo->sock = -1;
 			}
 		}
 
 		free(pGroupArray->servers);
 		pGroupArray->servers = NULL;
-
 	}
 
 	if (pGroupArray->groups != NULL)
