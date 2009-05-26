@@ -110,6 +110,35 @@ int fdht_client_init(const char *filename)
 			g_group_array.use_proxy, szProxyPrompt, \
 			g_group_array.group_count, g_group_array.server_count);
 
+		if (g_group_array.use_proxy)
+		{
+			int group_id;
+			ServerArray *pServerArray;
+			FDHTServerInfo **ppServer;
+			FDHTServerInfo **ppServerEnd;
+
+			g_keep_alive = true;
+			g_group_array.server_count = 1;
+			memcpy(g_group_array.servers, \
+				&g_group_array.proxy_server, \
+				sizeof(FDHTServerInfo));
+
+			pServerArray = g_group_array.groups;
+			for (group_id=0; group_id<g_group_array.group_count; \
+					group_id++)
+			{
+				ppServerEnd = pServerArray->servers + \
+						pServerArray->count;
+				for (ppServer=pServerArray->servers; \
+					ppServer<ppServerEnd; ppServer++)
+				{
+					*ppServer = g_group_array.servers;
+				}
+
+				pServerArray++;
+			}
+		}
+
 		break;
 	}
 
@@ -1001,6 +1030,8 @@ int fdht_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		return result;
 	}
 
+	//printf("key_hash_code=%d, group_id=%d\n", key_hash_code, group_id);
+
 	//printf("set group_id=%d\n", group_id);
 	result = fdht_client_set(pServer, bKeepAlive, time(NULL), expires, \
 			FDHT_PROTO_CMD_SET, key_hash_code, \
@@ -1230,7 +1261,7 @@ void fdht_disconnect_all_servers(GroupArray *pGroupArray)
 		for (pServerInfo=pGroupArray->servers; \
 				pServerInfo<pServerEnd; pServerInfo++)
 		{
-			if (pServerInfo->sock > 0)
+			if (pServerInfo->sock >= 0)
 			{
 				if (!pGroupArray->use_proxy)
 				{

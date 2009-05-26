@@ -56,19 +56,6 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	g_keep_alive = true;
-	if (g_keep_alive)
-	{
-		if ((result=fdht_connect_all_servers(&g_group_array, true, \
-			&conn_success_count, &conn_fail_count)) != 0)
-		{
-			printf("fdht_connect_all_servers fail, " \
-				"error code: %d, error info: %s\n", \
-				result, strerror(result));
-			return result;
-		}
-	}
-
 	srand(time(NULL));
 
 	//expires = time(NULL) + 3600;
