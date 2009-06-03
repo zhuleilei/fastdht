@@ -1,4 +1,4 @@
-Version 1.09  2009-05-21
+Version 1.09  2009-06-03
  * correct php extension error info
  * fdht_compress.c: make sure syncing is done
  * add shell script: stop.sh, restart.sh modified
@@ -8,6 +8,7 @@ Version 1.09  2009-05-21
  * fdht_compress.c: use {base_path}/tmp as sort temporary path instead of /tmp
  * sync.c: check binlog file format when reading
  * client can use proxy for FastDHT
+ * cache size not division by g_db_count
 
 Version 1.08  2009-04-12
  * common/shared_func.c: rindex change to strrchr, add #include <netinet/in.h>
