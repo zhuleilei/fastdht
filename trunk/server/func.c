@@ -929,7 +929,7 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 		snprintf(db_filename, sizeof(db_filename), "%s%03d", \
 			db_file_prefix, *pGroupId);
 		if ((result=db_init(g_db_list[*pGroupId], db_type, \
-				nCacheSize / g_db_count, page_size, \
+				nCacheSize, page_size, \
 				g_base_path, db_filename)) != 0)
 		{
 			break;
