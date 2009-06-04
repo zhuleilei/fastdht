@@ -33,6 +33,8 @@ int main(int argc, char *argv[])
 	int conn_fail_count;
 	char szValue[256];
 	int value_len;
+	int i;
+	char stat_buff[1024];
 
 	printf("This is FastDHT client test program v%d.%d\n" \
 "\nCopyright (C) 2008, Happy Fish / YuQing\n" \
@@ -109,6 +111,22 @@ int main(int argc, char *argv[])
 			break;
 		}
 		break;
+	}
+
+	for (i=0; i<g_group_array.server_count; i++)
+	{
+		if ((result=fdht_stat(i, stat_buff, sizeof(stat_buff))) != 0)
+		{
+			printf("fdht_stat server %s:%d fail, errno: %d\n", 
+				g_group_array.servers[i].ip_addr, 
+				g_group_array.servers[i].port, result);
+		}
+		else
+		{
+			printf("server %s:%d\n", g_group_array.servers[i].ip_addr, \
+				g_group_array.servers[i].port);
+			printf("%s\n", stat_buff);
+		}
 	}
 
 	if (g_keep_alive)

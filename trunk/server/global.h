@@ -70,6 +70,8 @@ extern int g_local_host_ip_count;
 extern char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
 				IP_ADDRESS_SIZE];
 
+extern time_t g_server_start_time;
+
 void load_local_host_ip_addrs();
 bool is_local_host_ip(const char *client_ip);
 int insert_into_local_host_ip(const char *client_ip);
