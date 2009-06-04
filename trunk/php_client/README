@@ -155,6 +155,27 @@ return 0 for success, != 0 for error
 	return key => errno array when set some key fail
 
 
+array/int/boolean fastdht_stat(int server_index[, bool return_errno])
+get specified server stat info
+params:
+	server_index: server index based 0
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as connect server fail
+return array if success. 
+       if fail, return int errno when return_errno set to true,
+                return false when return_errno set to false
+
+
+array/int/boolean fastdht_stat_all([bool return_errno])
+get all server stat info
+params:
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as connect server fail
+return array if success. key is ip_addr:port such as 10.62.164.84:11411 and
+       the value is assoc array. 
+       if fail, the value is errno (int number) when return_errno set to true,
+                the value is false when return_errno set to false
+
 
 FastDHT Class Info:
 
@@ -261,4 +282,24 @@ return 0 for success, != 0 for error
 
 void FastDHT::close()
 close connections to FastDHT servers
+
+array/int/boolean FastDHT::stat(int server_index[, bool return_errno])
+get specified server stat info
+params:
+	server_index: server index based 0
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as connect server fail
+return array if success. 
+       if fail, return int errno when return_errno set to true,
+                return false when return_errno set to false
+
+array/int/boolean FastDHT::stat_all([bool return_errno])
+get all server stat info
+params:
+	return_errno: optional, when set to true, return UNIX errno when 
+		failure such as connect server fail
+return array if success. key is ip_addr:port such as 10.62.164.84:11411 and
+       the value is assoc array. 
+       if fail, the value is errno (int number) when return_errno set to true,
+                the value is false when return_errno set to false
 

@@ -18,7 +18,7 @@ var_dump($fdht->inc($namespace, $object_id, $key, 10));
 echo 'delete: ' . $fdht->delete($namespace, $object_id, $key) . "\n";
 
 echo "\n";
-var_dump($fdht->stat(0));
+var_dump($fdht->stat_all());
 
 $fdht->close();
 if (($result=fastdht_set($namespace, $object_id, $key, $value)) != 0)
@@ -36,5 +36,6 @@ else
 	echo "value: $value\n";
 }
 echo "\n";
-var_dump(fastdht_stat(1));
+$stats = fastdht_stat(0);
+var_dump($stats);
 ?>
