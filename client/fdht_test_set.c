@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	struct sigaction act;
 	int i;
 
-	printf("This is FastDHT client test program v%d.%d\n" \
+	printf("This is FastDHT client test program v%d.%02d\n" \
 "\nCopyright (C) 2008, Happy Fish / YuQing\n" \
 "\nFastDHT may be copied only under the terms of the GNU General\n" \
 "Public License V3, which may be found in the FastDHT source kit.\n" \

@@ -17,7 +17,10 @@ var_dump($fdht->inc($namespace, $object_id, $key, 10));
 
 echo 'delete: ' . $fdht->delete($namespace, $object_id, $key) . "\n";
 
-//$fdht->close();
+echo "\n";
+var_dump($fdht->stat(0));
+
+$fdht->close();
 if (($result=fastdht_set($namespace, $object_id, $key, $value)) != 0)
 {
 	error_log("fastdht_set fail, errno: $result");
@@ -32,4 +35,6 @@ else
 {
 	echo "value: $value\n";
 }
+echo "\n";
+var_dump(fastdht_stat(1));
 ?>
