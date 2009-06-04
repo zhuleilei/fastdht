@@ -70,6 +70,7 @@ const zend_fcall_info empty_fcall_info = { 0, NULL, NULL, NULL, NULL, 0, NULL, N
 		ZEND_FE(fastdht_batch_set, NULL)
 		ZEND_FE(fastdht_batch_get, NULL)
 		ZEND_FE(fastdht_batch_delete, NULL)
+		ZEND_FE(fastdht_stat, NULL)
 		{NULL, NULL, NULL}  /* Must be the last line */
 	};
 
@@ -839,6 +840,73 @@ static void php_fdht_close(php_fdht_t *i_obj TSRMLS_DC)
 	}
 }
 
+static void php_fdht_stat_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
+{
+#define FDHT_STAT_MAX_ROWS 32
+	int argc;
+	bool return_errno;
+	long server_index;
+	char buff[2048];
+	int result;
+	char *rows[FDHT_STAT_MAX_ROWS];
+	int row_count;
+	char *pKey;
+	char *pValue;
+	int key_len;
+	int i;
+
+	argc = ZEND_NUM_ARGS();
+	if (argc != 1 && argc != 2)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_stat parameters count: %d != 1 or 2", 
+			__LINE__, argc);
+		RETURN_LONG(EINVAL);
+	}
+
+	return_errno = false;
+	if (zend_parse_parameters(argc TSRMLS_CC, "l|b", \
+			&server_index, &return_errno) == FAILURE)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_stat parameter parse error!", __LINE__);
+		RETURN_LONG(EINVAL);
+	}
+
+	result = fdht_stat_ex(pGroupArray, bKeepAlive, server_index, 
+				buff, sizeof(buff));
+	if (result != 0)
+	{
+		if (return_errno)
+		{
+			RETURN_LONG(result);
+		}
+		else
+		{
+			RETURN_BOOL(false);
+		}
+	}
+
+	array_init(return_value);
+	row_count = splitEx(buff, '\n', rows, FDHT_STAT_MAX_ROWS);
+	for (i=0; i<row_count; i++)
+	{
+		pKey = rows[i];
+		pValue = strchr(rows[i], '=');
+		if (pValue == NULL)
+		{
+			continue;
+		}
+		*pValue = '\0';
+		key_len = pValue - pKey;
+		pValue++; //skip =
+
+		add_assoc_stringl_ex(return_value, pKey, key_len + 1, \
+				pValue, strlen(pValue)+1, 1);
+	}
+}
+
 /* constructor/destructor */
 static void php_fdht_destroy(php_fdht_t *i_obj TSRMLS_DC)
 {
@@ -1035,6 +1103,20 @@ PHP_METHOD(FastDHT, close)
 	php_fdht_close(i_obj);
 }
 
+/*
+array/int/boolean fastdht_stat(int server_index[, bool return_errno])
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, stat)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_stat_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			i_obj->pGroupArray, true);
+}
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo___construct, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
@@ -1090,6 +1172,9 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_close, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_stat, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
 /* {{{ fdht_class_methods */
 #define FDHT_ME(name, args) PHP_ME(FastDHT, name, args, ZEND_ACC_PUBLIC)
 static zend_function_entry fdht_class_methods[] = {
@@ -1102,6 +1187,7 @@ static zend_function_entry fdht_class_methods[] = {
     FDHT_ME(batch_get,          arginfo_batch_get)
     FDHT_ME(batch_set,          arginfo_batch_set)
     FDHT_ME(batch_delete,       arginfo_batch_delete)
+    FDHT_ME(stat,               arginfo_stat)
     { NULL, NULL, NULL }
 };
 #undef FDHT_ME
@@ -1417,5 +1503,15 @@ PHP_MINFO_FUNCTION(fastdht_client)
 	php_info_print_table_header(2, "fastdht_client support", "enabled");
 	php_info_print_table_end();
 
+}
+
+/*
+array/int/boolean fastdht_stat(int server_index[, bool return_errno])
+return 0 for success, != 0 for error
+*/
+ZEND_FUNCTION(fastdht_stat)
+{
+	php_fdht_stat_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+			&g_group_array, g_keep_alive);
 }
 

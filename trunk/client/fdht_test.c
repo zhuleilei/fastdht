@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	int i;
 	char stat_buff[1024];
 
-	printf("This is FastDHT client test program v%d.%d\n" \
+	printf("This is FastDHT client test program v%d.%02d\n" \
 "\nCopyright (C) 2008, Happy Fish / YuQing\n" \
 "\nFastDHT may be copied only under the terms of the GNU General\n" \
 "Public License V3, which may be found in the FastDHT source kit.\n" \
@@ -113,6 +113,7 @@ int main(int argc, char *argv[])
 		break;
 	}
 
+	printf("\n");
 	for (i=0; i<g_group_array.server_count; i++)
 	{
 		if ((result=fdht_stat(i, stat_buff, sizeof(stat_buff))) != 0)

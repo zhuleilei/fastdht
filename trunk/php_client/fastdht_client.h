@@ -24,6 +24,7 @@ ZEND_FUNCTION(fastdht_delete);
 ZEND_FUNCTION(fastdht_batch_set);
 ZEND_FUNCTION(fastdht_batch_get);
 ZEND_FUNCTION(fastdht_batch_delete);
+ZEND_FUNCTION(fastdht_stat);
 
 PHP_FASTDHT_API zend_class_entry *php_fdht_get_ce(void);
 PHP_FASTDHT_API zend_class_entry *php_fdht_get_exception(void);
