@@ -56,6 +56,7 @@ in_addr_t *g_allow_ip_addrs = NULL;  /* sorted array, asc order */
 int g_local_host_ip_count = 0;
 char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
 				IP_ADDRESS_SIZE];
+time_t g_server_start_time = 0;
 
 bool is_local_host_ip(const char *client_ip)
 {

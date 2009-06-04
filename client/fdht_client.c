@@ -1274,3 +1274,76 @@ void fdht_disconnect_all_servers(GroupArray *pGroupArray)
 	}
 }
 
+int fdht_stat_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
+		const int server_index, char *buff, const int size)
+{
+	int result;
+	FDHTProtoHeader header;
+	int in_bytes;
+	FDHTServerInfo *pServer;
+
+	memset(buff, 0, size);
+	if (server_index < 0 || server_index > pGroupArray->server_count)
+	{
+		logError("invalid servier_index: %d", server_index);
+		return EINVAL;
+	}
+
+	pServer = pGroupArray->servers + server_index;
+	if ((result=fdht_connect_server(pServer)) != 0)
+	{
+		return result;
+	}
+
+	if (bKeepAlive)
+	{
+		tcpsetnodelay(pServer->sock);
+	}
+
+	memset(&header, 0, sizeof(header));
+	header.cmd = FDHT_PROTO_CMD_STAT;
+	header.keep_alive = bKeepAlive;
+	int2buff((int)time(NULL), header.timestamp);
+
+	do
+	{
+		if ((result=tcpsenddata(pServer->sock, &header, \
+			sizeof(header), g_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			break;
+		}
+
+		if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)
+		{
+			break;
+		}
+
+		if (in_bytes >= size)
+		{
+			logError("server %s:%d reponse bytes: %d >= buff size",
+				pServer->ip_addr, pServer->port, 
+				in_bytes, size);
+			result = ENOSPC;
+			break;
+		}
+
+		if ((result=tcprecvdata(pServer->sock, buff, \
+			in_bytes, g_network_timeout)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"server: %s:%d, recv data fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, pServer->ip_addr, \
+				pServer->port, \
+				result, strerror(result));
+			break;
+		}
+	} while (0);
+
+	return result;
+}
+

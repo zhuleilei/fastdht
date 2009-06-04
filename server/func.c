@@ -875,6 +875,8 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	char db_file_prefix[DB_FILE_PREFIX_MAX_SIZE];
 	char db_filename[DB_FILE_PREFIX_MAX_SIZE+8];
 
+	g_server_start_time = time(NULL);
+
 	result = fdht_load_from_conf_file(filename, bind_addr, \
 		addr_size, &group_ids, &group_count, 
 		&db_type, &nCacheSize, &page_size, db_file_prefix);

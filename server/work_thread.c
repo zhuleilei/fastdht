@@ -60,6 +60,7 @@ static int deal_cmd_sync_done(struct task_info *pTask);
 static int deal_cmd_batch_get(struct task_info *pTask);
 static int deal_cmd_batch_set(struct task_info *pTask);
 static int deal_cmd_batch_del(struct task_info *pTask);
+static int deal_cmd_stat(struct task_info *pTask);
 
 int work_thread_init()
 {
@@ -321,6 +322,9 @@ static int deal_task(struct task_info *pTask)
 			break;
 		case FDHT_PROTO_CMD_SYNC_NOTIFY:
 			result = deal_cmd_sync_done(pTask);
+			break;
+		case FDHT_PROTO_CMD_STAT:
+			result = deal_cmd_stat(pTask);
 			break;
 		default:
 			logError("file: "__FILE__", line: %d, " \
@@ -1640,5 +1644,57 @@ static int deal_cmd_inc(struct task_info *pTask)
 	}
 
 	return result;
+}
+
+/**
+* request body format:
+*      none
+* response body format:
+*      key value pair: key=value, row seperate by new line (\n)
+*/
+static int deal_cmd_stat(struct task_info *pTask)
+{
+	int nInBodyLen;
+	time_t current_time;
+	char *p;
+
+	nInBodyLen = pTask->length - sizeof(FDHTProtoHeader);
+	if (nInBodyLen != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != 0", \
+			__LINE__, pTask->client_ip, nInBodyLen);
+		pTask->length = sizeof(FDHTProtoHeader);
+		return EINVAL;
+	}
+
+	p = pTask->data + sizeof(FDHTProtoHeader);
+	current_time = time(NULL);
+
+	p += sprintf(p, "version=%d.%02d\n", g_version.major, g_version.minor);
+	p += sprintf(p, "uptime=%d\n", (int)(current_time-g_server_start_time));
+	p += sprintf(p, "curr_time=%d\n", (int)current_time);
+	p += sprintf(p, "max_connections=%d\n", g_max_connections);
+	p += sprintf(p, "curr_connections=%d\n", \
+			g_max_connections - free_queue_count());
+	p += sprintf(p, "total_set_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.total_set_count);
+	p += sprintf(p, "success_set_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.success_set_count);
+	p += sprintf(p, "total_inc_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.total_inc_count);
+	p += sprintf(p, "success_inc_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.success_inc_count);
+	p += sprintf(p, "total_delete_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.total_delete_count);
+	p += sprintf(p, "success_delete_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.success_delete_count);
+	p += sprintf(p, "total_get_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.total_get_count);
+	p += sprintf(p, "success_get_count="INT64_PRINTF_FORMAT"\n", \
+			g_server_stat.success_get_count);
+
+	pTask->length = p - pTask->data;
+	return 0;
 }
 
