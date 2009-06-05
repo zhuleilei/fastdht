@@ -29,6 +29,37 @@ bool g_keep_alive = false;
 extern int g_network_timeout;
 extern char g_base_path[MAX_PATH_SIZE];
 
+static void fdht_proxy_extra_deal(GroupArray *pGroupArray, bool *bKeepAlive)
+{
+	int group_id;
+	ServerArray *pServerArray;
+	FDHTServerInfo **ppServer;
+	FDHTServerInfo **ppServerEnd;
+
+	if (!pGroupArray->use_proxy)
+	{
+		return;
+	}
+
+	*bKeepAlive = true;
+	pGroupArray->server_count = 1;
+	memcpy(pGroupArray->servers, &pGroupArray->proxy_server, \
+			sizeof(FDHTServerInfo));
+
+	pServerArray = pGroupArray->groups;
+	for (group_id=0; group_id<pGroupArray->group_count; group_id++)
+	{
+		ppServerEnd = pServerArray->servers + pServerArray->count;
+		for (ppServer=pServerArray->servers; \
+				ppServer<ppServerEnd; ppServer++)
+		{
+			*ppServer = pGroupArray->servers;
+		}
+
+		pServerArray++;
+	}
+}
+
 int fdht_client_init(const char *filename)
 {
 	char *pBasePath;
@@ -110,34 +141,7 @@ int fdht_client_init(const char *filename)
 			g_group_array.use_proxy, szProxyPrompt, \
 			g_group_array.group_count, g_group_array.server_count);
 
-		if (g_group_array.use_proxy)
-		{
-			int group_id;
-			ServerArray *pServerArray;
-			FDHTServerInfo **ppServer;
-			FDHTServerInfo **ppServerEnd;
-
-			g_keep_alive = true;
-			g_group_array.server_count = 1;
-			memcpy(g_group_array.servers, \
-				&g_group_array.proxy_server, \
-				sizeof(FDHTServerInfo));
-
-			pServerArray = g_group_array.groups;
-			for (group_id=0; group_id<g_group_array.group_count; \
-					group_id++)
-			{
-				ppServerEnd = pServerArray->servers + \
-						pServerArray->count;
-				for (ppServer=pServerArray->servers; \
-					ppServer<ppServerEnd; ppServer++)
-				{
-					*ppServer = g_group_array.servers;
-				}
-
-				pServerArray++;
-			}
-		}
+		fdht_proxy_extra_deal(&g_group_array, &g_keep_alive);
 
 		break;
 	}
@@ -169,6 +173,8 @@ int fdht_load_conf(const char *filename, GroupArray *pGroupArray, \
 		iniFreeItems(items);
 		return result;
 	}
+
+	fdht_proxy_extra_deal(pGroupArray, bKeepAlive);
 
 	iniFreeItems(items);
 	return 0;

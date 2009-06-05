@@ -1385,6 +1385,7 @@ static int load_config_files()
 	zval log_filename;
 	zval conf_filename;
 	char szItemName[sizeof(ITEM_NAME_CONF_FILE) + 10];
+	char szProxyPrompt[64];
 	int nItemLen;
 	FDHTConfigInfo *pConfigInfo;
 	FDHTConfigInfo *pConfigEnd;
@@ -1535,10 +1536,23 @@ static int load_config_files()
 		}
 	}
 
+	if (g_group_array.use_proxy)
+	{
+		sprintf(szProxyPrompt, "proxy_addr=%s, proxy_port=%d, ",
+				g_group_array.proxy_server.ip_addr, 
+				g_group_array.proxy_server.port);
+	}
+	else
+	{
+		*szProxyPrompt = '\0';
+	}
+
 	logInfo("base_path=%s, network_timeout=%d. " \
 		"in the first(default) config file: keep_alive=%d, " \
+		"use_proxy=%d, %s" \
 		"group_count=%d, server_count=%d", \
 		g_base_path, g_network_timeout, g_keep_alive, \
+		g_group_array.use_proxy, szProxyPrompt, \
 		g_group_array.group_count, g_group_array.server_count);
 
 	return 0;
