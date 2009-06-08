@@ -147,8 +147,6 @@ int fdht_db_recovery_init()
 
 void fdht_memp_trickle_dbs(void *args)
 {
-	DBInfo **pDBInfo;
-	DBInfo **pEnd;
 	int written_pages;
 	int total_written_pages;
 	int fail_count;
@@ -165,20 +163,13 @@ void fdht_memp_trickle_dbs(void *args)
 
 	fail_count = 0;
 	total_written_pages = 0;
-	pEnd = g_db_list + g_db_count;
-	for (pDBInfo=g_db_list; pDBInfo<pEnd; pDBInfo++)
+	if (db_memp_trickle(&written_pages) == 0)
 	{
-		if (*pDBInfo != NULL)
-		{
-			if (db_memp_trickle(*pDBInfo, &written_pages) == 0)
-			{
-				total_written_pages += written_pages;
-			}
-			else
-			{
-				fail_count++;
-			}
-		}
+		total_written_pages += written_pages;
+	}
+	else
+	{
+		fail_count++;
 	}
 
 	if (((fail_count == 0) && (total_written_pages > 0)) || \

@@ -13,6 +13,8 @@
 #include "global.h"
 #include "func.h"
 
+static DB_ENV *g_db_env = NULL;
+
 static void db_errcall(const DB_ENV *dbenv, const char *errpfx, const char *msg)
 {
 	logError("file: "__FILE__", line: %d, " \
@@ -20,8 +22,8 @@ static void db_errcall(const DB_ENV *dbenv, const char *errpfx, const char *msg)
 		__LINE__, msg);
 }
 
-int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
-	const u_int32_t page_size, const char *base_path, const char *filename)
+static int db_env_init(DB_ENV **ppDBEnv, const u_int64_t nCacheSize, \
+		const u_int32_t page_size, const char *base_path)
 {
 #define _DB_BLOCK_BYTES   (256 * 1024 * 1024)
 	int result;
@@ -32,9 +34,6 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	char full_path[256];
 	int i;
 
-	pDBInfo->env = NULL;
-	pDBInfo->db = NULL;
-	
 	for (i=0; i<sizeof(sub_dirs)/sizeof(char *); i++)
 	{
 		snprintf(full_path, sizeof(full_path), "%s/%s", \
@@ -53,7 +52,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		}
 	}
 
-	if ((result=db_env_create(&(pDBInfo->env), 0)) != 0)
+	if ((result=db_env_create(ppDBEnv, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_env_create fail, errno: %d, error info: %s", \
@@ -61,8 +60,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
-	if ((result=pDBInfo->env->set_alloc(pDBInfo->env, \
-			malloc, realloc, free)) != 0)
+	if ((result=(*ppDBEnv)->set_alloc((*ppDBEnv), malloc, realloc, free)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"env->set_alloc fail, errno: %d, error info: %s", \
@@ -70,10 +68,10 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
-	pDBInfo->env->set_tmp_dir(pDBInfo->env, "tmp");
-	pDBInfo->env->set_lg_dir(pDBInfo->env, "logs");
-	pDBInfo->env->set_data_dir(pDBInfo->env, "data");
-	pDBInfo->env->set_errcall(pDBInfo->env, db_errcall);
+	(*ppDBEnv)->set_tmp_dir((*ppDBEnv), "tmp");
+	(*ppDBEnv)->set_lg_dir((*ppDBEnv), "logs");
+	(*ppDBEnv)->set_data_dir((*ppDBEnv), "data");
+	(*ppDBEnv)->set_errcall((*ppDBEnv), db_errcall);
 
 	gb = (u_int32_t)(nCacheSize / (1024 * 1024 * 1024));
 	bytes = (u_int32_t)(nCacheSize - (u_int64_t)gb  * (1024 * 1024 * 1024));
@@ -84,7 +82,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	}
 
 	//printf("gb=%d, bytes=%d, blocks=%d\n", gb, bytes, blocks);
-	if ((result=pDBInfo->env->set_cachesize(pDBInfo->env, \
+	if ((result=(*ppDBEnv)->set_cachesize((*ppDBEnv), \
 			gb, bytes, blocks)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -93,7 +91,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
-	if ((result=pDBInfo->env->open(pDBInfo->env, base_path, \
+	if ((result=(*ppDBEnv)->open((*ppDBEnv), base_path, \
 		DB_CREATE | DB_INIT_MPOOL | DB_INIT_LOCK | DB_THREAD, 0644))!=0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -102,7 +100,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
-	if ((result=pDBInfo->env->set_flags(pDBInfo->env, DB_TXN_NOSYNC, 1))!=0)
+	if ((result=(*ppDBEnv)->set_flags((*ppDBEnv), DB_TXN_NOSYNC, 1))!=0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"env->set_flags fail, errno: %d, error info: %s", \
@@ -110,7 +108,26 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
-	if ((result=db_create(&(pDBInfo->db), pDBInfo->env, 0)) != 0)
+	return 0;
+}
+
+int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
+	const u_int32_t page_size, const char *base_path, const char *filename)
+{
+	int result;
+
+	pDBInfo->db = NULL;
+
+	if (g_db_env == NULL)
+	{
+		if ((result=db_env_init(&g_db_env, nCacheSize, page_size, \
+					base_path)) != 0)
+		{
+			return result;
+		}
+	}
+
+	if ((result=db_create(&(pDBInfo->db), g_db_env, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_create fail, errno: %d, error info: %s", \
@@ -141,6 +158,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 int db_destroy(DBInfo *pDBInfo)
 {
 	int result;
+
 	if (pDBInfo->db != NULL)
 	{
 		if ((result=pDBInfo->db->close(pDBInfo->db, 0)) != 0)
@@ -150,19 +168,29 @@ int db_destroy(DBInfo *pDBInfo)
 				"errno: %d, error info: %s", \
 				__LINE__, result, db_strerror(result));
 		}
+
 		pDBInfo->db = NULL;
+		return result;
 	}
 
-	if (pDBInfo->env != NULL)
+	return 0;
+}
+
+int db_env_destroy()
+{
+	int result;
+	if (g_db_env != NULL)
 	{
-		if ((result=pDBInfo->env->close(pDBInfo->env, 0)) != 0)
+		if ((result=g_db_env->close(g_db_env, 0)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"db_env_close fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, result, db_strerror(result));
 		}
-		pDBInfo->env = NULL;
+
+		g_db_env = NULL;
+		return result;
 	}
 
 	return 0;
@@ -189,31 +217,25 @@ int db_sync(DBInfo *pDBInfo)
 	return result;
 }
 
-int db_memp_sync(DBInfo *pDBInfo)
+int db_memp_sync()
 {
 	int result;
-	if (pDBInfo->db != NULL)
+
+	if ((result=g_db_env->memp_sync(g_db_env, NULL)) != 0)
 	{
-		if ((result=pDBInfo->env->memp_sync(pDBInfo->env, NULL)) != 0)
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"db_memp_sync fail, " \
-				"errno: %d, error info: %s", \
-				__LINE__, result, db_strerror(result));
-		}
-	}
-	else
-	{
-		result = 0;
+		logError("file: "__FILE__", line: %d, " \
+			"db_memp_sync fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, db_strerror(result));
 	}
 
 	return result;
 }
 
-int db_memp_trickle(DBInfo *pDBInfo, int *nwrotep)
+int db_memp_trickle(int *nwrotep)
 {
 	int result;
-	if ((result=pDBInfo->env->memp_trickle(pDBInfo->env, 100, nwrotep)) != 0)
+	if ((result=g_db_env->memp_trickle(g_db_env, 100, nwrotep)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"memp_trickle fail, " \
@@ -510,60 +532,19 @@ void *bdb_dl_detect_entrance(void *arg)
 	struct timeval t;
 	int nSec;
 	int nUsec;
-	int my_db_count;
-	DBInfo **my_db_list;
-	DBInfo **ppDBInfo;
-	DBInfo **ppEnd;
 
 	nSec = g_db_dead_lock_detect_interval / 1000;
 	nUsec = (g_db_dead_lock_detect_interval % 1000) * 1000;
 
-	my_db_count = 0;
-	ppEnd = g_db_list + g_db_count;
-	for (ppDBInfo=g_db_list; ppDBInfo<ppEnd; ppDBInfo++)
-	{
-		if (*ppDBInfo != NULL)
-		{
-			my_db_count++;
-		}
-	}
-
-	my_db_list = (DBInfo **)malloc(sizeof(DBInfo *) * my_db_count);
-	if (my_db_list == NULL)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"malloc %d bytes fail, " \
-			"error no: %d, error info: %s", \
-			__LINE__, sizeof(DBInfo *) * my_db_count, \
-			errno, strerror(errno));
-		return NULL;
-	}
-
-	my_db_count = 0;
-	for (ppDBInfo=g_db_list; ppDBInfo<ppEnd; ppDBInfo++)
-	{
-		if (*ppDBInfo != NULL)
-		{
-			my_db_list[my_db_count++] = *ppDBInfo;
-		}
-	}
-
-	ppEnd = my_db_list + my_db_count;
 	while (g_continue_flag)
 	{
-		for (ppDBInfo=my_db_list; ppDBInfo<ppEnd; ppDBInfo++)
-		{
-			(*ppDBInfo)->env->lock_detect((*ppDBInfo)->env, 0, \
-					DB_LOCK_YOUNGEST, NULL);
-		}
+		g_db_env->lock_detect(g_db_env, 0, DB_LOCK_YOUNGEST, NULL);
 
 		t.tv_sec = nSec;
 		t.tv_usec = nUsec;
 		select(0, NULL, NULL, NULL, &t);
 	}
 	
-	free(my_db_list);
-
 	return NULL;
 }
 

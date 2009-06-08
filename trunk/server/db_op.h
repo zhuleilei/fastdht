@@ -21,7 +21,6 @@ typedef DBTYPE DBType;
 
 typedef struct
 {
-	DB_ENV *env;
 	DB *db;
 } DBInfo;
 
@@ -32,10 +31,11 @@ extern "C" {
 int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 	const u_int32_t page_size, const char *base_path, const char *filename);
 int db_destroy(DBInfo *pDBInfo);
+int db_env_destroy();
 
 int db_sync(DBInfo *pDBInfo);
-int db_memp_trickle(DBInfo *pDBInfo, int *nwrotep);
-int db_memp_sync(DBInfo *pDBInfo);
+int db_memp_trickle(int *nwrotep);
+int db_memp_sync();
 
 int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		char **ppValue, int *size);

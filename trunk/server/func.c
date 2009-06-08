@@ -961,6 +961,7 @@ void fdht_func_destroy()
 			g_db_list[i] = NULL;
 		}
 	}
+	db_env_destroy();
 
 	if (fdht_stat_fd >= 0)
 	{

@@ -57,7 +57,6 @@ int main(int argc, char *argv[])
 	int result;
 	int sock;
 	struct sigaction act;
-	int i;
 
 	memset(bind_addr, 0, sizeof(bind_addr));
 	if (argc < 2)
@@ -127,7 +126,6 @@ int main(int argc, char *argv[])
 	if(sigaction(SIGINT, &act, NULL) < 0 || \
 		sigaction(SIGTERM, &act, NULL) < 0 || \
 		sigaction(SIGABRT, &act, NULL) < 0 || \
-		sigaction(SIGSEGV, &act, NULL) < 0 || \
 		sigaction(SIGQUIT, &act, NULL) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -205,16 +203,9 @@ int main(int argc, char *argv[])
 
 	close(sock);
 
-	i = 0;
-	while (g_schedule_flag && i < 600) //waiting for schedule thread exit
+	while (g_schedule_flag) //waiting for schedule thread exit
 	{
 		sleep(1);
-		i++;
-	}
-
-	if (g_schedule_flag)
-	{
-		logWarning("schedule thread terminated abnormally!");
 	}
 
 	fdht_sync_destroy();

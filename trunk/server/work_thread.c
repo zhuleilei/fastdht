@@ -164,8 +164,7 @@ static void wait_for_work_threads_exit()
 		}
 	}
 
-	i = 0;
-	while (g_thread_count != 0 && i < 5)
+	while (g_thread_count != 0)
 	{
 		if ((result=pthread_cond_signal(&work_thread_cond)) != 0)
 		{
@@ -176,12 +175,6 @@ static void wait_for_work_threads_exit()
 		}
 
 		sleep(1);
-		i++;
-	}
-
-	if (g_thread_count != 0)
-	{
-		logWarning("work thread terminated abnormally!");
 	}
 }
 

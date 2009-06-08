@@ -1077,6 +1077,7 @@ int fdht_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
+
 	pGroup = pGroupArray->groups + group_id;
 	for (i=0; i<=pGroup->count; i++)
 	{
