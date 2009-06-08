@@ -245,7 +245,6 @@ static void send_notify_read(int sock, short event, void *arg)
 			//event_base_loopbreak(send_event_base);
 		}
 
-
 		total_bytes += bytes;
 		if (bytes < sizeof(buff))
 		{

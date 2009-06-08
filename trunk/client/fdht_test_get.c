@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 	pValue = szValue;
 	success_count = 0;
 	fail_count = 0;
-	for (i=1; i<=1000; i++)
+	for (i=1; i<=20000; i++)
 	{
 		if (i % 10000 == 0)
 		{
