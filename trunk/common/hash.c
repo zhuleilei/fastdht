@@ -46,29 +46,42 @@ static unsigned int prime_array[] = {
 };
 
 #define PRIME_ARRAY_SIZE  30
+#define CALC_NODE_MALLOC_BYTES(key_len, value_size) \
+		sizeof(HashData) + sizeof(ChainNode) + \
+		key_len + value_size
 
-int _hash_alloc_buckets(HashArray *pHash)
+int _hash_alloc_buckets(HashArray *pHash, const unsigned int old_capacity)
 {
 	ChainList *plist;
 	ChainList *list_end;
+	size_t bytes;
 
-	pHash->items=(ChainList *)malloc(sizeof(ChainList)*(*pHash->capacity));
+	bytes = sizeof(ChainList)*(*pHash->capacity);
+	if (pHash->max_bytes > 0 && pHash->bytes_used+bytes > pHash->max_bytes)
+	{
+		return ENOSPC;
+	}
+
+	pHash->items=(ChainList *)malloc(bytes);
 	if (pHash->items == NULL)
 	{
 		return ENOMEM;
 	}
 
+	pHash->bytes_used += bytes - sizeof(ChainList) * old_capacity;
+
 	list_end = pHash->items + (*pHash->capacity);
 	for (plist=pHash->items; plist!=list_end; plist++)
 	{
-		chain_init(plist, CHAIN_TYPE_APPEND, free, NULL);
+		chain_init_ex(plist, CHAIN_TYPE_APPEND, free, NULL, false);
 	}
 
 	return 0;
 }
 
-int hash_init(HashArray *pHash, HashFunc hash_func, \
-		const unsigned int capacity, const double load_factor)
+int hash_init_ex(HashArray *pHash, HashFunc hash_func, \
+		const unsigned int capacity, const double load_factor, \
+		const int64_t max_bytes, const bool bMallocValue)
 {
 	unsigned int *pprime;
 	unsigned int *prime_end;
@@ -95,12 +108,14 @@ int hash_init(HashArray *pHash, HashFunc hash_func, \
 		return EINVAL;
 	}
 
-	if ((result=_hash_alloc_buckets(pHash)) != 0)
+	if ((result=_hash_alloc_buckets(pHash, 0)) != 0)
 	{
 		return result;
 	}
 
 	pHash->hash_func = hash_func;
+	pHash->max_bytes = max_bytes;
+	pHash->is_malloc_value = bMallocValue;
 
 	if (load_factor >= 0.10 && load_factor <= 1.00)
 	{
@@ -138,6 +153,8 @@ void hash_destroy(HashArray *pHash)
 		pHash->capacity = NULL;
 		pHash->is_malloc_capacity = false;
 	}
+
+	pHash->bytes_used = 0;
 }
 
 void hash_stat_print(HashArray *pHash)
@@ -146,7 +163,7 @@ void hash_stat_print(HashArray *pHash)
 	ChainList *plist;
 	ChainList *list_end;
 	int totalLength;
-	//ChainNode *pnode;
+	//ChainNode *pNode;
 	//HashData *hash_data;
 	int stats[STAT_MAX_NUM];
 	int last;
@@ -188,10 +205,10 @@ void hash_stat_print(HashArray *pHash)
 		}
 
 		/*
-		pnode = plist->head;
-		while (pnode != NULL)
+		pNode = plist->head;
+		while (pNode != NULL)
 		{
-			pnode = pnode->next;
+			pNode = pNode->next;
 		}
 		*/
 	}
@@ -223,14 +240,14 @@ static int _rehash1(HashArray *pHash, const int old_capacity, \
 	ChainList *old_items;
 	ChainList *plist;
 	ChainList *list_end;
-	ChainNode *pnode;
+	ChainNode *pNode;
 	HashData *hash_data;
 	ChainList *pNewList;
 	int result;
 
 	old_items = pHash->items;
 	pHash->capacity = new_capacity;
-	if ((result=_hash_alloc_buckets(pHash)) != 0)
+	if ((result=_hash_alloc_buckets(pHash, old_capacity)) != 0)
 	{
 		pHash->items = old_items;
 		return result;
@@ -240,23 +257,23 @@ static int _rehash1(HashArray *pHash, const int old_capacity, \
 	list_end = old_items + old_capacity;
 	for (plist=old_items; plist!=list_end; plist++)
 	{
-		pnode = plist->head;
-		while (pnode != NULL)
+		pNode = plist->head;
+		while (pNode != NULL)
 		{
-			hash_data = (HashData *) pnode->data;
+			hash_data = (HashData *) pNode->data;
 			pNewList = pHash->items + (hash_data->hash_code % \
 				(*pHash->capacity));
 
 			//success to add node
-			if (addNode(pNewList, hash_data) == 0)
+			if (appendNode_ex(pNewList, hash_data, pNode) == 0)
 			{
 			}
 
-			pnode = pnode->next;
+			pNode = pNode->next;
 		}
 
-		plist->freeDataFunc = NULL;
-		chain_destroy(plist);
+		//plist->freeDataFunc = NULL;
+		//chain_destroy(plist);
 	}
 
 	free(old_items);
@@ -314,7 +331,7 @@ int _hash_conflict_count(HashArray *pHash)
 {
 	ChainList *plist;
 	ChainList *list_end;
-	ChainNode *pnode;
+	ChainNode *pNode;
 	ChainNode *pSubNode;
 	int conflicted;
 	int conflict_count;
@@ -334,13 +351,13 @@ int _hash_conflict_count(HashArray *pHash)
 		}
 
 		conflicted = 0;
-		pnode = plist->head;
-		while (pnode != NULL)
+		pNode = plist->head;
+		while (pNode != NULL)
 		{
-			pSubNode = pnode->next;
+			pSubNode = pNode->next;
 			while (pSubNode != NULL)
 			{
-				if (((HashData *)pnode->data)->hash_code != \
+				if (((HashData *)pNode->data)->hash_code != \
 					((HashData *)pSubNode->data)->hash_code)
 				{
 					conflicted = 1;
@@ -355,7 +372,7 @@ int _hash_conflict_count(HashArray *pHash)
 				break;
 			}
 
-			pnode = pnode->next;
+			pNode = pNode->next;
 		}
 
 		conflict_count += conflicted;
@@ -428,23 +445,39 @@ int hash_best_op(HashArray *pHash, const int suggest_capacity)
 HashData *_chain_find_entry(ChainList *plist, const void *key, \
 		const int key_len, const unsigned int hash_code)
 {
-	ChainNode *pnode;
+	ChainNode *pNode;
 	HashData *hash_data;
 
-	pnode = plist->head;
-	while (pnode != NULL)
+	pNode = plist->head;
+	while (pNode != NULL)
 	{
-		hash_data = (HashData *)pnode->data;
+		hash_data = (HashData *)pNode->data;
 		if (key_len == hash_data->key_len && \
 			memcmp(key, hash_data->key, key_len) == 0)
 		{
 			return hash_data;
 		}
 
-		pnode = pnode->next;
+		pNode = pNode->next;
 	}
 
 	return NULL;
+}
+
+HashData *hash_find_ex(HashArray *pHash, const void *key, const int key_len)
+{
+	unsigned int hash_code;
+	ChainList *plist;
+
+	if (pHash == NULL || key == NULL || key_len < 0)
+	{
+		return NULL;
+	}
+
+	hash_code = pHash->hash_func(key, key_len);
+	plist = pHash->items + (hash_code % (*pHash->capacity));
+
+	return _chain_find_entry(plist, key, key_len, hash_code);
 }
 
 void *hash_find(HashArray *pHash, const void *key, const int key_len)
@@ -472,44 +505,110 @@ void *hash_find(HashArray *pHash, const void *key, const int key_len)
 	}
 }
 
-int hash_insert(HashArray *pHash, const void *key, const int key_len, \
-		void *value)
+int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
+		void *value, const int value_len)
 {
 	unsigned int hash_code;
 	ChainList *plist;
 	HashData *hash_data;
+	ChainNode *previous;
+	ChainNode *pNode;
 	char *pBuff;
 	int result;
+	int bytes;
+	int malloc_value_size;
 
-	if (pHash == NULL || key == NULL || key_len < 0)
+	if (pHash == NULL || key == NULL || key_len < 0 || value_len < 0)
 	{
 		return -EINVAL;
 	}
 
 	hash_code = pHash->hash_func(key, key_len);
 	plist = pHash->items + (hash_code % (*pHash->capacity));
-	hash_data = _chain_find_entry(plist, key, key_len, hash_code);
-	if (hash_data != NULL)
+
+	hash_data = NULL;
+	previous = NULL;
+	pNode = plist->head;
+	while (pNode != NULL)
 	{
-		hash_data->value = value;
-		return 0; 
+		hash_data = (HashData *)pNode->data;
+		if (key_len == hash_data->key_len && \
+			memcmp(key, hash_data->key, key_len) == 0)
+		{
+			break;
+		}
+
+		previous = pNode;
+		pNode = pNode->next;
 	}
 
-	pBuff = (char *)malloc(sizeof(HashData) + key_len);
+	if (hash_data != NULL)
+	{
+		if (!pHash->is_malloc_value)
+		{
+			hash_data->value_len = value_len;
+			hash_data->value = value;
+			return 0;
+		}
+
+		if (hash_data->malloc_value_size >= value_len && \
+			hash_data->malloc_value_size / 2 < value_len)
+		{
+			hash_data->value_len = value_len;
+			memcpy(hash_data->value, value, value_len);
+			return 0;
+		}
+
+		pHash->bytes_used -= CALC_NODE_MALLOC_BYTES(key_len, \
+					hash_data->malloc_value_size);
+		pHash->item_count--;
+		deleteNodeEx(plist, previous, pNode);
+	}
+
+	if (!pHash->is_malloc_value)
+	{
+		malloc_value_size = 0;
+	}
+	else
+	{
+		malloc_value_size = value_len;
+	}
+
+	bytes = CALC_NODE_MALLOC_BYTES(key_len, malloc_value_size);
+	if (pHash->max_bytes > 0 && pHash->bytes_used+bytes > pHash->max_bytes)
+	{
+		return -ENOSPC;
+	}
+
+	pBuff = (char *)malloc(bytes);
 	if (pBuff == NULL)
 	{
 		return -ENOMEM;
 	}
 
+	pHash->bytes_used += bytes;
+
 	hash_data = (HashData *)pBuff;
-	hash_data->key = pBuff + sizeof(HashData);
+	pNode = (ChainNode *)(pBuff + sizeof(HashData));
+	hash_data->key = pBuff + sizeof(HashData) + sizeof(ChainNode);
+	hash_data->malloc_value_size = malloc_value_size;
 
 	hash_data->key_len = key_len;
 	memcpy(hash_data->key, key, key_len);
 	hash_data->hash_code = hash_code;
-	hash_data->value = value;
+	hash_data->value_len = value_len;
 
-	if ((result=addNode(plist, hash_data)) != 0) //fail to add node
+	if (!pHash->is_malloc_value)
+	{
+		hash_data->value = value;
+	}
+	else
+	{
+		hash_data->value = hash_data->key + key_len;
+		memcpy(hash_data->value, value, value_len);
+	}
+
+	if ((result=appendNode_ex(plist, hash_data, pNode)) != 0)
 	{
 		free(hash_data);
 		return -1 * result;
@@ -531,7 +630,7 @@ int hash_delete(HashArray *pHash, const void *key, const int key_len)
 	unsigned int hash_code;
 	ChainList *plist;
 	ChainNode *previous;
-	ChainNode *pnode;
+	ChainNode *pNode;
 	HashData *hash_data;
 
 	if (pHash == NULL || key == NULL || key_len < 0)
@@ -543,20 +642,22 @@ int hash_delete(HashArray *pHash, const void *key, const int key_len)
 	plist = pHash->items + (hash_code % (*pHash->capacity));
 
 	previous = NULL;
-	pnode = plist->head;
-	while (pnode != NULL)
+	pNode = plist->head;
+	while (pNode != NULL)
 	{
-		hash_data = (HashData *)pnode->data;
+		hash_data = (HashData *)pNode->data;
 		if (key_len == hash_data->key_len && \
 			memcmp(key, hash_data->key, key_len) == 0)
 		{
-			deleteNodeEx(plist, previous, pnode);
+			pHash->bytes_used -= CALC_NODE_MALLOC_BYTES(key_len, \
+					hash_data->malloc_value_size);
 			pHash->item_count--;
+			deleteNodeEx(plist, previous, pNode);
 			return 1;
 		}
 
-		previous = pnode;
-		pnode = pnode->next;
+		previous = pNode;
+		pNode = pNode->next;
 	}
 
 	return 0;
@@ -566,7 +667,7 @@ int hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args)
 {
 	ChainList *plist;
 	ChainList *list_end;
-	ChainNode *pnode;
+	ChainNode *pNode;
 	HashData *hash_data;
 	int index;
 	int result;
@@ -580,16 +681,16 @@ int hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args)
 	list_end = pHash->items + (*pHash->capacity);
 	for (plist=pHash->items; plist!=list_end; plist++)
 	{
-		pnode = plist->head;
-		while (pnode != NULL)
+		pNode = plist->head;
+		while (pNode != NULL)
 		{
-			hash_data = (HashData *) pnode->data;
+			hash_data = (HashData *) pNode->data;
 			if ((result=walkFunc(index, hash_data, args)) != 0)
 			{
 				return result;
 			}
 
-			pnode = pnode->next;
+			pNode = pNode->next;
 			index++;
 		}
 	}

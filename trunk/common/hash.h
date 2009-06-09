@@ -9,6 +9,7 @@
 #ifndef _HASH_H_
 #define _HASH_H_
 
+#include <sys/types.h>
 #include "chain.h"
 
 #ifdef __cplusplus
@@ -27,7 +28,10 @@ typedef struct tagHashArray
 	int item_count;
 	unsigned int *capacity;
 	double load_factor;
+	int64_t max_bytes;
+	int64_t bytes_used;
 	bool is_malloc_capacity;
+	bool is_malloc_value;
 } HashArray;
 
 typedef struct tagHashData
@@ -35,6 +39,8 @@ typedef struct tagHashData
 	void *key;
 	int key_len;
 	void *value;
+	int value_len;
+	int malloc_value_size;
 	unsigned int hash_code;
 } HashData;
 
@@ -47,12 +53,23 @@ return 0 for success, != 0 for error
 */
 typedef int (*HashWalkFunc)(const int index, const HashData *data, void *args);
 
-int hash_init(HashArray *pHash, HashFunc hash_func, \
-		const unsigned int capacity, const double load_factor);
+#define hash_init(pHash, hash_func, capacity, load_factor) \
+	hash_init_ex(pHash, hash_func, capacity, load_factor, 0, false)
+
+#define hash_insert(pHash, key, key_len, value) \
+	hash_insert_ex(pHash, key, key_len, value, 0)
+
+int hash_init_ex(HashArray *pHash, HashFunc hash_func, \
+		const unsigned int capacity, const double load_factor, \
+		const int64_t max_bytes, const bool bMallocValue);
+
 void hash_destroy(HashArray *pHash);
-int hash_insert(HashArray *pHash, const void *key, const int key_len, \
-		void *value);
+int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
+		void *value, const int value_len);
+
 void *hash_find(HashArray *pHash, const void *key, const int key_len);
+HashData *hash_find_ex(HashArray *pHash, const void *key, const int key_len);
+
 int hash_delete(HashArray *pHash, const void *key, const int key_len);
 int hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args);
 int hash_best_op(HashArray *pHash, const int suggest_capacity);
