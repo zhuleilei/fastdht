@@ -43,6 +43,7 @@ done
 
 cmd="/bin/ps auxww | $grep_cmd | $GREP -v grep | $GREP -v $0 | $AWK '{print \$2;}'"
 pids=`/bin/sh -c "$cmd"`
+
 if [ ! -z "$pids" ]; then
   i=0
   count=0

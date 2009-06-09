@@ -524,7 +524,7 @@ static int deal_cmd_get(struct task_info *pTask)
 
 	pValue = pTask->data + sizeof(FDHTProtoHeader);
 	value_len = pTask->size - sizeof(FDHTProtoHeader);
-	if ((result=db_get(g_db_list[group_id], full_key, full_key_len, \
+	if ((result=g_func_get(g_db_list[group_id], full_key, full_key_len, \
                	&pValue, &value_len)) != 0)
 	{
 		if (result == ENOSPC)
@@ -551,7 +551,7 @@ static int deal_cmd_get(struct task_info *pTask)
 			pTask->size = sizeof(FDHTProtoHeader) + value_len;
 
 			pValue = pTask->data + sizeof(FDHTProtoHeader);
-			if ((result=db_get(g_db_list[group_id], full_key, \
+			if ((result=g_func_get(g_db_list[group_id], full_key, \
 				full_key_len, &pValue, &value_len)) != 0)
 			{
 				pTask->length = sizeof(FDHTProtoHeader);
@@ -576,7 +576,7 @@ static int deal_cmd_get(struct task_info *pTask)
 	{
 		int2buff(new_expires, pValue);
 
-		result = db_partial_set(g_db_list[group_id], full_key, \
+		result = g_func_partial_set(g_db_list[group_id], full_key, \
 			full_key_len, pValue, 0, 4);
 	}
 
@@ -724,7 +724,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 
 		value_len += 4; //including expires field
 		int2buff(new_expires, pSrc);
-		*pDest++ = result = db_set(g_db_list[group_id], full_key, \
+		*pDest++ = result = g_func_set(g_db_list[group_id], full_key, \
 				full_key_len, pSrc, value_len);
 		if (result == 0)
 		{
@@ -906,7 +906,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 
 		pValue = pDest;
 		value_len = pTask->size - (pDest - pTask->data);
-		result = db_get(g_db_list[group_id], full_key, full_key_len, \
+		result = g_func_get(g_db_list[group_id], full_key, full_key_len, \
 				&pValue, &value_len);
 		if (result != 0)
 		{
@@ -920,7 +920,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 				pDest = pTask->data + old_len;
 
 				pValue = pDest;
-				if ((result=db_get(g_db_list[group_id], \
+				if ((result=g_func_get(g_db_list[group_id], \
 						full_key, full_key_len, \
 						&pValue, &value_len)) != 0)
 				{
@@ -946,7 +946,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 		if (new_expires != FDHT_EXPIRES_NONE)
 		{
 			int2buff(new_expires, pValue);
-			if ((result = db_set(g_db_list[group_id], full_key, \
+			if ((result = g_func_set(g_db_list[group_id], full_key, \
 					full_key_len, pValue, value_len)) != 0)
 			{
 				*(pDest-1) = result;
@@ -1113,7 +1113,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 
 		FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
-		*pDest++ = result = db_delete(g_db_list[group_id], \
+		*pDest++ = result = g_func_delete(g_db_list[group_id], \
 				full_key, full_key_len);
 		if (result == 0)
 		{
@@ -1482,7 +1482,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
-	result = db_set(g_db_list[group_id], full_key, full_key_len, \
+	result = g_func_set(g_db_list[group_id], full_key, full_key_len, \
 			pValue, value_len);
 	if (result == 0)
 	{
@@ -1547,7 +1547,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	pTask->length = sizeof(FDHTProtoHeader);
-	result = db_delete(g_db_list[group_id], full_key, full_key_len);
+	result = g_func_delete(g_db_list[group_id], full_key, full_key_len);
 	if (result == 0)
 	{
 		if (g_write_to_binlog_flag)
@@ -1620,7 +1620,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	value_len = sizeof(value) - 1;
-	result = db_inc_ex(g_db_list[group_id], full_key, full_key_len, inc, \
+	result = g_func_inc_ex(g_db_list[group_id], full_key, full_key_len, inc, \
 			value, &value_len, new_expires);
 	if (result == 0)
 	{

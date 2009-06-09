@@ -24,6 +24,9 @@
 #include "send_thread.h"
 #include "sync.h"
 #include "func.h"
+#include "store.h"
+#include "db_op.h"
+#include "mpool_op.h"
 
 #define DB_FILE_PREFIX_MAX_SIZE  32
 #define FDHT_STAT_FILENAME		"stat.dat"
@@ -36,7 +39,7 @@
 #define STAT_ITEM_TOTAL_DELETE		"total_delete_count"
 #define STAT_ITEM_SUCCESS_DELETE	"success_delete_count"
 
-DBInfo **g_db_list = NULL;
+StoreHandle **g_db_list = NULL;
 int g_db_count = 0;
 
 static pthread_t dld_tid = 0;
@@ -885,6 +888,8 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 		return result;
 	}
 
+	store_init();
+
 	max_group_id = 0;
 	pGroupEnd = group_ids + group_count;
 	for (pGroupId=group_ids; pGroupId<pGroupEnd; pGroupId++)
@@ -896,13 +901,13 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	}
 
 	g_db_count = max_group_id + 1;
-	g_db_list = (DBInfo **)malloc(sizeof(DBInfo *) * g_db_count);
+	g_db_list = (StoreHandle **)malloc(sizeof(StoreHandle *) * g_db_count);
 	if (g_db_list == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, sizeof(DBInfo *) * g_db_count, \
+			__LINE__, sizeof(StoreHandle *) * g_db_count, \
 			errno, strerror(errno));
 		free(group_ids);
 		return errno != 0 ? errno : ENOMEM;
@@ -916,25 +921,24 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	result = 0;
 	for (pGroupId=group_ids; pGroupId<pGroupEnd; pGroupId++)
 	{
-		g_db_list[*pGroupId] = (DBInfo *)malloc(sizeof(DBInfo));
-		if (g_db_list[*pGroupId] == NULL)
-		{
-			result = errno != 0 ? errno : ENOMEM;
-			logError("file: "__FILE__", line: %d, " \
-				"malloc %d bytes fail, " \
-				"errno: %d, error info: %s", \
-				__LINE__, sizeof(DBInfo), \
-				result, strerror(result));
-			break;
-		}
-
 		snprintf(db_filename, sizeof(db_filename), "%s%03d", \
 			db_file_prefix, *pGroupId);
-		if ((result=db_init(g_db_list[*pGroupId], db_type, \
-				nCacheSize, page_size, \
-				g_base_path, db_filename)) != 0)
+		if (g_store_type == FDHT_STORE_TYPE_BDB)
 		{
-			break;
+			if ((result=db_init(&g_db_list[*pGroupId], db_type, \
+						nCacheSize, page_size, \
+						g_base_path, db_filename)) != 0)
+			{
+				break;
+			}
+		}
+		else
+		{
+			if ((result=mp_init(&g_db_list[*pGroupId], \
+						nCacheSize)) != 0)
+			{
+				break;
+			}
 		}
 	}
 
@@ -956,12 +960,10 @@ void fdht_func_destroy()
 	{
 		if (g_db_list[i] != NULL)
 		{
-			db_destroy(g_db_list[i]);
-			free(g_db_list[i]);
-			g_db_list[i] = NULL;
+			g_func_destroy_instance(&g_db_list[i]);
 		}
 	}
-	db_env_destroy();
+	g_func_destroy();
 
 	if (fdht_stat_fd >= 0)
 	{

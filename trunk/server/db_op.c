@@ -111,13 +111,15 @@ static int db_env_init(DB_ENV **ppDBEnv, const u_int64_t nCacheSize, \
 	return 0;
 }
 
-int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
-	const u_int32_t page_size, const char *base_path, const char *filename)
+int db_init(StoreHandle **ppHandle, const DBType type, \
+	const u_int64_t nCacheSize, const u_int32_t page_size, \
+	const char *base_path, const char *filename)
 {
 	int result;
+	DB *db;
 
-	pDBInfo->db = NULL;
-
+	db = NULL;
+	*ppHandle = NULL;
 	if (g_db_env == NULL)
 	{
 		if ((result=db_env_init(&g_db_env, nCacheSize, page_size, \
@@ -127,7 +129,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		}
 	}
 
-	if ((result=db_create(&(pDBInfo->db), g_db_env, 0)) != 0)
+	if ((result=db_create(&db, g_db_env, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_create fail, errno: %d, error info: %s", \
@@ -135,7 +137,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
-	if ((result=pDBInfo->db->set_pagesize(pDBInfo->db, page_size)) != 0)
+	if ((result=db->set_pagesize(db, page_size)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db->set_pagesize, errno: %d, error info: %s", \
@@ -143,7 +145,7 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
-	if ((result=pDBInfo->db->open(pDBInfo->db, NULL, filename, NULL, \
+	if ((result=db->open(db, NULL, filename, NULL, \
 		type, DB_CREATE | DB_THREAD, 0644)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -152,16 +154,17 @@ int db_init(DBInfo *pDBInfo, const DBType type, const u_int64_t nCacheSize, \
 		return result;
 	}
 
+	*ppHandle = db;
 	return 0;
 }
 
-int db_destroy(DBInfo *pDBInfo)
+int db_destroy_instance(StoreHandle **ppHandle)
 {
 	int result;
 
-	if (pDBInfo->db != NULL)
+	if (*ppHandle != NULL)
 	{
-		if ((result=pDBInfo->db->close(pDBInfo->db, 0)) != 0)
+		if ((result=((DB *)*ppHandle)->close((DB *)*ppHandle, 0)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"db_close fail, " \
@@ -169,14 +172,14 @@ int db_destroy(DBInfo *pDBInfo)
 				__LINE__, result, db_strerror(result));
 		}
 
-		pDBInfo->db = NULL;
+		*ppHandle = NULL;
 		return result;
 	}
 
 	return 0;
 }
 
-int db_env_destroy()
+int db_destroy()
 {
 	int result;
 	if (g_db_env != NULL)
@@ -196,12 +199,12 @@ int db_env_destroy()
 	return 0;
 }
 
-int db_sync(DBInfo *pDBInfo)
+int db_sync(StoreHandle *pHandle)
 {
 	int result;
-	if (pDBInfo->db != NULL)
+	if (pHandle != NULL)
 	{
-		if ((result=pDBInfo->db->sync(pDBInfo->db, 0)) != 0)
+		if ((result=((DB *)pHandle)->sync((DB *)pHandle, 0)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"db_sync fail, " \
@@ -247,7 +250,7 @@ int db_memp_trickle(int *nwrotep)
 	return result;
 }
 
-int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+int db_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	const char *pValue, const int value_len)
 {
 	int result;
@@ -265,7 +268,7 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	value.data = (char *)pValue;
 	value.size = value_len;
 
-	if ((result=pDBInfo->db->put(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	if ((result=((DB *)pHandle)->put((DB *)pHandle, NULL, &key,  &value, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_put fail, " \
@@ -278,7 +281,7 @@ int db_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	return result;
 }
 
-int db_partial_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+int db_partial_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	const char *pValue, const int offset, const int value_len)
 {
 	int result;
@@ -299,7 +302,7 @@ int db_partial_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	value.dlen = value_len;
 	value.size = value_len;
 
-	if ((result=pDBInfo->db->put(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	if ((result=((DB *)pHandle)->put((DB *)pHandle, NULL, &key,  &value, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_put fail, " \
@@ -312,7 +315,7 @@ int db_partial_set(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	return result;
 }
 
-static int _db_do_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+static int _db_do_get(StoreHandle *pHandle, const char *pKey, const int key_len, \
 		char **ppValue, int *size)
 {
 	int result;
@@ -336,7 +339,7 @@ static int _db_do_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 		value.flags = DB_DBT_MALLOC;
 	}
 
-	if ((result=pDBInfo->db->get(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	if ((result=((DB *)pHandle)->get((DB *)pHandle, NULL, &key,  &value, 0)) != 0)
 	{
 		if (result == DB_NOTFOUND)
 		{
@@ -363,13 +366,13 @@ static int _db_do_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	return result;
 }
 
-int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+int db_get(StoreHandle *pHandle, const char *pKey, const int key_len, \
 		char **ppValue, int *size)
 {
 	int result;
 
 	g_server_stat.total_get_count++;
-	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
+	if ((result=_db_do_get(pHandle, pKey, key_len, \
 		ppValue, size)) == 0)
 	{
 		g_server_stat.success_get_count++;
@@ -378,7 +381,7 @@ int db_get(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	return result;
 }
 
-int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
+int db_delete(StoreHandle *pHandle, const char *pKey, const int key_len)
 {
 	int result;
 	DBT key;
@@ -389,7 +392,7 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
 	key.data = (char *)pKey;
 	key.size = key_len;
 
-	if ((result=pDBInfo->db->del(pDBInfo->db, NULL, &key, 0)) != 0)
+	if ((result=((DB *)pHandle)->del((DB *)pHandle, NULL, &key, 0)) != 0)
 	{
 		if (result == DB_NOTFOUND)
 		{
@@ -410,7 +413,7 @@ int db_delete(DBInfo *pDBInfo, const char *pKey, const int key_len)
 	return result;
 }
 
-int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+int db_inc(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	const int inc, char *pValue, int *value_len)
 {
 	int64_t n;
@@ -420,7 +423,7 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 
 	g_server_stat.total_inc_count++;
 
-	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
+	if ((result=_db_do_get(pHandle, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
 		if (result != ENOENT)
@@ -448,7 +451,7 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	value.data = (char *)pValue;
 	value.size = *value_len;
 
-	if ((result=pDBInfo->db->put(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	if ((result=((DB *)pHandle)->put((DB *)pHandle, NULL, &key,  &value, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_put fail, " \
@@ -461,7 +464,7 @@ int db_inc(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	return result;
 }
 
-int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
+int db_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	const int inc, char *pValue, int *value_len, const int expires)
 {
 	int64_t n;
@@ -472,7 +475,7 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 
 	g_server_stat.total_inc_count++;
 
-	if ((result=_db_do_get(pDBInfo, pKey, key_len, \
+	if ((result=_db_do_get(pHandle, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
 		if (result != ENOENT)
@@ -514,7 +517,7 @@ int db_inc_ex(DBInfo *pDBInfo, const char *pKey, const int key_len, \
 	value.data = (char *)pValue;
 	value.size = *value_len;
 
-	if ((result=pDBInfo->db->put(pDBInfo->db, NULL, &key,  &value, 0)) != 0)
+	if ((result=((DB *)pHandle)->put((DB *)pHandle, NULL, &key,  &value, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"db_put fail, " \
@@ -570,7 +573,7 @@ void db_clear_expired_keys(void *arg)
 	gettimeofday(&tv_start, NULL);
 
 	db_index = (int)arg;
-	db = g_db_list[db_index]->db;
+	db = (DB *)(g_db_list[db_index]);
 	if ((result=db->cursor(db, NULL, &cursor, 0)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
