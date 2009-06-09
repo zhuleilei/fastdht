@@ -14,6 +14,7 @@ Version 1.09  2009-06-09
  * multi db use only one env
  * chain can use ChainNode passed by caller
  * hash can store value, and pass ChainNode to chain when add node
+ * support MPOOL (memory only cache)
 
 Version 1.08  2009-04-12
  * common/shared_func.c: rindex change to strrchr, add #include <netinet/in.h>

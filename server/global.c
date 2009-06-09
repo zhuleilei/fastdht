@@ -57,6 +57,8 @@ int g_local_host_ip_count = 0;
 char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
 				IP_ADDRESS_SIZE];
 time_t g_server_start_time = 0;
+int g_store_type = FDHT_STORE_TYPE_BDB;
+//int g_store_type = FDHT_STORE_TYPE_MPOOL;
 
 bool is_local_host_ip(const char *client_ip)
 {

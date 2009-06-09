@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-extern DBInfo **g_db_list;
+extern StoreHandle **g_db_list;
 extern int g_db_count;
 
 typedef char * (*get_filename_func)(const void *pArg, \

@@ -26,6 +26,9 @@
 #define SYNC_BINLOG_BUFF_DEF_INTERVAL  60
 #define COMPRESS_BINLOG_DEF_INTERVAL   86400
 
+#define FDHT_STORE_TYPE_BDB      1
+#define FDHT_STORE_TYPE_MPOOL    2
+
 #ifdef __cplusplus
 extern "C" {
 #endif

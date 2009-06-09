@@ -151,20 +151,23 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	if ((result=fdht_db_recovery_init()) != 0)
+	if (g_store_type == FDHT_STORE_TYPE_BDB)
 	{
-		fdht_func_destroy();
-		return result;
+		if ((result=fdht_db_recovery_init()) != 0)
+		{
+			fdht_func_destroy();
+			return result;
+		}
+
+		if ((result=start_dl_detect_thread()) != 0)
+		{
+			g_continue_flag = false;
+			fdht_func_destroy();
+			return result;
+		}
 	}
 
 	if ((result=task_queue_init()) != 0)
-	{
-		g_continue_flag = false;
-		fdht_func_destroy();
-		return result;
-	}
-
-	if ((result=start_dl_detect_thread()) != 0)
 	{
 		g_continue_flag = false;
 		fdht_func_destroy();
@@ -209,7 +212,11 @@ int main(int argc, char *argv[])
 	}
 
 	fdht_sync_destroy();
-	fdht_memp_trickle_dbs((void *)1);
+
+	if (g_store_type == FDHT_STORE_TYPE_BDB)
+	{
+		fdht_memp_trickle_dbs((void *)1);
+	}
 
 	fdht_func_destroy();
 
@@ -352,7 +359,7 @@ static int fdht_init_schedule()
 	ScheduleEntry *pScheduleEntry;
 
 	entry_count = 1;
-	if (g_sync_db_interval > 0)
+	if (g_store_type == FDHT_STORE_TYPE_BDB && g_sync_db_interval > 0)
 	{
 		entry_count++;
 	}
@@ -399,7 +406,7 @@ static int fdht_init_schedule()
 	pScheduleEntry->func_args = NULL;
 	pScheduleEntry++;
 
-	if (g_sync_db_interval > 0)
+	if (g_store_type == FDHT_STORE_TYPE_BDB && g_sync_db_interval > 0)
 	{
 		pScheduleEntry->id = pScheduleEntry - scheduleArray.entries+1;
 		pScheduleEntry->time_base.hour = g_sync_db_time_base.hour;
