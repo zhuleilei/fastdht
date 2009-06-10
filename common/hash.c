@@ -542,7 +542,7 @@ int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
 		pNode = pNode->next;
 	}
 
-	if (hash_data != NULL)
+	if (pNode != NULL) //exists
 	{
 		if (!pHash->is_malloc_value)
 		{

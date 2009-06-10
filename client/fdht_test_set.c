@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 	printf("g_keep_alive=%d\n", g_keep_alive);
 	success_count = 0;
 	fail_count = 0;
-	for (i=1; i<=20000; i++)
+	for (i=1; i<=200000; i++)
 	{
 		key_info.key_len = sprintf(key_info.szKey, "k%015d", rand());
 		if (i % 10000 == 0)

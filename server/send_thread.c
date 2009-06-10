@@ -128,6 +128,75 @@ void *send_thread_entrance(void* arg)
 	return NULL;
 }
 
+int send_process_init()
+{
+	if (g_event_base == NULL)
+	{
+		g_event_base = event_init();
+		if (g_event_base == NULL)
+		{
+			logCrit("file: "__FILE__", line: %d, " \
+				"event_base_new fail.", __LINE__);
+			return ENOMEM;
+		}
+	}
+
+	send_event_base = g_event_base;
+
+	return 0;
+}
+
+int send_add_event(struct task_info *pTask)
+{
+	int result;
+
+	pTask->offset = 0;
+
+	/*
+	event_set(&pTask->ev_write, pTask->ev_write.ev_fd, EV_WRITE, \
+			client_sock_write, pTask);
+	if ((result=event_base_set(send_event_base, &pTask->ev_write)) != 0)
+	{
+		close(pTask->ev_write.ev_fd);
+		free_queue_push(pTask);
+
+		logError("file: "__FILE__", line: %d, " \
+			"event_base_set fail.", __LINE__);
+		return result;
+	}
+	*/
+	if ((result=event_add(&pTask->ev_write, &g_network_tv)) != 0)
+	{
+		close(pTask->ev_write.ev_fd);
+		free_queue_push(pTask);
+
+		logError("file: "__FILE__", line: %d, " \
+				"event_add fail.", __LINE__);
+		return result;
+	}
+
+	return 0;
+}
+
+int send_set_event(struct task_info *pTask, int sock)
+{
+	int result;
+
+	event_set(&pTask->ev_write, sock, EV_WRITE, \
+			client_sock_write, pTask);
+	if ((result=event_base_set(send_event_base, &pTask->ev_write)) != 0)
+	{
+		close(pTask->ev_write.ev_fd);
+		free_queue_push(pTask);
+
+		logError("file: "__FILE__", line: %d, " \
+			"event_base_set fail.", __LINE__);
+		return result;
+	}
+
+	return 0;
+}
+
 static void client_sock_write(int sock, short event, void *arg)
 {
 	int bytes;
@@ -139,7 +208,7 @@ static void client_sock_write(int sock, short event, void *arg)
 		logError("file: "__FILE__", line: %d, " \
 			"send timeout", __LINE__);
 
-		close(pTask->ev.ev_fd);
+		close(pTask->ev_write.ev_fd);
 		free_queue_push(pTask);
 
 		return;
@@ -152,9 +221,9 @@ static void client_sock_write(int sock, short event, void *arg)
 	{
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		{
-			if (event_add(&pTask->ev, &g_network_tv) != 0)
+			if (event_add(&pTask->ev_write, &g_network_tv) != 0)
 			{
-				close(pTask->ev.ev_fd);
+				close(pTask->ev_write.ev_fd);
 				free_queue_push(pTask);
 
 				logError("file: "__FILE__", line: %d, " \
@@ -169,7 +238,7 @@ static void client_sock_write(int sock, short event, void *arg)
 				__LINE__, pTask->client_ip, \
 				errno, strerror(errno));
 
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_write.ev_fd);
 			free_queue_push(pTask);
 		}
 
@@ -181,7 +250,7 @@ static void client_sock_write(int sock, short event, void *arg)
 			"send failed, connection disconnected.", \
 			__LINE__);
 
-		close(pTask->ev.ev_fd);
+		close(pTask->ev_write.ev_fd);
 		free_queue_push(pTask);
 		return;
 	}
@@ -191,20 +260,27 @@ static void client_sock_write(int sock, short event, void *arg)
 	{
 		if (((FDHTProtoHeader *)pTask->data)->keep_alive)
 		{
-			recv_queue_push(pTask);  //persistent connection
+			if (g_max_threads > 1)  //thread mode
+			{
+				recv_queue_push(pTask);  //persistent connection
+			}
+			else //proccess mode
+			{
+				recv_add_event(pTask);
+			}
 		}
 		else
 		{
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_write.ev_fd);
 			free_queue_push(pTask);
 		}
 
 		return;
 	}
 
-	if (event_add(&pTask->ev, &g_network_tv) != 0)
+	if (event_add(&pTask->ev_write, &g_network_tv) != 0)
 	{
-		close(pTask->ev.ev_fd);
+		close(pTask->ev_write.ev_fd);
 		free_queue_push(pTask);
 
 		logError("file: "__FILE__", line: %d, " \
@@ -260,20 +336,20 @@ static void send_notify_read(int sock, short event, void *arg)
 
 	while ((pTask = send_queue_pop()) != NULL)
 	{
-		event_set(&pTask->ev, pTask->ev.ev_fd, EV_WRITE, \
+		event_set(&pTask->ev_write, pTask->ev_write.ev_fd, EV_WRITE, \
 			client_sock_write, pTask);
-		if (event_base_set(send_event_base, &pTask->ev) != 0)
+		if (event_base_set(send_event_base, &pTask->ev_write) != 0)
 		{
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_write.ev_fd);
 			free_queue_push(pTask);
 
 			logError("file: "__FILE__", line: %d, " \
 				"event_base_set fail.", __LINE__);
 			continue;
 		}
-		if (event_add(&pTask->ev, &g_network_tv) != 0)
+		if (event_add(&pTask->ev_write, &g_network_tv) != 0)
 		{
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_write.ev_fd);
 			free_queue_push(pTask);
 
 			logError("file: "__FILE__", line: %d, " \

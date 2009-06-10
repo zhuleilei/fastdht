@@ -26,6 +26,9 @@ int recv_notify_write();
 int kill_recv_thread();
 void *recv_thread_entrance(void* arg);
 
+int recv_process_init(int server_sock);
+int recv_add_event(struct task_info *pTask);
+
 #ifdef __cplusplus
 }
 #endif

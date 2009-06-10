@@ -1061,8 +1061,21 @@ int fdht_terminate()
 
 	pthread_kill(dld_tid, SIGINT);
 
-	result = kill_recv_thread();
-	result += kill_send_thread();
+	if (g_max_threads > 1)  //proccess mode
+	{
+		result = kill_recv_thread();
+		result += kill_send_thread();
+	}
+	else //proccess mode
+	{
+		if (g_event_base != NULL)
+		{
+			struct timeval tv;
+			tv.tv_sec = 1;
+			tv.tv_usec = 0;
+			event_base_loopexit(g_event_base, &tv);
+		}
+	}
 
 	return result;
 }
