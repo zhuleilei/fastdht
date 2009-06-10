@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <event.h>
 #include <pthread.h>
 #include "fdht_define.h"
 #include "fdht_global.h"
@@ -72,6 +73,7 @@ extern char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
 
 extern time_t g_server_start_time;
 extern int g_store_type;
+extern struct event_base *g_event_base;
 
 void load_local_host_ip_addrs();
 bool is_local_host_ip(const char *client_ip);

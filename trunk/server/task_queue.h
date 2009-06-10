@@ -21,7 +21,8 @@
 struct task_info
 {
 	char client_ip[IP_ADDRESS_SIZE];
-	struct event ev;
+	struct event ev_read;
+	struct event ev_write;
 	char *data;
 	int size;   //alloc size
 	int length; //data length

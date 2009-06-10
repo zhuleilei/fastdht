@@ -31,6 +31,7 @@
 #include "fdht_proto.h"
 #include "task_queue.h"
 #include "send_thread.h"
+#include "work_thread.h"
 
 static void recv_notify_read(int sock, short event, void *arg);
 static void server_sock_read(int sock, short event, void *arg);
@@ -148,6 +149,73 @@ void *recv_thread_entrance(void* arg)
 	return NULL;
 }
 
+int recv_process_init(int server_sock)
+{
+	int result;
+
+	if (g_event_base == NULL)
+	{
+		g_event_base = event_init();
+		if (g_event_base == NULL)
+		{
+			logCrit("file: "__FILE__", line: %d, " \
+				"event_base_new fail.", __LINE__);
+			return ENOMEM;
+		}
+	}
+
+	recv_event_base = g_event_base;
+	event_set(&ev_sock_server, server_sock, EV_READ | EV_PERSIST, \
+		server_sock_read, &ev_sock_server);
+	if ((result=event_base_set(recv_event_base, &ev_sock_server)) != 0)
+	{
+		logCrit("file: "__FILE__", line: %d, " \
+			"event_base_set fail.", __LINE__);
+		return result;
+	}
+	if ((result=event_add(&ev_sock_server, NULL)) != 0)
+	{
+		logCrit("file: "__FILE__", line: %d, " \
+			"event_add fail.", __LINE__);
+		return result;
+	}
+
+	return 0;
+}
+
+int recv_add_event(struct task_info *pTask)
+{
+	int result;
+
+	pTask->offset = 0;
+	pTask->length  = 0;
+
+	/*
+	event_set(&pTask->ev_read, pTask->ev_read.ev_fd, EV_READ, \
+			client_sock_read, pTask);
+	if ((result=event_base_set(recv_event_base, &pTask->ev_read)) != 0)
+	{
+		close(pTask->ev_read.ev_fd);
+		free_queue_push(pTask);
+
+		logError("file: "__FILE__", line: %d, " \
+			"event_base_set fail.", __LINE__);
+		return result;
+	}
+	*/
+	if ((result=event_add(&pTask->ev_read, &g_network_tv)) != 0)
+	{
+		close(pTask->ev_read.ev_fd);
+		free_queue_push(pTask);
+
+		logError("file: "__FILE__", line: %d, " \
+			"event_add fail.", __LINE__);
+		return result;
+	}
+
+	return 0;
+}
+
 static void server_sock_read(int sock, short event, void *arg)
 {
 	int incomesock;
@@ -203,8 +271,8 @@ static void server_sock_read(int sock, short event, void *arg)
 	}
 
 	strcpy(pTask->client_ip, szClientIp);
-	event_set(&pTask->ev, incomesock, EV_READ, client_sock_read, pTask);
-	if (event_base_set(recv_event_base, &pTask->ev) != 0)
+	event_set(&pTask->ev_read, incomesock, EV_READ, client_sock_read, pTask);
+	if (event_base_set(recv_event_base, &pTask->ev_read) != 0)
 	{
 		free_queue_push(pTask);
 		close(incomesock);
@@ -213,13 +281,20 @@ static void server_sock_read(int sock, short event, void *arg)
 			"event_base_set fail.", __LINE__);
 		return;
 	}
-	if (event_add(&pTask->ev, &g_network_tv) != 0)
+	if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 	{
 		free_queue_push(pTask);
 		close(incomesock);
 
 		logError("file: "__FILE__", line: %d, " \
 			"event_add fail.", __LINE__);
+		return;
+	}
+
+	if (send_set_event(pTask, incomesock) != 0)
+	{
+		free_queue_push(pTask);
+		close(incomesock);
 		return;
 	}
 }
@@ -237,9 +312,9 @@ static void client_sock_read(int sock, short event, void *arg)
 		if (pTask->offset == 0 && \
 			((FDHTProtoHeader *)pTask->data)->keep_alive)
 		{
-			if (event_add(&pTask->ev, &g_network_tv) != 0)
+			if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 			{
-				close(pTask->ev.ev_fd);
+				close(pTask->ev_read.ev_fd);
 				free_queue_push(pTask);
 
 				logError("file: "__FILE__", line: %d, " \
@@ -254,7 +329,7 @@ static void client_sock_read(int sock, short event, void *arg)
 				__LINE__, pTask->client_ip, \
 				pTask->offset, pTask->length);
 
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 		}
 
@@ -285,7 +360,7 @@ static void client_sock_read(int sock, short event, void *arg)
 
 			pTask->data = pTemp;  //restore old data
 
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 			return;
 		}
@@ -298,9 +373,9 @@ static void client_sock_read(int sock, short event, void *arg)
 	{
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		{
-			if (event_add(&pTask->ev, &g_network_tv) != 0)
+			if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 			{
-				close(pTask->ev.ev_fd);
+				close(pTask->ev_read.ev_fd);
 				free_queue_push(pTask);
 
 				logError("file: "__FILE__", line: %d, " \
@@ -315,7 +390,7 @@ static void client_sock_read(int sock, short event, void *arg)
 				__LINE__, pTask->client_ip, \
 				errno, strerror(errno));
 
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 		}
 
@@ -328,7 +403,7 @@ static void client_sock_read(int sock, short event, void *arg)
 			"connection disconnected.", \
 			__LINE__, pTask->client_ip);
 
-		close(pTask->ev.ev_fd);
+		close(pTask->ev_read.ev_fd);
 		free_queue_push(pTask);
 		return;
 	}
@@ -337,9 +412,9 @@ static void client_sock_read(int sock, short event, void *arg)
 	{
 		if (pTask->offset + bytes < sizeof(FDHTProtoHeader))
 		{
-			if (event_add(&pTask->ev, &g_network_tv) != 0)
+			if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 			{
-				close(pTask->ev.ev_fd);
+				close(pTask->ev_read.ev_fd);
 				free_queue_push(pTask);
 
 				logError("file: "__FILE__", line: %d, " \
@@ -357,7 +432,7 @@ static void client_sock_read(int sock, short event, void *arg)
 				"client ip: %s, pkg length: %d < 0", \
 				__LINE__, pTask->client_ip, pTask->length);
 
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 			return;
 		}
@@ -370,7 +445,7 @@ static void client_sock_read(int sock, short event, void *arg)
 				"size: %d", __LINE__, pTask->client_ip, \
 				pTask->length, g_max_pkg_size);
 
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 			return;
 		}
@@ -383,12 +458,19 @@ static void client_sock_read(int sock, short event, void *arg)
 	//printf("pkg length: %d, pkg offset: %d\n", pTask->length, pTask->offset);
 	if (pTask->offset >= pTask->length) //recv done
 	{
-		//event_del(&pTask->ev);
-		work_queue_push(pTask);
+		//event_del(&pTask->ev_read);
+		if (g_max_threads > 1)  //thread mode
+		{
+			work_queue_push(pTask);
+		}
+		else //proccess mode
+		{
+			work_deal_task(pTask);
+		}
 	}
-	else if (event_add(&pTask->ev, &g_network_tv) != 0)
+	else if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 	{
-		close(pTask->ev.ev_fd);
+		close(pTask->ev_read.ev_fd);
 		free_queue_push(pTask);
 
 		logError("file: "__FILE__", line: %d, " \
@@ -448,20 +530,20 @@ static void recv_notify_read(int sock, short event, void *arg)
 
 	while ((pTask = recv_queue_pop()) != NULL)
 	{
-		event_set(&pTask->ev, pTask->ev.ev_fd, EV_READ, \
+		event_set(&pTask->ev_read, pTask->ev_read.ev_fd, EV_READ, \
 			client_sock_read, pTask);
-		if (event_base_set(recv_event_base, &pTask->ev) != 0)
+		if (event_base_set(recv_event_base, &pTask->ev_read) != 0)
 		{
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 
 			logError("file: "__FILE__", line: %d, " \
 				"event_base_set fail.", __LINE__);
 			continue;
 		}
-		if (event_add(&pTask->ev, &g_network_tv) != 0)
+		if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 		{
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 
 			logError("file: "__FILE__", line: %d, " \

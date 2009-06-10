@@ -279,6 +279,30 @@ static int create_sock_io_threads(int server_sock)
 
 	result = 0;
 
+	if (g_max_threads == 1)  //proccess mode
+	{
+		result = recv_process_init(server_sock);
+		if (result != 0)
+		{
+			return result;
+		}
+
+		result = send_process_init();
+		if (result != 0)
+		{
+			return result;
+		}
+
+		while (g_continue_flag)
+		{
+			event_base_loop(g_event_base, 0);
+		}
+
+		event_base_free(g_event_base);
+
+		return 0;
+	}
+
 	if ((result=pthread_create(&recv_tid, NULL, \
 		recv_thread_entrance, (void *)server_sock)) != 0)
 	{
@@ -455,7 +479,7 @@ static int fdht_init_schedule()
 			pScheduleEntry->time_base.minute = \
 					g_clear_expired_time_base.minute;
 			pScheduleEntry->interval = g_clear_expired_interval;
-			pScheduleEntry->task_func = db_clear_expired_keys;
+			pScheduleEntry->task_func = g_func_clear_expired_keys;
 			pScheduleEntry->func_args = (void *)i;
 			pScheduleEntry++;
 		}

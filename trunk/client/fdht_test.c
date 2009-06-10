@@ -67,8 +67,8 @@ int main(int argc, char *argv[])
 	key_info.obj_id_len = sprintf(key_info.szObjectId, "test%d", rand());
 	key_info.key_len = sprintf(key_info.szKey, "reg");
 
-	key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", 1234567);
-	key_info.key_len = sprintf(key_info.szKey, "k%d", 97865432);
+	//key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", 1234567);
+	//key_info.key_len = sprintf(key_info.szKey, "k%d", 97865432);
 
 	while (1)
 	{

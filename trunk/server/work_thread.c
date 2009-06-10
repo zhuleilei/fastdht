@@ -45,11 +45,9 @@ static pthread_cond_t work_thread_cond;
 static int init_pthread_cond();
 static time_t first_sync_req_time = 0;
 
-static int g_done_count = 0;
-
 static void *work_thread_entrance(void* arg);
 static void wait_for_work_threads_exit();
-static int deal_task(struct task_info *pTask);
+int work_deal_task(struct task_info *pTask);
 
 static int deal_cmd_get(struct task_info *pTask);
 static int deal_cmd_set(struct task_info *pTask, byte op_type);
@@ -68,6 +66,11 @@ int work_thread_init()
 	int result;
 	pthread_t tid;
 	pthread_attr_t thread_attr;
+
+	if (g_max_threads == 1)  //proccess mode
+	{
+		return 0;
+	}
 
 	if ((result=init_pthread_lock(&work_thread_mutex)) != 0)
 	{
@@ -128,10 +131,13 @@ int work_thread_init()
 
 void work_thread_destroy()
 {
-	wait_for_work_threads_exit();
+	if (g_max_threads > 1)  //thread mode
+	{
+		wait_for_work_threads_exit();
 
-	pthread_mutex_destroy(&work_thread_mutex);
-	pthread_cond_destroy(&work_thread_cond);
+		pthread_mutex_destroy(&work_thread_mutex);
+		pthread_cond_destroy(&work_thread_cond);
+	}
 }
 
 int work_notify_task()
@@ -221,9 +227,7 @@ static void *work_thread_entrance(void* arg)
 			continue;
 		}
 
-		deal_task(pTask);
-
-		g_done_count++;
+		work_deal_task(pTask);
 	}
 
 	if ((result=pthread_mutex_lock(&work_thread_mutex)) != 0)
@@ -271,7 +275,7 @@ static int init_pthread_cond()
 	return 0;
 }
 
-static int deal_task(struct task_info *pTask)
+int work_deal_task(struct task_info *pTask)
 {
 	FDHTProtoHeader *pHeader;
 	int result;
@@ -305,7 +309,7 @@ static int deal_task(struct task_info *pTask)
 			result = 0;
 			break;
 		case FDHT_PROTO_CMD_QUIT:
-			close(pTask->ev.ev_fd);
+			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 			return 0;
 		case FDHT_PROTO_CMD_BATCH_GET:
@@ -343,7 +347,14 @@ static int deal_task(struct task_info *pTask)
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(FDHTProtoHeader), pHeader->pkg_len);
 
-	send_queue_push(pTask);
+	if (g_max_threads > 1)  //thread mode
+	{
+		send_queue_push(pTask);
+	}
+	else  //proccess mode
+	{
+		send_add_event(pTask);
+	}
 
 	return 0;
 }
