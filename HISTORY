@@ -16,6 +16,7 @@ Version 1.09  2009-06-09
  * hash can store value, and pass ChainNode to chain when add node
  * support MPOOL (memory only cache)
  * when max_threads set 1, use process instead of thread
+ * client use non-block socket to increase performance
 
 Version 1.08  2009-04-12
  * common/shared_func.c: rindex change to strrchr, add #include <netinet/in.h>

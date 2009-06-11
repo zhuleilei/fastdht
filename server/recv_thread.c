@@ -254,7 +254,7 @@ static void server_sock_read(int sock, short event, void *arg)
 		}
 	}
 
-	if (tcpsetnonblockopt(incomesock, g_network_timeout) != 0)
+	if (tcpsetnonblockopt(incomesock) != 0)
 	{
 		close(incomesock);
 		return;
@@ -336,6 +336,8 @@ static void client_sock_read(int sock, short event, void *arg)
 		return;
 	}
 
+	while (1)
+	{
 	if (pTask->length == 0) //recv header
 	{
 		recv_bytes = sizeof(FDHTProtoHeader) - pTask->offset;
@@ -467,8 +469,13 @@ static void client_sock_read(int sock, short event, void *arg)
 		{
 			work_deal_task(pTask);
 		}
+
+		return;
 	}
-	else if (event_add(&pTask->ev_read, &g_network_tv) != 0)
+	}
+
+	/*
+	if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 	{
 		close(pTask->ev_read.ev_fd);
 		free_queue_push(pTask);
@@ -477,6 +484,7 @@ static void client_sock_read(int sock, short event, void *arg)
 			"event_add fail.", __LINE__);
 		return;
 	}
+	*/
 
 	return;
 }

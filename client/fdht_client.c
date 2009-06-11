@@ -390,7 +390,7 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	{
 		p = buff + sizeof(FDHTProtoHeader);
 		PACK_BODY_UNTIL_KEY(pKeyInfo, p)
-		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
+		if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -413,7 +413,7 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		if ((result=tcprecvdata(pServer->sock, buff, \
+		if ((result=tcprecvdata_nb(pServer->sock, buff, \
 			4, g_network_timeout)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -461,7 +461,7 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 			}
 		}
 
-		if ((result=tcprecvdata(pServer->sock, *ppValue, \
+		if ((result=tcprecvdata_nb(pServer->sock, *ppValue, \
 			*value_len, g_network_timeout)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -599,7 +599,7 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	do
 	{
 		int2buff(pkg_total_len - sizeof(FDHTProtoHeader), pHeader->pkg_len);
-		if ((result=tcpsenddata(pServer->sock, pBuff, pkg_total_len, \
+		if ((result=tcpsenddata_nb(pServer->sock, pBuff, pkg_total_len, \
 			g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -623,7 +623,7 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		if ((result=tcprecvdata(pServer->sock, pBuff, \
+		if ((result=tcprecvdata_nb(pServer->sock, pBuff, \
 			in_bytes, g_network_timeout)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -752,7 +752,7 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	do
 	{
 		int2buff((p - buff) - sizeof(FDHTProtoHeader), pHeader->pkg_len);
-		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
+		if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -776,7 +776,7 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		if ((result=tcprecvdata(pServer->sock, buff, \
+		if ((result=tcprecvdata_nb(pServer->sock, buff, \
 			in_bytes, g_network_timeout)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -903,7 +903,7 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	do
 	{
 		int2buff((p - buff) - sizeof(FDHTProtoHeader), pHeader->pkg_len);
-		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
+		if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -941,7 +941,7 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 			}
 		}
 
-		if ((result=tcprecvdata(pServer->sock, pInBuff, \
+		if ((result=tcprecvdata_nb(pServer->sock, pInBuff, \
 			in_bytes, g_network_timeout)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -1179,7 +1179,7 @@ int fdht_inc_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		PACK_BODY_UNTIL_KEY(pKeyInfo, p)
 		int2buff(increase, p);
 		p += 4;
-		if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
+		if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
 			g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -1399,7 +1399,7 @@ int fdht_stat_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 	do
 	{
-		if ((result=tcpsenddata(pServer->sock, &header, \
+		if ((result=tcpsenddata_nb(pServer->sock, &header, \
 			sizeof(header), g_network_timeout)) != 0)
 		{
 			logError("send data to server %s:%d fail, " \
@@ -1423,7 +1423,7 @@ int fdht_stat_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 			break;
 		}
 
-		if ((result=tcprecvdata(pServer->sock, buff, \
+		if ((result=tcprecvdata_nb(pServer->sock, buff, \
 			in_bytes, g_network_timeout)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \

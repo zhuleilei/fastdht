@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	if ((result=tcpsetnonblockopt(sock, g_network_timeout)) != 0)
+	if ((result=tcpsetserveropt(sock, g_network_timeout)) != 0)
 	{
 		fdht_func_destroy();
 		return result;
