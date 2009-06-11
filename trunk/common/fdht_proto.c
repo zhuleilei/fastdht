@@ -30,7 +30,7 @@ int fdht_recv_header(FDHTServerInfo *pServer, fdht_pkg_size_t *in_bytes)
 	FDHTProtoHeader resp;
 	int result;
 
-	if ((result=tcprecvdata(pServer->sock, &resp, \
+	if ((result=tcprecvdata_nb(pServer->sock, &resp, \
 		sizeof(resp), g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -113,7 +113,7 @@ int fdht_recv_response(FDHTServerInfo *pServer, \
 		bMalloced = false;
 	}
 
-	if ((result=tcprecvdata(pServer->sock, *buff, \
+	if ((result=tcprecvdata_nb(pServer->sock, *buff, \
 		*in_bytes, g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -141,7 +141,7 @@ int fdht_quit(FDHTServerInfo *pServer)
 
 	memset(&header, 0, sizeof(header));
 	header.cmd = FDHT_PROTO_CMD_QUIT;
-	result = tcpsenddata(pServer->sock, &header, sizeof(header), \
+	result = tcpsenddata_nb(pServer->sock, &header, sizeof(header), \
 				g_network_timeout);
 	if(result != 0)
 	{
@@ -196,6 +196,13 @@ int fdht_connect_server(FDHTServerInfo *pServer)
 		return result;
 	}
 
+	if ((result=tcpsetnonblockopt(pServer->sock)) != 0)
+	{
+		close(pServer->sock);
+		pServer->sock = -1;
+		return result;
+	}
+
 	return 0;
 }
 
@@ -231,7 +238,7 @@ int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
 		return result;
 	}
 
-	if ((result=tcpsenddata(server.sock, out_buff, \
+	if ((result=tcpsenddata_nb(server.sock, out_buff, \
 		sizeof(out_buff), g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -243,7 +250,7 @@ int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
 		return result;
 	}
 
-	if ((result=tcprecvdata(server.sock, in_buff, sizeof(in_buff), \
+	if ((result=tcprecvdata_nb(server.sock, in_buff, sizeof(in_buff), \
 		 g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -320,7 +327,7 @@ int fdht_client_set(FDHTServerInfo *pServer, const char keep_alive, \
 	PACK_BODY_UNTIL_KEY(pKeyInfo, p)
 	int2buff(value_len, p);
 	p += 4;
-	if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
+	if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
 		g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -331,7 +338,7 @@ int fdht_client_set(FDHTServerInfo *pServer, const char keep_alive, \
 		return result;
 	}
 
-	if ((result=tcpsenddata(pServer->sock, (char *)pValue, value_len, \
+	if ((result=tcpsenddata_nb(pServer->sock, (char *)pValue, value_len, \
 		g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -397,7 +404,7 @@ int fdht_client_delete(FDHTServerInfo *pServer, const char keep_alive, \
 	p = buff + sizeof(FDHTProtoHeader);
 	PACK_BODY_UNTIL_KEY(pKeyInfo, p)
 
-	if ((result=tcpsenddata(pServer->sock, buff, p - buff, \
+	if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
 		g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -452,7 +459,7 @@ int fdht_client_heart_beat(FDHTServerInfo *pServer)
 	header.cmd = FDHT_PROTO_CMD_HEART_BEAT;
 	header.keep_alive = 1;
 
-	if ((result=tcpsenddata(pServer->sock, &header, \
+	if ((result=tcpsenddata_nb(pServer->sock, &header, \
 		sizeof(header), g_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
