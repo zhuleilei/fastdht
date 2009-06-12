@@ -33,141 +33,18 @@
 #include "send_thread.h"
 #include "work_thread.h"
 
-static void recv_notify_read(int sock, short event, void *arg);
 static void server_sock_read(int sock, short event, void *arg);
 static void client_sock_read(int sock, short event, void *arg);
 
-static struct event_base *recv_event_base = NULL;
-static struct event ev_notify;
 static struct event ev_sock_server;
-static int recv_fds[2] = {-1, -1};
-
-int recv_notify_write()
-{
-	if (write(recv_fds[1], " ", 1) != 1)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"call write failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
-		return errno != 0 ? errno : EBADF;
-	}
-
-	return 0;
-}
-
-int kill_recv_thread()
-{
-	if (recv_fds[1] >= 0 && write(recv_fds[1], "\0", 1) != 1)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"call write failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
-		return errno != 0 ? errno : EBADF;
-	}
-
-	return 0;
-}
-
-void *recv_thread_entrance(void* arg)
-{
-	//int result;
-
-	recv_event_base = event_base_new();
-	if (recv_event_base == NULL)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_base_new fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
-	}
-
-	event_set(&ev_sock_server, (int)arg, EV_READ | EV_PERSIST, \
-		server_sock_read, &ev_sock_server);
-	if (event_base_set(recv_event_base, &ev_sock_server) != 0)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_base_set fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
-	}
-	if (event_add(&ev_sock_server, NULL) != 0)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_add fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
-	}
-
-	if (pipe(recv_fds) != 0)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"call pipe fail, " \
-			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
-		g_continue_flag = false;
-		return NULL;
-	}
-
-	if (set_nonblock(recv_fds[0]))
-	{
-		g_continue_flag = false;
-		return NULL;
-	}
-
-	event_set(&ev_notify, recv_fds[0], EV_READ | EV_PERSIST, \
-		recv_notify_read, NULL);
-	if (event_base_set(recv_event_base, &ev_notify) != 0)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_base_set fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
-	}
-	if (event_add(&ev_notify, NULL) != 0)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_add fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
-	}
-
-	while (g_continue_flag)
-	{
-		event_base_loop(recv_event_base, 0);
-	}
-
-	event_base_free(recv_event_base);
-
-	close(recv_fds[0]);
-	close(recv_fds[1]);
-
-	logDebug("file: "__FILE__", line: %d, " \
-		"recv thread exit.", __LINE__);
-
-	return NULL;
-}
 
 int recv_process_init(int server_sock)
 {
 	int result;
 
-	if (g_event_base == NULL)
-	{
-		g_event_base = event_init();
-		if (g_event_base == NULL)
-		{
-			logCrit("file: "__FILE__", line: %d, " \
-				"event_base_new fail.", __LINE__);
-			return ENOMEM;
-		}
-	}
-
-	recv_event_base = g_event_base;
 	event_set(&ev_sock_server, server_sock, EV_READ | EV_PERSIST, \
 		server_sock_read, &ev_sock_server);
-	if ((result=event_base_set(recv_event_base, &ev_sock_server)) != 0)
+	if ((result=event_base_set(g_event_base, &ev_sock_server)) != 0)
 	{
 		logCrit("file: "__FILE__", line: %d, " \
 			"event_base_set fail.", __LINE__);
@@ -193,7 +70,7 @@ int recv_add_event(struct task_info *pTask)
 	/*
 	event_set(&pTask->ev_read, pTask->ev_read.ev_fd, EV_READ, \
 			client_sock_read, pTask);
-	if ((result=event_base_set(recv_event_base, &pTask->ev_read)) != 0)
+	if ((result=event_base_set(g_event_base, &pTask->ev_read)) != 0)
 	{
 		close(pTask->ev_read.ev_fd);
 		free_queue_push(pTask);
@@ -272,7 +149,7 @@ static void server_sock_read(int sock, short event, void *arg)
 
 	strcpy(pTask->client_ip, szClientIp);
 	event_set(&pTask->ev_read, incomesock, EV_READ, client_sock_read, pTask);
-	if (event_base_set(recv_event_base, &pTask->ev_read) != 0)
+	if (event_base_set(g_event_base, &pTask->ev_read) != 0)
 	{
 		free_queue_push(pTask);
 		close(incomesock);
@@ -487,77 +364,5 @@ static void client_sock_read(int sock, short event, void *arg)
 	*/
 
 	return;
-}
-
-static void recv_notify_read(int sock, short event, void *arg)
-{
-	struct task_info *pTask;
-	char buff[1024];
-	int bytes;
-	int total_bytes;
-
-	total_bytes = 0;
-	while (1)
-	{
-		if ((bytes=read(recv_fds[0], buff, sizeof(buff))) < 0)
-		{
-			if (!(errno == EAGAIN || errno == EWOULDBLOCK))
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"call read failed, " \
-					"errno: %d, error info: %s", \
-					__LINE__, errno, strerror(errno));
-			}
-
-			break;
-		}
-		else if (bytes == 0)
-		{
-			break;
-		}
-
-		if (!g_continue_flag && memchr(buff, '\0', bytes) != NULL)
-		{
-			event_del(&ev_sock_server);
-			event_del(&ev_notify);
-			event_base_loopbreak(recv_event_base);
-		}
-
-		total_bytes += bytes;
-		if (bytes < sizeof(buff))
-		{
-			break;
-		}
-	}
-
-	if (total_bytes == 0)
-	{
-		logInfo("recv_thread total_bytes==0!");
-		return;
-	}
-
-	while ((pTask = recv_queue_pop()) != NULL)
-	{
-		event_set(&pTask->ev_read, pTask->ev_read.ev_fd, EV_READ, \
-			client_sock_read, pTask);
-		if (event_base_set(recv_event_base, &pTask->ev_read) != 0)
-		{
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
-
-			logError("file: "__FILE__", line: %d, " \
-				"event_base_set fail.", __LINE__);
-			continue;
-		}
-		if (event_add(&pTask->ev_read, &g_network_tv) != 0)
-		{
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
-
-			logError("file: "__FILE__", line: %d, " \
-				"event_add fail.", __LINE__);
-			continue;
-		}
-	}
 }
 

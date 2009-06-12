@@ -175,7 +175,7 @@ int recv_queue_push(struct task_info *pTask)
 	pTask->length = 0;
 	pTask->offset = 0;
 	result = _queue_push_task(&g_recv_queue, pTask);
-	recv_notify_write();
+	//recv_notify_write();
 	return result;
 }
 

@@ -274,10 +274,16 @@ static void sigChildHandler(int sig)
 static int create_sock_io_threads(int server_sock)
 {
 	int result;
-	pthread_t recv_tid;
-	pthread_t send_tid;
 
 	result = 0;
+
+	g_event_base = event_init();
+	if (g_event_base == NULL)
+	{
+		logCrit("file: "__FILE__", line: %d, " \
+				"event_base_new fail.", __LINE__);
+		return ENOMEM;
+	}
 
 	if (g_max_threads == 1)  //proccess mode
 	{
@@ -292,54 +298,30 @@ static int create_sock_io_threads(int server_sock)
 		{
 			return result;
 		}
-
-		while (g_continue_flag)
+	}
+	else
+	{
+		result = recv_thread_init(server_sock);
+		if (result != 0)
 		{
-			event_base_loop(g_event_base, 0);
+			return result;
 		}
 
-		event_base_free(g_event_base);
-
-		return 0;
+		result = send_thread_init();
+		if (result != 0)
+		{
+			return result;
+		}
 	}
 
-	if ((result=pthread_create(&recv_tid, NULL, \
-		recv_thread_entrance, (void *)server_sock)) != 0)
+	while (g_continue_flag)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"create recv thread failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-		return result;
+		event_base_loop(g_event_base, 0);
 	}
 
-	if ((result=pthread_create(&send_tid, NULL, \
-		send_thread_entrance, NULL)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"create send thread failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-		return result;
-	}
+	event_base_free(g_event_base);
 
-	if ((result=pthread_join(recv_tid, NULL)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"pthread_join fail, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-	}
-
-	if ((result=pthread_join(send_tid, NULL)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"pthread_join fail, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-	}
-
-	return result;
+	return 0;
 }
 
 static void fdht_compress_binlog_func(void *arg)
