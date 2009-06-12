@@ -35,7 +35,6 @@
 static void send_notify_read(int sock, short event, void *arg);
 static void client_sock_write(int sock, short event, void *arg);
 
-static struct event_base *send_event_base = NULL;
 static int send_fds[2] = {-1, -1};
 static struct event ev_notify;
 
@@ -54,30 +53,9 @@ int send_notify_write()
 	return 0;
 }
 
-int kill_send_thread()
+int send_thread_init()
 {
-	if (send_fds[1] >= 0 && write(send_fds[1], "\0", 1) != 1)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"call write failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
-		return errno != 0 ? errno : EBADF;
-	}
-
-	return 0;
-}
-
-void *send_thread_entrance(void* arg)
-{
-	send_event_base = event_base_new();
-	if (send_event_base == NULL)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_base_new fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
-	}
+	int result;
 
 	if (pipe(send_fds) != 0)
 	{
@@ -85,77 +63,50 @@ void *send_thread_entrance(void* arg)
 			"call pipe fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		g_continue_flag = false;
-		return NULL;
+		return errno != 0 ? errno : EMFILE;
 	}
 
-	if (set_nonblock(send_fds[0]) != 0)
+	if ((result=set_nonblock(send_fds[0])) != 0)
 	{
-		g_continue_flag = false;
-		return NULL;
+		return result;
 	}
 
 	event_set(&ev_notify, send_fds[0], EV_READ | EV_PERSIST, \
 		send_notify_read, NULL);
-	if (event_base_set(send_event_base, &ev_notify) != 0)
+	if ((result=event_base_set(g_event_base, &ev_notify)) != 0)
 	{
 		logCrit("file: "__FILE__", line: %d, " \
 			"event_base_set fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
+		return result;
 	}
-	if (event_add(&ev_notify, NULL) != 0)
+	if ((result=event_add(&ev_notify, NULL)) != 0)
 	{
 		logCrit("file: "__FILE__", line: %d, " \
 			"event_add fail.", __LINE__);
-		g_continue_flag = false;
-		return NULL;
+		return result;
 	}
 
-	while (g_continue_flag)
-	{
-		event_base_loop(send_event_base, 0);
-	}
-
-	event_base_free(send_event_base);
-
-	close(send_fds[0]);
-	close(send_fds[1]);
-
-	logDebug("file: "__FILE__", line: %d, " \
-		"send thread exit.", __LINE__);
-
-	return NULL;
+	return 0;
 }
 
 int send_process_init()
 {
-	if (g_event_base == NULL)
-	{
-		g_event_base = event_init();
-		if (g_event_base == NULL)
-		{
-			logCrit("file: "__FILE__", line: %d, " \
-				"event_base_new fail.", __LINE__);
-			return ENOMEM;
-		}
-	}
-
-	send_event_base = g_event_base;
-
 	return 0;
 }
 
 int send_add_event(struct task_info *pTask)
 {
-	int result;
+	//int result;
 
 	pTask->offset = 0;
+
+	
+	client_sock_write(pTask->ev_write.ev_fd, EV_WRITE, pTask);
 
 	/*
 	event_set(&pTask->ev_write, pTask->ev_write.ev_fd, EV_WRITE, \
 			client_sock_write, pTask);
-	if ((result=event_base_set(send_event_base, &pTask->ev_write)) != 0)
+	if ((result=event_base_set(g_event_base, &pTask->ev_write)) != 0)
 	{
 		close(pTask->ev_write.ev_fd);
 		free_queue_push(pTask);
@@ -164,7 +115,6 @@ int send_add_event(struct task_info *pTask)
 			"event_base_set fail.", __LINE__);
 		return result;
 	}
-	*/
 	if ((result=event_add(&pTask->ev_write, &g_network_tv)) != 0)
 	{
 		close(pTask->ev_write.ev_fd);
@@ -174,6 +124,7 @@ int send_add_event(struct task_info *pTask)
 				"event_add fail.", __LINE__);
 		return result;
 	}
+	*/
 
 	return 0;
 }
@@ -184,7 +135,7 @@ int send_set_event(struct task_info *pTask, int sock)
 
 	event_set(&pTask->ev_write, sock, EV_WRITE, \
 			client_sock_write, pTask);
-	if ((result=event_base_set(send_event_base, &pTask->ev_write)) != 0)
+	if ((result=event_base_set(g_event_base, &pTask->ev_write)) != 0)
 	{
 		close(pTask->ev_write.ev_fd);
 		free_queue_push(pTask);
@@ -214,6 +165,8 @@ static void client_sock_write(int sock, short event, void *arg)
 		return;
 	}
 
+	while (1)
+	{
 	bytes = send(sock, pTask->data + pTask->offset, \
 			pTask->length - pTask->offset,  0);
 	//printf("%08X sended %d bytes\n", (int)pTask, bytes);
@@ -260,14 +213,7 @@ static void client_sock_write(int sock, short event, void *arg)
 	{
 		if (((FDHTProtoHeader *)pTask->data)->keep_alive)
 		{
-			if (g_max_threads > 1)  //thread mode
-			{
-				recv_queue_push(pTask);  //persistent connection
-			}
-			else //proccess mode
-			{
-				recv_add_event(pTask);
-			}
+			recv_add_event(pTask);
 		}
 		else
 		{
@@ -277,7 +223,9 @@ static void client_sock_write(int sock, short event, void *arg)
 
 		return;
 	}
+	}
 
+	/*
 	if (event_add(&pTask->ev_write, &g_network_tv) != 0)
 	{
 		close(pTask->ev_write.ev_fd);
@@ -286,6 +234,7 @@ static void client_sock_write(int sock, short event, void *arg)
 		logError("file: "__FILE__", line: %d, " \
 			"event_add fail.", __LINE__);
 	}
+	*/
 }
 
 static void send_notify_read(int sock, short event, void *arg)
@@ -315,12 +264,6 @@ static void send_notify_read(int sock, short event, void *arg)
 			break;
 		}
 
-		if (!g_continue_flag && memchr(buff, '\0', bytes) != NULL)//quit
-		{
-			event_del(&ev_notify);
-			//event_base_loopbreak(send_event_base);
-		}
-
 		total_bytes += bytes;
 		if (bytes < sizeof(buff))
 		{
@@ -338,7 +281,7 @@ static void send_notify_read(int sock, short event, void *arg)
 	{
 		event_set(&pTask->ev_write, pTask->ev_write.ev_fd, EV_WRITE, \
 			client_sock_write, pTask);
-		if (event_base_set(send_event_base, &pTask->ev_write) != 0)
+		if (event_base_set(g_event_base, &pTask->ev_write) != 0)
 		{
 			close(pTask->ev_write.ev_fd);
 			free_queue_push(pTask);

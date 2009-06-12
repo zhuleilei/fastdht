@@ -23,9 +23,8 @@ extern "C" {
 #endif
 
 int send_notify_write();
-int kill_send_thread();
-void *send_thread_entrance(void* arg);
 
+int send_thread_init();
 int send_process_init();
 int send_set_event(struct task_info *pTask, int sock);
 int send_add_event(struct task_info *pTask);
