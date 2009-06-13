@@ -159,7 +159,6 @@ int free_queue_push(struct task_info *pTask)
 		}
 	}
 
-	memset(pTask->data, 0, pTask->size);
 	return _queue_push_task(&g_free_queue, pTask);
 }
 

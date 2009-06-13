@@ -21,6 +21,7 @@ echo "\n";
 var_dump($fdht->stat_all());
 
 $fdht->close();
+
 if (($result=fastdht_set($namespace, $object_id, $key, $value)) != 0)
 {
 	error_log("fastdht_set fail, errno: $result");
