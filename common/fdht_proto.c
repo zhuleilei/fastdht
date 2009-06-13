@@ -308,7 +308,7 @@ int fdht_client_set(FDHTServerInfo *pServer, const char keep_alive, \
 	const char *pValue, const int value_len)
 {
 	int result;
-	char buff[sizeof(FDHTProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16];
+	char buff[sizeof(FDHTProtoHeader) + FDHT_MAX_FULL_KEY_LEN + 16 + 1024];
 	FDHTProtoHeader *pHeader;
 	int in_bytes;
 	char *p;
@@ -327,26 +327,45 @@ int fdht_client_set(FDHTServerInfo *pServer, const char keep_alive, \
 	PACK_BODY_UNTIL_KEY(pKeyInfo, p)
 	int2buff(value_len, p);
 	p += 4;
-	if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
-		g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
-	}
 
-	if ((result=tcpsenddata_nb(pServer->sock, (char *)pValue, value_len, \
-		g_network_timeout)) != 0)
+	if ((p - buff) + value_len <= sizeof(buff))
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		return result;
+		memcpy(p, pValue, value_len);
+		p += value_len;
+		if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
+					g_network_timeout)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", __LINE__, \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			return result;
+		}
+	}
+	else
+	{
+		if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
+					g_network_timeout)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", __LINE__, \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			return result;
+		}
+
+		if ((result=tcpsenddata_nb(pServer->sock, (char *)pValue, \
+					value_len, g_network_timeout)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", __LINE__, \
+				pServer->ip_addr, pServer->port, \
+				result, strerror(result));
+			return result;
+		}
 	}
 
 	if ((result=fdht_recv_header(pServer, &in_bytes)) != 0)

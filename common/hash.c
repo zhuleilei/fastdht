@@ -518,11 +518,6 @@ int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
 	int bytes;
 	int malloc_value_size;
 
-	if (pHash == NULL || key == NULL || key_len < 0 || value_len < 0)
-	{
-		return -EINVAL;
-	}
-
 	hash_code = pHash->hash_func(key, key_len);
 	plist = pHash->items + (hash_code % (*pHash->capacity));
 
