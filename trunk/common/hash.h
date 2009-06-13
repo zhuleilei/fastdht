@@ -10,7 +10,7 @@
 #define _HASH_H_
 
 #include <sys/types.h>
-#include "chain.h"
+#include "common_define.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,19 +21,6 @@ extern "C" {
 
 typedef int (*HashFunc) (const void *key, const int key_len);
 
-typedef struct tagHashArray
-{
-	ChainList *items;
-	HashFunc hash_func;
-	int item_count;
-	unsigned int *capacity;
-	double load_factor;
-	int64_t max_bytes;
-	int64_t bytes_used;
-	bool is_malloc_capacity;
-	bool is_malloc_value;
-} HashArray;
-
 typedef struct tagHashData
 {
 	void *key;
@@ -43,6 +30,26 @@ typedef struct tagHashData
 	int malloc_value_size;
 	unsigned int hash_code;
 } HashData;
+
+typedef struct tagHashBucket
+{
+	HashData **items;
+	int alloc_count;
+	int count;
+} HashBucket;
+
+typedef struct tagHashArray
+{
+	HashBucket *buckets;
+	HashFunc hash_func;
+	int item_count;
+	unsigned int *capacity;
+	double load_factor;
+	int64_t max_bytes;
+	int64_t bytes_used;
+	bool is_malloc_capacity;
+	bool is_malloc_value;
+} HashArray;
 
 /*
 hash walk function
