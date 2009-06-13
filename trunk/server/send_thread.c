@@ -100,7 +100,6 @@ int send_add_event(struct task_info *pTask)
 
 	pTask->offset = 0;
 
-	
 	client_sock_write(pTask->ev_write.ev_fd, EV_WRITE, pTask);
 
 	/*

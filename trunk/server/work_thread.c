@@ -37,6 +37,7 @@
 #include "func.h"
 #include "db_op.h"
 #include "sync.h"
+#include "mpool_op.h"
 
 #define SYNC_REQ_WAIT_SECONDS	60
 
@@ -1452,6 +1453,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	int value_len;
 	int result;
 
+
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
@@ -1481,18 +1483,12 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	}
 	pValue = pKey + key_info.key_len;
 
-	if (op_type == FDHT_OP_TYPE_SOURCE_SET)
-	{
-		timestamp = time(NULL);
-	}
-
 	int2buff(new_expires, pValue);
 	value_len += 4;
 
 	pTask->length = sizeof(FDHTProtoHeader);
 
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
-
 	result = g_func_set(g_db_list[group_id], full_key, full_key_len, \
 			pValue, value_len);
 	if (result == 0)
@@ -1501,6 +1497,11 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 
 		if (g_write_to_binlog_flag)
 		{
+			if (op_type == FDHT_OP_TYPE_SOURCE_SET)
+			{
+				timestamp = time(NULL);
+			}
+
 			fdht_binlog_write(timestamp, op_type, key_hash_code, \
 				new_expires, &key_info, pValue+4, value_len-4);
 		}
@@ -1706,6 +1707,19 @@ static int deal_cmd_stat(struct task_info *pTask)
 			g_server_stat.total_get_count);
 	p += sprintf(p, "success_get_count="INT64_PRINTF_FORMAT"\n", \
 			g_server_stat.success_get_count);
+	if (g_store_type == FDHT_STORE_TYPE_MPOOL)
+	{
+		p += sprintf(p, "total_items=%d\n", \
+			g_hash_array->item_count);
+		p += sprintf(p, "bucket count=%d\n", \
+			*(g_hash_array->capacity));
+		p += sprintf(p, "used_bytes="INT64_PRINTF_FORMAT"\n", \
+			g_hash_array->bytes_used);
+		p += sprintf(p, "max bytes="INT64_PRINTF_FORMAT"\n", \
+			g_hash_array->max_bytes);
+		p += sprintf(p, "free bytes="INT64_PRINTF_FORMAT"\n", \
+			g_hash_array->max_bytes - g_hash_array->bytes_used);
+	}
 
 	pTask->length = p - pTask->data;
 	return 0;
