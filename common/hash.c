@@ -79,11 +79,6 @@ int hash_init_ex(HashArray *pHash, HashFunc hash_func, \
 	unsigned int *prime_end;
 	int result;
 
-	if (pHash == NULL || hash_func == NULL)
-	{
-		return EINVAL;
-	}
-
 	memset(pHash, 0, sizeof(HashArray));
 	prime_end = prime_array + PRIME_ARRAY_SIZE;
 	for (pprime = prime_array; pprime!=prime_end; pprime++)
@@ -123,9 +118,29 @@ int hash_init_ex(HashArray *pHash, HashFunc hash_func, \
 
 void hash_destroy(HashArray *pHash)
 {
+	HashBucket *pBucket;
+	HashBucket *bucket_end;
+	int i;
+
 	if (pHash == NULL || pHash->buckets == NULL)
 	{
 		return;
+	}
+
+	bucket_end = pHash->buckets + (*pHash->capacity);
+	for (pBucket=pHash->buckets; pBucket<bucket_end; pBucket++)
+	{
+		if (pBucket->items == NULL)
+		{
+			continue;
+		}
+
+		for (i=0; i<pBucket->count; i++)
+		{
+			free(pBucket->items[i]);
+		}
+
+		free(pBucket->items);
 	}
 
 	free(pHash->buckets);
@@ -137,6 +152,7 @@ void hash_destroy(HashArray *pHash)
 		pHash->is_malloc_capacity = false;
 	}
 
+	pHash->item_count = 0;
 	pHash->bytes_used = 0;
 }
 
@@ -253,6 +269,8 @@ static int _rehash1(HashArray *pHash, const int old_capacity, \
 	}
 
 	//printf("old: %d, new: %d\n", old_capacity, *pHash->capacity);
+
+	pHash->item_count = 0;
 	bucket_end = old_buckets + old_capacity;
 	for (pBucket=old_buckets; pBucket<bucket_end; pBucket++)
 	{
@@ -325,7 +343,7 @@ int _hash_conflict_count(HashArray *pHash)
 
 	bucket_end = pHash->buckets + (*pHash->capacity);
 	conflict_count = 0;
-	for (pBucket=pHash->buckets; pBucket!=bucket_end; pBucket++)
+	for (pBucket=pHash->buckets; pBucket<bucket_end; pBucket++)
 	{
 		if (pBucket->count <= 1)
 		{
@@ -600,7 +618,7 @@ int hash_delete(HashArray *pHash, const void *key, const int key_len)
 			}
 			pBucket->count--;
 			pHash->item_count--;
-			break;
+			return 1;
 		}
 	}
 
