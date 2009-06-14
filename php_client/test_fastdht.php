@@ -15,7 +15,6 @@ var_dump($fdht->get($namespace, $object_id, $key, false, time() + 60));
 
 var_dump($fdht->inc($namespace, $object_id, $key, 100));
 
-exit;
 echo 'delete: ' . $fdht->delete($namespace, $object_id, $key) . "\n";
 echo "\n";
 var_dump($fdht->stat_all());
