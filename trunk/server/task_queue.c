@@ -139,6 +139,7 @@ struct task_info *free_queue_pop()
 int free_queue_push(struct task_info *pTask)
 {
 	char *new_buff;
+	int result;
 
 	pTask->length = 0;
 	pTask->offset = 0;
@@ -159,7 +160,30 @@ int free_queue_push(struct task_info *pTask)
 		}
 	}
 
-	return _queue_push_task(&g_free_queue, pTask);
+	if ((result=pthread_mutex_lock(&g_free_queue.lock)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call pthread_mutex_lock fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, strerror(result));
+	}
+
+	pTask->next = g_free_queue.head;
+	g_free_queue.head = pTask;
+	if (g_free_queue.tail == NULL)
+	{
+		g_free_queue.tail = pTask;
+	}
+
+	if ((result=pthread_mutex_unlock(&g_free_queue.lock)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call pthread_mutex_unlock fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, strerror(result));
+	}
+
+	return result;
 }
 
 int free_queue_count()

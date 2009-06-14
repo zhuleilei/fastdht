@@ -3,7 +3,7 @@
 $namespace = 'bbs';
 $object_id = 'test';
 $key = 'KEY123456';
-$value = '1234567890';
+$value = '123456789012345';
 
 $fdht = new FastDHT(0);
 
@@ -13,10 +13,10 @@ if (($result=$fdht->set($namespace, $object_id, $key, $value)) != 0)
 }
 var_dump($fdht->get($namespace, $object_id, $key, false, time() + 60));
 
-var_dump($fdht->inc($namespace, $object_id, $key, 10));
+var_dump($fdht->inc($namespace, $object_id, $key, 100));
 
+exit;
 echo 'delete: ' . $fdht->delete($namespace, $object_id, $key) . "\n";
-
 echo "\n";
 var_dump($fdht->stat_all());
 
