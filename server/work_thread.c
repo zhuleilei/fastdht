@@ -1668,6 +1668,7 @@ static int deal_cmd_stat(struct task_info *pTask)
 {
 	int nInBodyLen;
 	time_t current_time;
+	int result;
 	char *p;
 
 	nInBodyLen = pTask->length - sizeof(FDHTProtoHeader);
@@ -1707,18 +1708,36 @@ static int deal_cmd_stat(struct task_info *pTask)
 			g_server_stat.total_get_count);
 	p += sprintf(p, "success_get_count="INT64_PRINTF_FORMAT"\n", \
 			g_server_stat.success_get_count);
+
 	if (g_store_type == FDHT_STORE_TYPE_MPOOL)
 	{
-		p += sprintf(p, "total_items=%d\n", \
-			g_hash_array->item_count);
-		p += sprintf(p, "bucket count=%d\n", \
-			*(g_hash_array->capacity));
+		#define STAT_MAX_NUM  64
+		HashStat hs;
+		int stats[STAT_MAX_NUM];
+
+		if ((result=hash_stat(g_hash_array, &hs, stats, \
+					STAT_MAX_NUM)) != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"client ip: %s, call hash_stat fail, " \
+				"errno: %d, error info: %s", __LINE__, \
+				pTask->client_ip, result, strerror(result));
+			pTask->length = sizeof(FDHTProtoHeader);
+			return result;
+		}
+
+		p += sprintf(p, "total_items=%d\n", hs.item_count);
+		p += sprintf(p, "bucket count=%d\n", hs.capacity);
 		p += sprintf(p, "used_bytes="INT64_PRINTF_FORMAT"\n", \
 			g_hash_array->bytes_used);
 		p += sprintf(p, "max bytes="INT64_PRINTF_FORMAT"\n", \
 			g_hash_array->max_bytes);
 		p += sprintf(p, "free bytes="INT64_PRINTF_FORMAT"\n", \
 			g_hash_array->max_bytes - g_hash_array->bytes_used);
+		p += sprintf(p, "bucket_used=%d\n", hs.bucket_used);
+		p += sprintf(p, "bucket_max_length=%d\n", hs.bucket_max_length);
+		p += sprintf(p, "bucket_avg_length=%.4f\n", \
+				hs.bucket_avg_length);
 	}
 
 	pTask->length = p - pTask->data;
