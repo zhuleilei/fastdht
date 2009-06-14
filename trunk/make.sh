@@ -28,8 +28,8 @@ cat <<EOF > common/_os_bits.h
 EOF
 
 TARGET_PATH=/usr/local/bin
-#CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64'
-CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D__DEBUG__'
+#CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64 -DHASH_MALLOC_VALUE'
+CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -DHASH_MALLOC_VALUE -D__DEBUG__'
 
 LIBS=''
 uname=`uname`

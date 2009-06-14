@@ -73,7 +73,7 @@ int _hash_alloc_buckets(HashArray *pHash, const unsigned int old_capacity)
 
 int hash_init_ex(HashArray *pHash, HashFunc hash_func, \
 		const unsigned int capacity, const double load_factor, \
-		const int64_t max_bytes, const bool bMallocValue)
+		const int64_t max_bytes)
 {
 	unsigned int *pprime;
 	unsigned int *prime_end;
@@ -102,7 +102,6 @@ int hash_init_ex(HashArray *pHash, HashFunc hash_func, \
 
 	pHash->hash_func = hash_func;
 	pHash->max_bytes = max_bytes;
-	pHash->is_malloc_value = bMallocValue;
 
 	if (load_factor >= 0.10 && load_factor <= 1.00)
 	{
@@ -191,24 +190,21 @@ static int add_to_bucket(HashArray *pHash, HashBucket *pBucket, \
 	return 0;
 }
 
-void hash_stat_print(HashArray *pHash)
+int hash_stat(HashArray *pHash, HashStat *pStat, \
+		int *stat_by_lens, const int stat_size)
 {
-#define STAT_MAX_NUM  17
 	HashBucket *pBucket;
 	HashBucket *bucket_end;
 	int totalLength;
-	int stats[STAT_MAX_NUM];
 	int last;
 	int index;
 	int i;
-	int max_length;
-	int bucket_used;
 
-	memset(stats, 0, sizeof(stats));
-	last = STAT_MAX_NUM - 1;
+	memset(stat_by_lens, 0, sizeof(int) * stat_size);
+	last = stat_size - 1;
 	bucket_end = pHash->buckets + (*pHash->capacity);
-	max_length = 0;
-	bucket_used = 0;
+	pStat->bucket_max_length = 0;
+	pStat->bucket_used = 0;
 	for (pBucket=pHash->buckets; pBucket<bucket_end; pBucket++)
 	{
 		if (pBucket->count == 0)
@@ -216,18 +212,47 @@ void hash_stat_print(HashArray *pHash)
 			continue;
 		}
 
-		bucket_used++;
-		index = pBucket->count - 1;
+		pStat->bucket_used++;
+		index = pBucket->count;
 		if (index > last)
 		{
-			index = last;
+			return ENOSPC;
 		}
-		stats[index]++;
+		stat_by_lens[index]++;
 
-		if (pBucket->count > max_length)
+		if (pBucket->count > pStat->bucket_max_length)
 		{
-			max_length = pBucket->count;
+			pStat->bucket_max_length = pBucket->count;
 		}
+	}
+
+	totalLength = 0;
+	for (i=0; i<=pStat->bucket_max_length; i++)
+	{
+		if (stat_by_lens[i] > 0)
+		{
+			totalLength += i * stat_by_lens[i];
+		}
+	}
+
+	pStat->capacity = *(pHash->capacity);
+	pStat->item_count = pHash->item_count;
+	pStat->bucket_avg_length = pStat->bucket_used > 0 ? \
+		(double)totalLength / (double)pStat->bucket_used : 0.00;
+
+	return 0;
+}
+
+void hash_stat_print(HashArray *pHash)
+{
+#define STAT_MAX_NUM  64
+	HashStat hs;
+	int stats[STAT_MAX_NUM];
+
+	if (hash_stat(pHash, &hs, stats, STAT_MAX_NUM) != 0)
+	{
+		printf("hash max length exceeds %d!\n", STAT_MAX_NUM);
+		return;
 	}
 
 	/*
@@ -239,16 +264,11 @@ void hash_stat_print(HashArray *pHash)
 	if (stats[i] > 0) printf(">=%d: %d\n", i+1, stats[i]);
 	*/
 
-	totalLength = 0;
-	for (i=0; i<STAT_MAX_NUM; i++)
-	{
-		if (stats[i] > 0) totalLength += (i+1) * stats[i];
-	}
 	printf("capacity: %d, item_count=%d, bucket_used: %d, " \
 		"avg length: %.4f, max length: %d, bucket / item = %.2f%%\n", 
-               *pHash->capacity, pHash->item_count, bucket_used,
-               bucket_used > 0 ? (double)totalLength / (double)bucket_used:0.00,
-               max_length, (double)bucket_used*100.00/(double)*pHash->capacity);
+		hs.capacity, hs.item_count, hs.bucket_used,
+		hs.bucket_avg_length, hs.bucket_max_length, 
+		(double)hs.bucket_used*100.00/(double)hs.capacity);
 }
 
 static int _rehash1(HashArray *pHash, const int old_capacity, \
@@ -476,7 +496,7 @@ void *hash_find(HashArray *pHash, const void *key, const int key_len)
 	hash_data = _chain_find_entry(pBucket, key, key_len, hash_code);
 	if (hash_data != NULL)
 	{
-		return hash_data->value;
+		return HASH_VALUE(hash_data);
 	}
 	else
 	{
@@ -510,18 +530,16 @@ int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
 
 	if (i < pBucket->count) //exists
 	{
-		if (!pHash->is_malloc_value)
-		{
+		#ifndef HASH_MALLOC_VALUE
 			pBucket->items[i]->value_len = value_len;
-			pBucket->items[i]->value = value;
+			HASH_VALUE(pBucket->items[i]) = value;
 			return 0;
-		}
-
+		#else
 		if (pBucket->items[i]->malloc_value_size >= value_len && \
 			pBucket->items[i]->malloc_value_size / 2 < value_len)
 		{
 			pBucket->items[i]->value_len = value_len;
-			memcpy(pBucket->items[i]->value, value, value_len);
+			memcpy(HASH_VALUE(pBucket->items[i]), value, value_len);
 			return 0;
 		}
 
@@ -535,16 +553,14 @@ int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
 			memcpy(pBucket->items+i, pBucket->items+i+1, \
 				sizeof(HashData *) * (pBucket->count - 1 - i));
 		}
+		#endif
 	}
 
-	if (!pHash->is_malloc_value)
-	{
+	#ifndef HASH_MALLOC_VALUE
 		malloc_value_size = 0;
-	}
-	else
-	{
+	#else
 		malloc_value_size = value_len;
-	}
+	#endif
 
 	bytes = CALC_NODE_MALLOC_BYTES(key_len, malloc_value_size);
 	if (pHash->max_bytes > 0 && pHash->bytes_used+bytes > pHash->max_bytes)
@@ -561,7 +577,6 @@ int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
 	pHash->bytes_used += bytes;
 
 	hash_data = (HashData *)pBuff;
-	hash_data->key = pBuff + sizeof(HashData);
 	hash_data->malloc_value_size = malloc_value_size;
 
 	hash_data->key_len = key_len;
@@ -569,15 +584,11 @@ int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
 	hash_data->hash_code = hash_code;
 	hash_data->value_len = value_len;
 
-	if (!pHash->is_malloc_value)
-	{
-		hash_data->value = value;
-	}
-	else
-	{
-		hash_data->value = hash_data->key + key_len;
-		memcpy(hash_data->value, value, value_len);
-	}
+	#ifndef HASH_MALLOC_VALUE
+		HASH_VALUE(hash_data) = value;
+	#else
+		memcpy(HASH_VALUE(hash_data), value, value_len);
+	#endif
 
 	if ((result=add_to_bucket(pHash, pBucket, hash_data)) != 0)
 	{

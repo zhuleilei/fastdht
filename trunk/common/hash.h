@@ -21,14 +21,22 @@ extern "C" {
 
 typedef int (*HashFunc) (const void *key, const int key_len);
 
+#ifdef HASH_MALLOC_VALUE
+    #define HASH_VALUE(hash_data)  (hash_data->key + hash_data->key_len)
+#else
+    #define HASH_VALUE(hash_data)  hash_data->value
+#endif
+
 typedef struct tagHashData
 {
-	void *key;
 	int key_len;
-	void *value;
 	int value_len;
 	int malloc_value_size;
 	unsigned int hash_code;
+#ifndef HASH_MALLOC_VALUE
+	char *value;
+#endif
+	char key[0];
 } HashData;
 
 typedef struct tagHashBucket
@@ -48,8 +56,16 @@ typedef struct tagHashArray
 	int64_t max_bytes;
 	int64_t bytes_used;
 	bool is_malloc_capacity;
-	bool is_malloc_value;
 } HashArray;
+
+typedef struct tagHashStat
+{
+	unsigned int capacity;
+	int item_count;
+	int bucket_used;
+	double bucket_avg_length;
+	int bucket_max_length;
+} HashStat;
 
 /*
 hash walk function
@@ -61,14 +77,14 @@ return 0 for success, != 0 for error
 typedef int (*HashWalkFunc)(const int index, const HashData *data, void *args);
 
 #define hash_init(pHash, hash_func, capacity, load_factor) \
-	hash_init_ex(pHash, hash_func, capacity, load_factor, 0, false)
+	hash_init_ex(pHash, hash_func, capacity, load_factor, 0)
 
 #define hash_insert(pHash, key, key_len, value) \
 	hash_insert_ex(pHash, key, key_len, value, 0)
 
 int hash_init_ex(HashArray *pHash, HashFunc hash_func, \
 		const unsigned int capacity, const double load_factor, \
-		const int64_t max_bytes, const bool bMallocValue);
+		const int64_t max_bytes);
 
 void hash_destroy(HashArray *pHash);
 int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
@@ -80,6 +96,8 @@ HashData *hash_find_ex(HashArray *pHash, const void *key, const int key_len);
 int hash_delete(HashArray *pHash, const void *key, const int key_len);
 int hash_walk(HashArray *pHash, HashWalkFunc walkFunc, void *args);
 int hash_best_op(HashArray *pHash, const int suggest_capacity);
+int hash_stat(HashArray *pHash, HashStat *pStat, \
+		int *stat_by_lens, const int stat_size);
 void hash_stat_print(HashArray *pHash);
 
 int RSHash(const void *key, const int key_len);
