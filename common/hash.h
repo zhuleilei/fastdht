@@ -36,19 +36,13 @@ typedef struct tagHashData
 #ifndef HASH_MALLOC_VALUE
 	char *value;
 #endif
+	struct tagHashData *next;
 	char key[0];
 } HashData;
 
-typedef struct tagHashBucket
-{
-	HashData **items;
-	int alloc_count;
-	int count;
-} HashBucket;
-
 typedef struct tagHashArray
 {
-	HashBucket *buckets;
+	HashData **buckets;
 	HashFunc hash_func;
 	int item_count;
 	unsigned int *capacity;

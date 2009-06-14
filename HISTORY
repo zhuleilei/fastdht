@@ -1,4 +1,4 @@
-Version 1.09  2009-06-09
+Version 1.09  2009-06-14
  * correct php extension error info
  * fdht_compress.c: make sure syncing is done
  * add shell script: stop.sh, restart.sh modified
@@ -17,6 +17,7 @@ Version 1.09  2009-06-09
  * support MPOOL (memory only cache)
  * when max_threads set 1, use process instead of thread
  * client use non-block socket to increase performance
+ * hash.c use chain impl by self
 
 Version 1.08  2009-04-12
  * common/shared_func.c: rindex change to strrchr, add #include <netinet/in.h>
