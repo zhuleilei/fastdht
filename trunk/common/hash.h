@@ -27,12 +27,23 @@ typedef int (*HashFunc) (const void *key, const int key_len);
     #define HASH_VALUE(hash_data)  hash_data->value
 #endif
 
+#ifdef HASH_STORE_HASH_CODE
+#define HASH_CODE(pHash, hash_data)   hash_data->hash_code
+#else
+#define HASH_CODE(pHash, hash_data)   ((unsigned int)pHash->hash_func( \
+					hash_data->key, hash_data->key_len))
+#endif
+
 typedef struct tagHashData
 {
 	int key_len;
 	int value_len;
 	int malloc_value_size;
+
+#ifdef HASH_STORE_HASH_CODE
 	unsigned int hash_code;
+#endif
+
 #ifndef HASH_MALLOC_VALUE
 	char *value;
 #endif

@@ -478,7 +478,7 @@ int db_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	if ((result=_db_do_get(pHandle, pKey, key_len, \
                	&pValue, value_len)) != 0)
 	{
-		if (result != ENOENT)
+		if (result != ENOENT && result != ENOSPC)
 		{
 			return result;
 		}
@@ -501,11 +501,7 @@ int db_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 		}
 	}
 
-	if (expires != FDHT_EXPIRES_NONE)
-	{
-		int2buff(expires, pValue);
-	}
-
+	int2buff(expires, pValue);
 	*value_len = 4 + sprintf(pValue+4, INT64_PRINTF_FORMAT, n);
 
 	memset(&key, 0, sizeof(key));

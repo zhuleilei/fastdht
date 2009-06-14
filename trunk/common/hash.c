@@ -297,7 +297,7 @@ static int _rehash1(HashArray *pHash, const int old_capacity, \
 			pNext = hash_data->next;
 
 			ADD_TO_BUCKET(pHash, (pHash->buckets + \
-				(hash_data->hash_code % \
+				(HASH_CODE(pHash, hash_data) % \
 				(*pHash->capacity))), hash_data)
 
 			hash_data = pNext;
@@ -380,7 +380,8 @@ int _hash_conflict_count(HashArray *pHash)
 			pNext = hash_data->next;
 			while (pNext != NULL)
 			{
-				if (hash_data->hash_code != pNext->hash_code)
+				if (HASH_CODE(pHash, hash_data) != \
+					HASH_CODE(pHash, pNext))
 				{
 					conflicted = 1;
 					break;
@@ -588,7 +589,9 @@ int hash_insert_ex(HashArray *pHash, const void *key, const int key_len, \
 
 	hash_data->key_len = key_len;
 	memcpy(hash_data->key, key, key_len);
+#ifdef HASH_STORE_HASH_CODE
 	hash_data->hash_code = hash_code;
+#endif
 	hash_data->value_len = value_len;
 
 	#ifndef HASH_MALLOC_VALUE
