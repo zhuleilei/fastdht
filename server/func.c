@@ -343,6 +343,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char *pPageSize;
 	char *pMaxPkgSize;
 	char *pMinBuffSize;
+	char *pStoreType;
 	int64_t nPageSize;
 	IniItemInfo *items;
 	int nItemCount;
@@ -353,6 +354,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char sz_sync_db_time_base[16];
 	char sz_clear_expired_time_base[16];
 	char sz_compress_binlog_time_base[16];
+	char szStoreParams[160];
 
 	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
 	{
@@ -453,11 +455,159 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		g_max_threads = iniGetIntValue("max_threads", \
-				items, nItemCount, FDHT_DEFAULT_MAX_THREADS);
-		if (g_max_threads <= 0)
+		pStoreType = iniGetStrValue("store_type", items, nItemCount);
+		if (pStoreType == NULL)
 		{
-			g_max_threads = FDHT_DEFAULT_MAX_THREADS;
+			g_store_type = FDHT_STORE_TYPE_BDB;
+		}
+		else if (strcasecmp(pStoreType, "BDB") == 0)
+		{
+			g_store_type = FDHT_STORE_TYPE_BDB;
+		}
+		else if (strcasecmp(pStoreType, "MPOOL") == 0)
+		{
+			g_store_type = FDHT_STORE_TYPE_MPOOL;
+		}
+		else
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"item \"store_type\" is invalid, " \
+				"value: \"%s\"", __LINE__, pStoreType);
+			result = EINVAL;
+			break;
+		}
+
+		if (g_store_type == FDHT_STORE_TYPE_MPOOL)
+		{
+			g_max_threads = 1;
+			g_mpool_init_capacity = iniGetIntValue( \
+				"mpool_init_capacity", items, nItemCount, \
+				FDHT_DEFAULT_MPOOL_INIT_CAPACITY);
+			if (g_mpool_init_capacity < 0)
+			{
+				g_mpool_init_capacity  = \
+					FDHT_DEFAULT_MPOOL_INIT_CAPACITY;
+			}
+
+			g_mpool_load_factor = iniGetDoubleValue( \
+				"mpool_load_factor", items, nItemCount, \
+				FDHT_DEFAULT_MPOOL_LOAD_FACTOR);
+			if (g_mpool_load_factor <= 0.0001)
+			{
+				g_mpool_load_factor = \
+					FDHT_DEFAULT_MPOOL_INIT_CAPACITY;
+			}
+
+			snprintf(szStoreParams, sizeof(szStoreParams), \
+				"mpool_init_capacity=%d, " \
+				"mpool_load_factor=%.2f", \
+				g_mpool_init_capacity, \
+				g_mpool_load_factor);
+		}
+		else
+		{
+			g_max_threads = iniGetIntValue("max_threads", items, \
+					nItemCount, FDHT_DEFAULT_MAX_THREADS);
+			if (g_max_threads <= 0)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"item \"max_threads\" is invalid, " \
+					"value: %d <= 0!", __LINE__, \
+					g_max_threads);
+				result = EINVAL;
+				break;
+			}
+
+			pDbType = iniGetStrValue("db_type", items, nItemCount);
+			if (pDbType == NULL)
+			{
+				*db_type = DB_BTREE;
+			}
+			else if (strcasecmp(pDbType, "btree") == 0)
+			{
+				*db_type = DB_BTREE;
+			}
+			else if (strcasecmp(pDbType, "hash") == 0) 
+			{
+				*db_type = DB_HASH;
+			}
+			else
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"item \"db_type\" is invalid, " \
+					"value: \"%s\"", __LINE__, pDbType);
+				result = EINVAL;
+				break;
+			}
+
+			nPageSize = 4 * 1024;
+			pPageSize = iniGetStrValue("page_size", \
+						items, nItemCount);
+			if (pPageSize != NULL && (result=parse_bytes( \
+				pPageSize, 1, &nPageSize)) != 0)
+			{
+				break;
+			}
+
+			if ((nPageSize < 512) || (nPageSize > 64 * 1024))
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"page_size: "INT64_PRINTF_FORMAT \
+					"is invalid, which < %d or > %d!", \
+					__LINE__, nPageSize, 512, 64 * 1024);
+				result = EINVAL;
+				break;
+			}
+			*page_size = (int)nPageSize;
+
+			pDbFilePrefix = iniGetStrValue("db_prefix", \
+						items, nItemCount);
+			if (pDbFilePrefix == NULL || *pDbFilePrefix == '\0')
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"item \"db_prefix\" not exist or " \
+					"is empty!", __LINE__);
+				result = ENOENT;
+				break;
+			}
+			snprintf(db_file_prefix, DB_FILE_PREFIX_MAX_SIZE, \
+				"%s", pDbFilePrefix);
+			g_sync_db_interval = iniGetIntValue( \
+				"sync_db_interval", items, nItemCount, \
+				DEFAULT_SYNC_DB_INVERVAL);
+
+			if ((result=get_time_item_from_conf(items, nItemCount, \
+				"sync_db_time_base", &g_sync_db_time_base, \
+				0, 0)) != 0)
+			{
+				break;
+			}
+
+			if (g_sync_db_time_base.hour == TIME_NONE)
+			{
+				strcpy(sz_sync_db_time_base, "current time");
+			}
+			else
+			{
+				sprintf(sz_sync_db_time_base, "%02d:%02d", \
+						g_sync_db_time_base.hour, \
+						g_sync_db_time_base.minute);
+			}
+			g_db_dead_lock_detect_interval = iniGetIntValue( \
+				"db_dead_lock_detect_interval", \
+				items, nItemCount, \
+				DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL);
+
+			snprintf(szStoreParams, sizeof(szStoreParams), \
+				"db_type=%s, " \
+				"db_prefix=%s, " \
+				"page_size=%d, " \
+				"sync_db_time_base=%s, sync_db_interval=%ds, " \
+				"db_dead_lock_detect_interval=%dms", \
+				*db_type == DB_BTREE ? "btree" : "hash", \
+				db_file_prefix, *page_size, \
+				sz_sync_db_time_base, g_sync_db_interval, \
+				g_db_dead_lock_detect_interval);
 		}
 
 		pMaxPkgSize = iniGetStrValue("max_pkg_size", \
@@ -516,28 +666,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		pDbType = iniGetStrValue("db_type", items, nItemCount);
-		if (pDbType == NULL)
-		{
-			*db_type = DB_BTREE;
-		}
-		else if (strcasecmp(pDbType, "btree") == 0) 
-		{
-			*db_type = DB_BTREE;
-		}
-		else if (strcasecmp(pDbType, "hash") == 0) 
-		{
-			*db_type = DB_HASH;
-		}
-		else
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"item \"db_type\" is invalid, value: \"%s\"", \
-				__LINE__, pDbType);
-			result = EINVAL;
-			break;
-		}
-
 		pCacheSize = iniGetStrValue("cache_size", items, nItemCount);
 		if (pCacheSize == NULL)
 		{
@@ -547,37 +675,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		{
 			break;
 		}
-
-		nPageSize = 4 * 1024;
-		pPageSize = iniGetStrValue("page_size", items, nItemCount);
-		if (pPageSize != NULL && \
-			(result=parse_bytes(pPageSize, 1, &nPageSize)) != 0)
-		{
-			break;
-		}
-
-		if ((nPageSize < 512) || (nPageSize > 64 * 1024))
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"page_size: "INT64_PRINTF_FORMAT \
-				"is invalid, which < %d or > %d!", \
-				__LINE__, nPageSize, 512, 64 * 1024);
-			result = EINVAL;
-			break;
-		}
-		*page_size = (int)nPageSize;
-
-		pDbFilePrefix = iniGetStrValue("db_prefix", items, nItemCount);
-		if (pDbFilePrefix == NULL || *pDbFilePrefix == '\0')
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"item \"db_prefix\" not exist or is empty!", \
-				__LINE__);
-			result = ENOENT;
-			break;
-		}
-		snprintf(db_file_prefix, DB_FILE_PREFIX_MAX_SIZE, \
-			"%s", pDbFilePrefix);
 
 		memset(&groupArray, 0, sizeof(groupArray));
 		result = fdht_load_groups(items, nItemCount, &groupArray);
@@ -622,27 +719,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_sync_log_buff_interval = SYNC_LOG_BUFF_DEF_INTERVAL;
 		}
 
-		g_sync_db_interval = iniGetIntValue( \
-				"sync_db_interval", items, nItemCount, \
-				DEFAULT_SYNC_DB_INVERVAL);
-		
-		if ((result=get_time_item_from_conf(items, nItemCount, \
-			"sync_db_time_base", &g_sync_db_time_base, \
-			0, 0)) != 0)
-		{
-			break;
-		}
-
-		if (g_sync_db_time_base.hour == TIME_NONE)
-		{
-			strcpy(sz_sync_db_time_base, "current time");
-		}
-		else
-		{
-			sprintf(sz_sync_db_time_base, "%02d:%02d", \
-				g_sync_db_time_base.hour, \
-				g_sync_db_time_base.minute);
-		}
 
 		g_clear_expired_interval = iniGetIntValue( \
 				"clear_expired_interval", items, nItemCount, \
@@ -665,10 +741,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				g_clear_expired_time_base.hour, \
 				g_clear_expired_time_base.minute);
 		}
-
-		g_db_dead_lock_detect_interval = iniGetIntValue( \
-			"db_dead_lock_detect_interval", items, nItemCount, \
-			DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL);
 
 		g_write_to_binlog_flag = iniGetBoolValue("write_to_binlog", \
 					items, nItemCount, true);
@@ -712,15 +784,12 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"max_threads=%d, "    \
 			"max_pkg_size=%d KB, " \
 			"min_buff_size=%d KB, " \
-			"db_type=%s, " \
-			"db_prefix=%s, " \
-			"cache_size=%d MB, page_size=%d, " \
+			"store_type=%s, " \
+			"cache_size=%d MB, %s, " \
 			"sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d, sync_log_buff_interval=%ds, " \
-			"sync_db_time_base=%s, sync_db_interval=%ds, " \
 			"clear_expired_time_base=%s, " \
 			"clear_expired_interval=%ds, " \
-			"db_dead_lock_detect_interval=%dms, " \
 			"write_to_binlog=%d, sync_binlog_buff_interval=%ds, " \
 			"compress_binlog_time_base=%s, " \
 			"compress_binlog_interval=%ds", \
@@ -730,14 +799,14 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_server_port, bind_addr, g_max_connections, \
 			g_max_threads, g_max_pkg_size / 1024, \
 			g_min_buff_size / 1024, \
-			*db_type == DB_BTREE ? "btree" : "hash", \
-			db_file_prefix, (int)(*nCacheSize / (1024 * 1024)), \
-			*page_size, g_sync_wait_usec / 1000, g_allow_ip_count, \
-			g_sync_log_buff_interval, sz_sync_db_time_base, \
-			g_sync_db_interval, sz_clear_expired_time_base, \
-			g_clear_expired_interval, \
-			g_db_dead_lock_detect_interval, g_write_to_binlog_flag, \
-			g_sync_binlog_buff_interval, sz_compress_binlog_time_base,\
+			g_store_type == FDHT_STORE_TYPE_BDB ? "BDB" : "MPOOL", \
+			(int)(*nCacheSize / (1024 * 1024)), szStoreParams, \
+			g_sync_wait_usec / 1000, \
+			g_allow_ip_count, g_sync_log_buff_interval, \
+			sz_clear_expired_time_base, g_clear_expired_interval, \
+			g_write_to_binlog_flag, \
+			g_sync_binlog_buff_interval, \
+			sz_compress_binlog_time_base,\
 			g_compress_binlog_interval);
 
 		break;
@@ -1059,7 +1128,11 @@ int fdht_terminate()
 
 	g_continue_flag = false;
 
-	pthread_kill(dld_tid, SIGINT);
+	
+	if (g_store_type == FDHT_STORE_TYPE_BDB)
+	{
+		pthread_kill(dld_tid, SIGINT);
+	}
 
 	if (g_event_base != NULL)
 	{

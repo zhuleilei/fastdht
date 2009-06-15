@@ -34,6 +34,16 @@ typedef int (*HashFunc) (const void *key, const int key_len);
 					hash_data->key, hash_data->key_len))
 #endif
 
+#define CALC_NODE_MALLOC_BYTES(key_len, value_size) \
+		sizeof(HashData) + key_len + value_size
+
+#define FREE_HASH_DATA(pHash, hash_data) \
+	pHash->item_count--; \
+	pHash->bytes_used -= CALC_NODE_MALLOC_BYTES(hash_data->key_len, \
+				hash_data->malloc_value_size); \
+	free(hash_data);
+
+
 typedef struct tagHashData
 {
 	int key_len;

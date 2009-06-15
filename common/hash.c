@@ -46,8 +46,6 @@ static unsigned int prime_array[] = {
 };
 
 #define PRIME_ARRAY_SIZE  30
-#define CALC_NODE_MALLOC_BYTES(key_len, value_size) \
-		sizeof(HashData) + key_len + value_size
 
 int _hash_alloc_buckets(HashArray *pHash, const unsigned int old_capacity)
 {

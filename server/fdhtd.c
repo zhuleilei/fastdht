@@ -37,6 +37,7 @@
 #include "func.h"
 #include "sync.h"
 #include "db_recovery.h"
+#include "mpool_op.h"
 
 static ScheduleArray scheduleArray;
 static pthread_t schedule_tid;
@@ -379,12 +380,19 @@ static int fdht_init_schedule()
 	}
 	if (g_clear_expired_interval > 0)
 	{
-		for (i=0; i<g_db_count; i++)
-        	{
-               		if (g_db_list[i] != NULL)
+		if (g_store_type == FDHT_STORE_TYPE_BDB)
+		{
+			for (i=0; i<g_db_count; i++)
 			{
-				entry_count++;
+				if (g_db_list[i] != NULL)
+				{
+					entry_count++;
+				}
 			}
+		}
+		else //mpool
+		{
+			entry_count++;
 		}
 	}
 
@@ -447,22 +455,42 @@ static int fdht_init_schedule()
 
 	if (g_clear_expired_interval > 0)
 	{
-		for (i=0; i<g_db_count; i++)
-       		{
-			if (g_db_list[i] == NULL)
+		if (g_store_type == FDHT_STORE_TYPE_BDB)
+		{
+			for (i=0; i<g_db_count; i++)
 			{
-				continue;
-			}
+				if (g_db_list[i] == NULL)
+				{
+					continue;
+				}
 
+				pScheduleEntry->id = pScheduleEntry - \
+					scheduleArray.entries + 1;
+				pScheduleEntry->time_base.hour = \
+					g_clear_expired_time_base.hour;
+				pScheduleEntry->time_base.minute = \
+					g_clear_expired_time_base.minute;
+				pScheduleEntry->interval = \
+					g_clear_expired_interval;
+				pScheduleEntry->task_func = \
+					db_clear_expired_keys;
+				pScheduleEntry->func_args = (void *)i;
+				pScheduleEntry++;
+			}
+		}
+		else
+		{
 			pScheduleEntry->id = pScheduleEntry - \
 					scheduleArray.entries + 1;
 			pScheduleEntry->time_base.hour = \
 					g_clear_expired_time_base.hour;
 			pScheduleEntry->time_base.minute = \
 					g_clear_expired_time_base.minute;
-			pScheduleEntry->interval = g_clear_expired_interval;
-			pScheduleEntry->task_func = g_func_clear_expired_keys;
-			pScheduleEntry->func_args = (void *)i;
+			pScheduleEntry->interval = \
+					g_clear_expired_interval;
+			pScheduleEntry->task_func = \
+					mp_clear_expired_keys;
+			pScheduleEntry->func_args = (void *)g_hash_array;
 			pScheduleEntry++;
 		}
 	}

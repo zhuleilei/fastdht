@@ -564,7 +564,7 @@ void db_clear_expired_keys(void *arg)
 	int64_t total_count;
 	int64_t expired_count;
 	int64_t success_count;
-
+	int expires;
 
 	gettimeofday(&tv_start, NULL);
 
@@ -605,7 +605,8 @@ void db_clear_expired_keys(void *arg)
 
 		total_count++;
 
-		if (buff2int((char *)value.data) > current_time)
+		expires = buff2int((char *)value.data);
+		if (expires == FDHT_EXPIRES_NEVER || expires > current_time)
 		{
 			continue;
 		}
