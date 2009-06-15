@@ -29,6 +29,9 @@
 #define FDHT_STORE_TYPE_BDB      1
 #define FDHT_STORE_TYPE_MPOOL    2
 
+#define FDHT_DEFAULT_MPOOL_INIT_CAPACITY  10000
+#define FDHT_DEFAULT_MPOOL_LOAD_FACTOR    0.75
+
 #ifdef __cplusplus
 extern "C" {
 #endif

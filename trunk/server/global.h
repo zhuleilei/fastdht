@@ -73,6 +73,8 @@ extern char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
 
 extern time_t g_server_start_time;
 extern int g_store_type;
+extern int g_mpool_init_capacity;
+extern double g_mpool_load_factor;
 extern struct event_base *g_event_base;
 
 void load_local_host_ip_addrs();
