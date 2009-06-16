@@ -49,7 +49,7 @@ int db_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 
 void *bdb_dl_detect_entrance(void *arg);
 
-void db_clear_expired_keys(void *arg);
+int db_clear_expired_keys(void *arg);
 
 #ifdef __cplusplus
 }

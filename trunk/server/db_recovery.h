@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 int fdht_db_recovery_init();
-void fdht_memp_trickle_dbs(void *args);
+int fdht_memp_trickle_dbs(void *args);
 
 #ifdef __cplusplus
 }

@@ -498,11 +498,21 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 					FDHT_DEFAULT_MPOOL_INIT_CAPACITY;
 			}
 
+			g_mpool_clear_min_interval = iniGetIntValue( \
+				"mpool_clear_min_interval", items, nItemCount, \
+				FDHT_DEFAULT_MPOOL_CLEAR_MIN_INTEVAL);
+			if (g_mpool_clear_min_interval <= 0)
+			{
+				g_mpool_clear_min_interval = \
+					FDHT_DEFAULT_MPOOL_CLEAR_MIN_INTEVAL;
+			}
+
 			snprintf(szStoreParams, sizeof(szStoreParams), \
 				"mpool_init_capacity=%d, " \
-				"mpool_load_factor=%.2f", \
-				g_mpool_init_capacity, \
-				g_mpool_load_factor);
+				"mpool_load_factor=%.2f, " \
+				"mpool_clear_min_interval=%ds", \
+				g_mpool_init_capacity, g_mpool_load_factor, \
+				g_mpool_clear_min_interval);
 		}
 		else
 		{
@@ -640,6 +650,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				return result;
 			}
 			g_min_buff_size = (int)min_buff_size;
+			if (g_min_buff_size < 1024)
+			{
+				g_min_buff_size = 1024;
+			}
 		}
 
 		g_sync_wait_usec = iniGetIntValue("sync_wait_msec", \

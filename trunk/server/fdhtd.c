@@ -325,7 +325,7 @@ static int create_sock_io_threads(int server_sock)
 	return 0;
 }
 
-static void fdht_compress_binlog_func(void *arg)
+static int fdht_compress_binlog_func(void *arg)
 {
 	pid_t pid;
 	char *cmd;
@@ -336,12 +336,12 @@ static void fdht_compress_binlog_func(void *arg)
 		logError("file: "__FILE__", line: %d, " \
 			"fork fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		return;
+		return errno;
 	}
 
 	if (pid > 0) //parrent proccess
 	{
-		return;
+		return 0;
 	}
 
 	//child process
@@ -356,7 +356,9 @@ static void fdht_compress_binlog_func(void *arg)
 			"execl fdht_compress fail, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
 	}
+
 	exit(errno);  //exit child proccess
+	return 0;
 }
 
 static int fdht_init_schedule()

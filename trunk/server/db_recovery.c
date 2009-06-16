@@ -145,7 +145,7 @@ int fdht_db_recovery_init()
 	return result;
 }
 
-void fdht_memp_trickle_dbs(void *args)
+int fdht_memp_trickle_dbs(void *args)
 {
 	int written_pages;
 	int total_written_pages;
@@ -184,6 +184,7 @@ void fdht_memp_trickle_dbs(void *args)
 	}
 
 	logInfo("db_sync total_written_pages=%d", total_written_pages);
+	return total_written_pages;
 }
 
 static char *fdht_get_db_recovery_mark_filename(const void *pArg, \

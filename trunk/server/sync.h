@@ -84,7 +84,7 @@ int fdht_binlog_read(BinLogReader *pReader, \
 		BinLogRecord *pRecord, int *record_length);
 int fdht_open_readable_binlog(BinLogReader *pReader);
 
-void fdht_binlog_sync_func(void *args);
+int fdht_binlog_sync_func(void *args);
 int write_to_sync_ini_file();
 int kill_fdht_sync_threads();
 
