@@ -43,6 +43,7 @@
 
 static pthread_mutex_t work_thread_mutex;
 static pthread_cond_t work_thread_cond;
+static pthread_mutex_t inc_thread_mutex;
 static int init_pthread_cond();
 static time_t first_sync_req_time = 0;
 
@@ -74,6 +75,13 @@ int work_thread_init()
 	}
 
 	if ((result=init_pthread_lock(&work_thread_mutex)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"init_pthread_lock fail, program exit!", __LINE__);
+		return result;
+	}
+
+	if ((result=init_pthread_lock(&inc_thread_mutex)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_lock fail, program exit!", __LINE__);
@@ -138,6 +146,7 @@ void work_thread_destroy()
 
 		pthread_mutex_destroy(&work_thread_mutex);
 		pthread_cond_destroy(&work_thread_cond);
+		pthread_mutex_destroy(&inc_thread_mutex);
 	}
 }
 
@@ -1608,6 +1617,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 	int inc;
 	char *p;  //tmp var
 	int result;
+	int lock_res;
 
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
@@ -1632,9 +1642,28 @@ static int deal_cmd_inc(struct task_info *pTask)
 
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
+	if (g_max_threads > 1 && (lock_res=pthread_mutex_lock( \
+			&inc_thread_mutex)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call pthread_mutex_lock fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, lock_res, strerror(lock_res));
+	}
+
 	value_len = sizeof(value) - 1;
 	result = g_func_inc_ex(g_db_list[group_id], full_key, full_key_len, inc, \
 			value, &value_len, new_expires);
+
+	if (g_max_threads > 1 && (lock_res=pthread_mutex_unlock( \
+			&inc_thread_mutex)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call pthread_mutex_unlock fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, lock_res, strerror(lock_res));
+	}
+
 	if (result == 0)
 	{
 		value_len -= 4;  //skip expires
