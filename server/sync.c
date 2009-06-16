@@ -963,11 +963,15 @@ static int rewind_to_prev_rec_end(BinLogReader *pReader, \
 	return 0;
 }
 
-void fdht_binlog_sync_func(void *args)
+int fdht_binlog_sync_func(void *args)
 {
 	if (pbinlog_write_cache_current - binlog_write_cache_buff > 0)
 	{
-		fdht_binlog_fsync(true);
+		return fdht_binlog_fsync(true);
+	}
+	else
+	{
+		return 0;
 	}
 }
 

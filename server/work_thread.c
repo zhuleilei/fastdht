@@ -587,7 +587,6 @@ static int deal_cmd_get(struct task_info *pTask)
 	if (new_expires != FDHT_EXPIRES_NONE)
 	{
 		int2buff(new_expires, pValue);
-
 		result = g_func_partial_set(g_db_list[group_id], full_key, \
 			full_key_len, pValue, 0, 4);
 	}
@@ -814,6 +813,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 	char *pObjectId;
 	char in_buff[(4 + FDHT_MAX_SUB_KEY_LEN) * FDHT_MAX_KEY_COUNT_PER_REQ];
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	char szExpired[4];
 	char *pValue;
 	char *pSrc;
 	char *pDest;
@@ -856,10 +856,12 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 	if (new_expires != FDHT_EXPIRES_NONE)
 	{
 		min_expires = new_expires;
+		int2buff(new_expires, szExpired);
 	}
 	else
 	{
 		min_expires = FDHT_EXPIRES_NEVER;
+		memset(szExpired, 0, sizeof(szExpired));
 	}
 
 	success_count = 0;
@@ -957,9 +959,8 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 
 		if (new_expires != FDHT_EXPIRES_NONE)
 		{
-			int2buff(new_expires, pValue);
-			if ((result = g_func_set(g_db_list[group_id], full_key, \
-					full_key_len, pValue, value_len)) != 0)
+			if ((result = g_func_partial_set(g_db_list[group_id], \
+				full_key, full_key_len, szExpired, 0, 4)) != 0)
 			{
 				*(pDest-1) = result;
 				continue;

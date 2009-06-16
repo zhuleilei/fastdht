@@ -67,19 +67,6 @@ int recv_add_event(struct task_info *pTask)
 	pTask->offset = 0;
 	pTask->length  = 0;
 
-	/*
-	event_set(&pTask->ev_read, pTask->ev_read.ev_fd, EV_READ, \
-			client_sock_read, pTask);
-	if ((result=event_base_set(g_event_base, &pTask->ev_read)) != 0)
-	{
-		close(pTask->ev_read.ev_fd);
-		free_queue_push(pTask);
-
-		logError("file: "__FILE__", line: %d, " \
-			"event_base_set fail.", __LINE__);
-		return result;
-	}
-	*/
 	if ((result=event_add(&pTask->ev_read, &g_network_tv)) != 0)
 	{
 		close(pTask->ev_read.ev_fd);
@@ -96,7 +83,6 @@ int recv_add_event(struct task_info *pTask)
 static void server_sock_read(int sock, short event, void *arg)
 {
 	int incomesock;
-	//int result;
 	struct sockaddr_in inaddr;
 	unsigned int sockaddr_len;
 	struct task_info *pTask;
@@ -148,7 +134,8 @@ static void server_sock_read(int sock, short event, void *arg)
 	}
 
 	strcpy(pTask->client_ip, szClientIp);
-	event_set(&pTask->ev_read, incomesock, EV_READ, client_sock_read, pTask);
+	event_set(&pTask->ev_read, incomesock, EV_READ, \
+			client_sock_read, pTask);
 	if (event_base_set(g_event_base, &pTask->ev_read) != 0)
 	{
 		free_queue_push(pTask);
@@ -158,6 +145,12 @@ static void server_sock_read(int sock, short event, void *arg)
 			"event_base_set fail.", __LINE__);
 		return;
 	}
+	if (send_set_event(pTask, incomesock) != 0)
+	{
+		free_queue_push(pTask);
+		close(incomesock);
+		return;
+	}
 	if (event_add(&pTask->ev_read, &g_network_tv) != 0)
 	{
 		free_queue_push(pTask);
@@ -165,13 +158,6 @@ static void server_sock_read(int sock, short event, void *arg)
 
 		logError("file: "__FILE__", line: %d, " \
 			"event_add fail.", __LINE__);
-		return;
-	}
-
-	if (send_set_event(pTask, incomesock) != 0)
-	{
-		free_queue_push(pTask);
-		close(incomesock);
 		return;
 	}
 }
@@ -215,153 +201,140 @@ static void client_sock_read(int sock, short event, void *arg)
 
 	while (1)
 	{
-	if (pTask->length == 0) //recv header
-	{
-		recv_bytes = sizeof(FDHTProtoHeader) - pTask->offset;
-	}
-	else
-	{
-		recv_bytes = pTask->length - pTask->offset;
-	}
-
-	if (pTask->offset + recv_bytes > pTask->size)
-	{
-		char *pTemp;
-
-		pTemp = pTask->data;
-		pTask->data = realloc(pTask->data, pTask->size + recv_bytes);
-		if (pTask->data == NULL)
+		if (pTask->length == 0) //recv header
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"malloc failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, errno, strerror(errno));
-
-			pTask->data = pTemp;  //restore old data
-
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
-			return;
-		}
-
-		pTask->size += recv_bytes;
-	}
-
-	bytes = recv(sock, pTask->data + pTask->offset, recv_bytes, 0);
-	if (bytes < 0)
-	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-		{
-			if (event_add(&pTask->ev_read, &g_network_tv) != 0)
-			{
-				close(pTask->ev_read.ev_fd);
-				free_queue_push(pTask);
-
-				logError("file: "__FILE__", line: %d, " \
-					"event_add fail.", __LINE__);
-			}
+			recv_bytes = sizeof(FDHTProtoHeader) - pTask->offset;
 		}
 		else
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"client ip: %s, recv failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, pTask->client_ip, \
-				errno, strerror(errno));
-
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
+			recv_bytes = pTask->length - pTask->offset;
 		}
 
-		return;
-	}
-	else if (bytes == 0)
-	{
-		logDebug("file: "__FILE__", line: %d, " \
-			"client ip: %s, recv failed, " \
-			"connection disconnected.", \
-			__LINE__, pTask->client_ip);
-
-		close(pTask->ev_read.ev_fd);
-		free_queue_push(pTask);
-		return;
-	}
-
-	if (pTask->length == 0) //header
-	{
-		if (pTask->offset + bytes < sizeof(FDHTProtoHeader))
+		if (pTask->offset + recv_bytes > pTask->size)
 		{
-			if (event_add(&pTask->ev_read, &g_network_tv) != 0)
+			char *pTemp;
+
+			pTemp = pTask->data;
+			pTask->data = realloc(pTask->data, \
+				pTask->size + recv_bytes);
+			if (pTask->data == NULL)
 			{
+				logError("file: "__FILE__", line: %d, " \
+					"malloc failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, errno, strerror(errno));
+
+				pTask->data = pTemp;  //restore old data
+
 				close(pTask->ev_read.ev_fd);
 				free_queue_push(pTask);
-
-				logError("file: "__FILE__", line: %d, " \
-					"event_add fail.", __LINE__);
+				return;
 			}
 
-			pTask->offset += bytes;
-			return;
+			pTask->size += recv_bytes;
 		}
 
-		pTask->length = buff2int(((FDHTProtoHeader *)pTask->data)->pkg_len);
-		if (pTask->length < 0)
+		bytes = recv(sock, pTask->data + pTask->offset, recv_bytes, 0);
+		if (bytes < 0)
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"client ip: %s, pkg length: %d < 0", \
-				__LINE__, pTask->client_ip, pTask->length);
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				if(event_add(&pTask->ev_read, &g_network_tv)!=0)
+				{
+					close(pTask->ev_read.ev_fd);
+					free_queue_push(pTask);
+
+					logError("file: "__FILE__", line: %d, "\
+						"event_add fail.", __LINE__);
+				}
+			}
+			else
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"client ip: %s, recv failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, pTask->client_ip, \
+					errno, strerror(errno));
+
+				close(pTask->ev_read.ev_fd);
+				free_queue_push(pTask);
+			}
+
+			return;
+		}
+		else if (bytes == 0)
+		{
+			logDebug("file: "__FILE__", line: %d, " \
+				"client ip: %s, recv failed, " \
+				"connection disconnected.", \
+				__LINE__, pTask->client_ip);
 
 			close(pTask->ev_read.ev_fd);
 			free_queue_push(pTask);
 			return;
 		}
 
-		pTask->length += sizeof(FDHTProtoHeader);
-		if (pTask->length > g_max_pkg_size)
+		if (pTask->length == 0) //header
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"client ip: %s, pkg length: %d > max pkg " \
-				"size: %d", __LINE__, pTask->client_ip, \
-				pTask->length, g_max_pkg_size);
+			if (pTask->offset + bytes < sizeof(FDHTProtoHeader))
+			{
+				if (event_add(&pTask->ev_read, &g_network_tv)!=0)
+				{
+					close(pTask->ev_read.ev_fd);
+					free_queue_push(pTask);
 
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
+					logError("file: "__FILE__", line: %d, "\
+						"event_add fail.", __LINE__);
+				}
+
+				pTask->offset += bytes;
+				return;
+			}
+
+			pTask->length = buff2int(((FDHTProtoHeader *) \
+						pTask->data)->pkg_len);
+			if (pTask->length < 0)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"client ip: %s, pkg length: %d < 0", \
+					__LINE__, pTask->client_ip, \
+					pTask->length);
+
+				close(pTask->ev_read.ev_fd);
+				free_queue_push(pTask);
+				return;
+			}
+
+			pTask->length += sizeof(FDHTProtoHeader);
+			if (pTask->length > g_max_pkg_size)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"client ip: %s, pkg length: %d > " \
+					"max pkg size: %d", __LINE__, \
+					pTask->client_ip, pTask->length, \
+					g_max_pkg_size);
+
+				close(pTask->ev_read.ev_fd);
+				free_queue_push(pTask);
+				return;
+			}
+		}
+
+		pTask->offset += bytes;
+		if (pTask->offset >= pTask->length) //recv done
+		{
+			if (g_max_threads > 1)  //thread mode
+			{
+				work_queue_push(pTask);
+			}
+			else //proccess mode
+			{
+				work_deal_task(pTask);
+			}
+
 			return;
 		}
-
-		//printf("pkg cmd: %d\n", ((FDHTProtoHeader *)pTask->data)->cmd);
-		//printf("pkg length: %d\n", pTask->length);
 	}
-
-	pTask->offset += bytes;
-	//printf("pkg length: %d, pkg offset: %d\n", pTask->length, pTask->offset);
-	if (pTask->offset >= pTask->length) //recv done
-	{
-		//event_del(&pTask->ev_read);
-		if (g_max_threads > 1)  //thread mode
-		{
-			work_queue_push(pTask);
-		}
-		else //proccess mode
-		{
-			work_deal_task(pTask);
-		}
-
-		return;
-	}
-	}
-
-	/*
-	if (event_add(&pTask->ev_read, &g_network_tv) != 0)
-	{
-		close(pTask->ev_read.ev_fd);
-		free_queue_push(pTask);
-
-		logError("file: "__FILE__", line: %d, " \
-			"event_add fail.", __LINE__);
-		return;
-	}
-	*/
 
 	return;
 }

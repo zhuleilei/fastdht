@@ -96,24 +96,12 @@ int send_process_init()
 
 int send_add_event(struct task_info *pTask)
 {
-	//int result;
-
 	pTask->offset = 0;
 
+	/* direct send */
 	client_sock_write(pTask->ev_write.ev_fd, EV_WRITE, pTask);
 
 	/*
-	event_set(&pTask->ev_write, pTask->ev_write.ev_fd, EV_WRITE, \
-			client_sock_write, pTask);
-	if ((result=event_base_set(g_event_base, &pTask->ev_write)) != 0)
-	{
-		close(pTask->ev_write.ev_fd);
-		free_queue_push(pTask);
-
-		logError("file: "__FILE__", line: %d, " \
-			"event_base_set fail.", __LINE__);
-		return result;
-	}
 	if ((result=event_add(&pTask->ev_write, &g_network_tv)) != 0)
 	{
 		close(pTask->ev_write.ev_fd);
@@ -166,74 +154,63 @@ static void client_sock_write(int sock, short event, void *arg)
 
 	while (1)
 	{
-	bytes = send(sock, pTask->data + pTask->offset, \
-			pTask->length - pTask->offset,  0);
-	//printf("%08X sended %d bytes\n", (int)pTask, bytes);
-	if (bytes < 0)
-	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
+		bytes = send(sock, pTask->data + pTask->offset, \
+				pTask->length - pTask->offset,  0);
+		//printf("%08X sended %d bytes\n", (int)pTask, bytes);
+		if (bytes < 0)
 		{
-			if (event_add(&pTask->ev_write, &g_network_tv) != 0)
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				if (event_add(&pTask->ev_write, &g_network_tv) != 0)
+				{
+					close(pTask->ev_write.ev_fd);
+					free_queue_push(pTask);
+
+					logError("file: "__FILE__", line: %d, " \
+						"event_add fail.", __LINE__);
+				}
+			}
+			else
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"client ip: %s, recv failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, pTask->client_ip, \
+					errno, strerror(errno));
+
+				close(pTask->ev_write.ev_fd);
+				free_queue_push(pTask);
+			}
+
+			return;
+		}
+		else if (bytes == 0)
+		{
+			logWarning("file: "__FILE__", line: %d, " \
+				"send failed, connection disconnected.", \
+				__LINE__);
+
+			close(pTask->ev_write.ev_fd);
+			free_queue_push(pTask);
+			return;
+		}
+
+		pTask->offset += bytes;
+		if (pTask->offset >= pTask->length)
+		{
+			if (((FDHTProtoHeader *)pTask->data)->keep_alive)
+			{
+				recv_add_event(pTask);
+			}
+			else
 			{
 				close(pTask->ev_write.ev_fd);
 				free_queue_push(pTask);
-
-				logError("file: "__FILE__", line: %d, " \
-					"event_add fail.", __LINE__);
 			}
+
+			return;
 		}
-		else
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"client ip: %s, recv failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, pTask->client_ip, \
-				errno, strerror(errno));
-
-			close(pTask->ev_write.ev_fd);
-			free_queue_push(pTask);
-		}
-
-		return;
 	}
-	else if (bytes == 0)
-	{
-		logWarning("file: "__FILE__", line: %d, " \
-			"send failed, connection disconnected.", \
-			__LINE__);
-
-		close(pTask->ev_write.ev_fd);
-		free_queue_push(pTask);
-		return;
-	}
-
-	pTask->offset += bytes;
-	if (pTask->offset >= pTask->length)
-	{
-		if (((FDHTProtoHeader *)pTask->data)->keep_alive)
-		{
-			recv_add_event(pTask);
-		}
-		else
-		{
-			close(pTask->ev_write.ev_fd);
-			free_queue_push(pTask);
-		}
-
-		return;
-	}
-	}
-
-	/*
-	if (event_add(&pTask->ev_write, &g_network_tv) != 0)
-	{
-		close(pTask->ev_write.ev_fd);
-		free_queue_push(pTask);
-
-		logError("file: "__FILE__", line: %d, " \
-			"event_add fail.", __LINE__);
-	}
-	*/
 }
 
 static void send_notify_read(int sock, short event, void *arg)

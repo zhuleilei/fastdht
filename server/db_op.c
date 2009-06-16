@@ -547,7 +547,7 @@ void *bdb_dl_detect_entrance(void *arg)
 	return NULL;
 }
 
-void db_clear_expired_keys(void *arg)
+int db_clear_expired_keys(void *arg)
 {
 	int db_index;
 	DB *db;
@@ -566,7 +566,13 @@ void db_clear_expired_keys(void *arg)
 	int64_t success_count;
 	int expires;
 
-	gettimeofday(&tv_start, NULL);
+	if (gettimeofday(&tv_start, NULL) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call gettimeofday fail, errno: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
+		return -1;
+	}
 
 	db_index = (int)arg;
 	db = (DB *)(g_db_list[db_index]);
@@ -575,7 +581,7 @@ void db_clear_expired_keys(void *arg)
 		logError("file: "__FILE__", line: %d, " \
 			"db->cursor fail, errno: %d, error info: %s", \
 			__LINE__, result, db_strerror(result));
-		return;
+		return -1;
 	}
 	
 	memset(&key, 0, sizeof(key));
@@ -593,7 +599,8 @@ void db_clear_expired_keys(void *arg)
 	total_count = 0;
 	expired_count = 0;
 	success_count = 0;
-	current_time = time(NULL);
+	current_time = tv_start.tv_sec;
+
 	while (g_continue_flag && (result=cursor->get(cursor, &key, &value, \
 		DB_NEXT)) == 0)
 	{
@@ -635,5 +642,7 @@ void db_clear_expired_keys(void *arg)
 		total_count, expired_count, success_count, \
 		(int)((tv_end.tv_sec - tv_start.tv_sec) * 1000 + \
 		(tv_end.tv_usec - tv_start.tv_usec) / 1000));
+
+	return success_count;
 }
 
