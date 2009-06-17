@@ -479,7 +479,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 
 		if (g_store_type == FDHT_STORE_TYPE_MPOOL)
 		{
-			g_max_threads = 1;
 			g_mpool_init_capacity = iniGetIntValue( \
 				"mpool_init_capacity", items, nItemCount, \
 				FDHT_DEFAULT_MPOOL_INIT_CAPACITY);
@@ -516,18 +515,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 		else
 		{
-			g_max_threads = iniGetIntValue("max_threads", items, \
-					nItemCount, FDHT_DEFAULT_MAX_THREADS);
-			if (g_max_threads <= 0)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"item \"max_threads\" is invalid, " \
-					"value: %d <= 0!", __LINE__, \
-					g_max_threads);
-				result = EINVAL;
-				break;
-			}
-
 			pDbType = iniGetStrValue("db_type", items, nItemCount);
 			if (pDbType == NULL)
 			{
@@ -618,6 +605,18 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				db_file_prefix, *page_size, \
 				sz_sync_db_time_base, g_sync_db_interval, \
 				g_db_dead_lock_detect_interval);
+		}
+
+		g_max_threads = iniGetIntValue("max_threads", items, \
+				nItemCount, FDHT_DEFAULT_MAX_THREADS);
+		if (g_max_threads <= 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"item \"max_threads\" is invalid, " \
+				"value: %d <= 0!", __LINE__, \
+				g_max_threads);
+			result = EINVAL;
+			break;
 		}
 
 		pMaxPkgSize = iniGetStrValue("max_pkg_size", \

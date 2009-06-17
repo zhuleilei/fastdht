@@ -1,4 +1,4 @@
-Version 1.09  2009-06-16
+Version 1.09  2009-06-17
  * correct php extension error info
  * fdht_compress.c: make sure syncing is done
  * add shell script: stop.sh, restart.sh modified
@@ -12,14 +12,13 @@ Version 1.09  2009-06-16
  * protocol add stat cmd
  * client retry connect when connection is not connected and keep_alive is true
  * multi db use only one env
- * chain can use ChainNode passed by caller
- * hash can store value, and pass ChainNode to chain when add node
  * support MPOOL (memory only cache)
  * when max_threads set 1, use process instead of thread
  * client use non-block socket to increase performance
  * hash.c use chain impl by self
  * bugfix: never expired / persistent keys not be cleared when clear expired keys
  * inc use thread lock for atomicity
+ * mpool use rwlock, support multi-threads
 
 Version 1.08  2009-04-12
  * common/shared_func.c: rindex change to strrchr, add #include <netinet/in.h>

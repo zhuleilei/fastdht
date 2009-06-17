@@ -41,16 +41,6 @@ int fdht_connect_server(FDHTServerInfo *pServer);
 **/
 void fdht_disconnect_server(FDHTServerInfo *pServer);
 
-/**
-* connect to the proxy server
-* params:
-*       proxy_ip_addr: proxy server ip addr
-*       proxy_port: proxy server port
-*	pServer: dest server
-* return: 0 success, !=0 fail, return the error code
-**/
-int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
-		FDHTServerInfo *pServer);
 
 int fdht_client_set(FDHTServerInfo *pServer, const char keep_alive, \
 	const time_t timestamp, const time_t expires, const int prot_cmd, \
