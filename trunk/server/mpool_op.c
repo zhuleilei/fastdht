@@ -4,12 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 #include "logger.h"
 #include "mpool_op.h"
 #include "global.h"
 #include "shared_func.h"
 
 HashArray *g_hash_array = NULL;
+static pthread_rwlock_t mpool_pthread_rwlock;
 
 int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 {
@@ -37,6 +39,15 @@ int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 	}
 
 	*ppHandle = g_hash_array;
+
+	if ((result=pthread_rwlock_init(&mpool_pthread_rwlock, NULL)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"pthread_rwlock_init fail, errno: %d, error info: %s",\
+			__LINE__, result, strerror(result));
+		return result;
+	}
+
 	return 0;
 }
 
@@ -47,6 +58,8 @@ int mp_destroy_instance(StoreHandle **ppHandle)
 
 int mp_destroy()
 {
+	pthread_rwlock_destroy(&mpool_pthread_rwlock);
+
 	return 0;
 }
 
@@ -56,55 +69,103 @@ int mp_memp_trickle(int *nwrotep)
 	return 0;
 }
 
+#define RWLOCK_READ_LOCK(result) \
+	if (g_max_threads > 1 && (result=pthread_rwlock_rdlock( \
+			&mpool_pthread_rwlock)) != 0) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"pthread_rwlock_rdlock fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, strerror(result)); \
+		return result; \
+	}
+
+#define RWLOCK_WRITE_LOCK(result) \
+	if (g_max_threads > 1 && (result=pthread_rwlock_wrlock( \
+			&mpool_pthread_rwlock)) != 0) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"pthread_rwlock_rdlock fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, strerror(result)); \
+		return result; \
+	}
+
+#define RWLOCK_UNLOCK(result) \
+	if (g_max_threads > 1 && (result=pthread_rwlock_unlock( \
+			&mpool_pthread_rwlock)) != 0) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"pthread_rwlock_unlock fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, strerror(result)); \
+	}
+
 int mp_get(StoreHandle *pHandle, const char *pKey, const int key_len, \
 		char **ppValue, int *size)
 {
 	HashData *hash_data;
+	int result;
+	int lock_result;
 
 	g_server_stat.total_get_count++;
-	hash_data = hash_find_ex(g_hash_array, pKey, key_len);
-	if (hash_data == NULL)
-	{
-		return ENOENT;
-	}
 
-	if (*ppValue != NULL)
+	RWLOCK_READ_LOCK(lock_result)
+
+	do
 	{
-		if (*size < hash_data->value_len)
+		hash_data = hash_find_ex(g_hash_array, pKey, key_len);
+		if (hash_data == NULL)
 		{
+			result = ENOENT;
+			break;
+		}
+
+		if (*ppValue != NULL)
+		{
+			if (*size < hash_data->value_len)
+			{
+				*size = hash_data->value_len;
+				result = ENOSPC;
+				break;
+			}
+
 			*size = hash_data->value_len;
-			return ENOSPC;
+			memcpy(*ppValue, HASH_VALUE(hash_data), hash_data->value_len);
+			g_server_stat.success_get_count++;
+			result = 0;
+			break;
 		}
 
 		*size = hash_data->value_len;
+		*ppValue = (char *)malloc(hash_data->value_len);
+		if (*ppValue == NULL)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"malloc %d bytes fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, hash_data->value_len, \
+				errno, strerror(errno));
+			result = errno != 0 ? errno : ENOMEM;
+			break;
+		}
+
 		memcpy(*ppValue, HASH_VALUE(hash_data), hash_data->value_len);
 		g_server_stat.success_get_count++;
-		return 0;
-	}
+		result = 0;
+	} while (0);
 
-	*size = hash_data->value_len;
-	*ppValue = (char *)malloc(hash_data->value_len);
-	if (*ppValue == NULL)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"malloc %d bytes fail, " \
-			"errno: %d, error info: %s", \
-			__LINE__, hash_data->value_len, \
-			errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
-	}
+	RWLOCK_UNLOCK(lock_result)
 
-	memcpy(*ppValue, HASH_VALUE(hash_data), hash_data->value_len);
-	g_server_stat.success_get_count++;
-	return 0;
+	return result;
 }
 
-int mp_do_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
+static int mp_do_set(StoreHandle *pHandle, const char *pKey, const int key_len,\
 	const char *pValue, const int value_len)
 {
 	int result;
 	int i;
-	
+
 	for (i=0; i<2; i++)
 	{
 		result = hash_insert_ex(pHandle, pKey, key_len, \
@@ -120,11 +181,16 @@ int mp_do_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 				}
 			}
 
-			return result;
+			break;
+		}
+		else if (result == 0)
+		{
+			break;
 		}
 		else
 		{
-			return 0;
+			result = 0;
+			break;
 		}
 	}
 
@@ -135,13 +201,20 @@ int mp_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	const char *pValue, const int value_len)
 {
 	int result;
+	int lock_result;
 
 	g_server_stat.total_set_count++;
+
+	RWLOCK_WRITE_LOCK(lock_result)
+
 	result = mp_do_set(g_hash_array, pKey, key_len, pValue, value_len);
 	if (result == 0)
 	{
 		g_server_stat.success_set_count++;
 	}
+
+	RWLOCK_UNLOCK(lock_result)
+
 	return result;
 }
 
@@ -150,49 +223,63 @@ int mp_partial_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 {
 	HashData *hash_data;
 	int result;
+	int lock_result;
 	char *pNewBuff;
 
-	hash_data = hash_find_ex(g_hash_array, pKey, key_len);
-	if (hash_data == NULL)
+	RWLOCK_WRITE_LOCK(lock_result)
+
+	do
 	{
-		if (offset != 0)
+		hash_data = hash_find_ex(g_hash_array, pKey, key_len);
+		if (hash_data == NULL)
 		{
-			return ENOENT;
+			if (offset != 0)
+			{
+				result = ENOENT;
+				break;
+			}
+
+			result = mp_do_set(g_hash_array, pKey, key_len, \
+					pValue, value_len);
+			break;
 		}
 
-		return mp_do_set(g_hash_array, pKey,key_len, pValue,value_len);
-	}
+		if (offset < 0 || offset >= hash_data->value_len)
+		{
+			result = EINVAL;
+			break;
+		}
 
-	if (offset < 0 || offset >= hash_data->value_len)
-	{
-		return EINVAL;
-	}
+		if (offset + value_len <= hash_data->value_len)
+		{
+			memcpy(HASH_VALUE(hash_data)+offset, pValue, value_len);
+			result = 0;
+			break;
+		}
 
-	if (offset + value_len <= hash_data->value_len)
-	{
-		memcpy(HASH_VALUE(hash_data)+offset, pValue, value_len);
-		return 0;
-	}
+		pNewBuff = (char *)malloc(offset + value_len);
+		if (pNewBuff == NULL)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"malloc %d bytes fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, offset + value_len, \
+				errno, strerror(errno));
+			result = errno != 0 ? errno : ENOMEM;
+			break;
+		}
 
-	pNewBuff = (char *)malloc(offset + value_len);
-	if (pNewBuff == NULL)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"malloc %d bytes fail, " \
-			"errno: %d, error info: %s", \
-			__LINE__, offset + value_len, \
-			errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
-	}
+		if (offset > 0)
+		{
+			memcpy(pNewBuff, HASH_VALUE(hash_data), offset);
+		}
+		memcpy(pNewBuff+offset, pValue, value_len);
+		result = mp_do_set(g_hash_array, pKey, key_len, \
+				pNewBuff, offset + value_len);
+		free(pNewBuff);
+	} while (0);
 
-	if (offset > 0)
-	{
-		memcpy(pNewBuff, HASH_VALUE(hash_data), offset);
-	}
-	memcpy(pNewBuff+offset, pValue, value_len);
-	result = mp_do_set(g_hash_array, pKey, key_len, \
-			pNewBuff, offset + value_len);
-	free(pNewBuff);
+	RWLOCK_UNLOCK(lock_result)
 
 	return result;
 }
@@ -200,13 +287,19 @@ int mp_partial_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 int mp_delete(StoreHandle *pHandle, const char *pKey, const int key_len)
 {
 	int result;
+	int lock_result;
 
 	g_server_stat.total_delete_count++;
+	
+	RWLOCK_WRITE_LOCK(lock_result)
+
 	result = hash_delete(g_hash_array, pKey, key_len);
 	if (result == 0)
 	{
 		g_server_stat.success_delete_count++;
 	}
+
+	RWLOCK_UNLOCK(lock_result)
 
 	return result;
 }
@@ -216,9 +309,12 @@ int mp_inc(StoreHandle *pHandle, const char *pKey, const int key_len, \
 {
 	HashData *hash_data;
 	int result;
+	int lock_result;
 	int64_t n;
 
 	g_server_stat.total_inc_count++;
+
+	RWLOCK_WRITE_LOCK(lock_result)
 
 	hash_data = hash_find_ex(g_hash_array, pKey, key_len);
 	if (hash_data == NULL)
@@ -229,22 +325,28 @@ int mp_inc(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	{
 		if (hash_data->value_len >= *value_len)
 		{
-			return ENOSPC;
+			n = inc;
 		}
-
-		memcpy(pValue, HASH_VALUE(hash_data), hash_data->value_len);
-		pValue[hash_data->value_len] = '\0';
-		n = strtoll(pValue, NULL, 10);
-		n += inc;
+		else
+		{
+			memcpy(pValue, HASH_VALUE(hash_data), \
+					hash_data->value_len);
+			pValue[hash_data->value_len] = '\0';
+			n = strtoll(pValue, NULL, 10);
+			n += inc;
+		}
 	}
 
 	*value_len = sprintf(pValue, INT64_PRINTF_FORMAT, n);
-
-	result = mp_do_set(g_hash_array, pKey, key_len, pValue, *value_len);
+	result = mp_do_set(g_hash_array, pKey, key_len, \
+			pValue, *value_len);
 	if (result == 0)
 	{
 		g_server_stat.success_inc_count++;
 	}
+
+	RWLOCK_UNLOCK(lock_result)
+
 	return result;
 }
 
@@ -254,9 +356,12 @@ int mp_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	HashData *hash_data;
 	int64_t n;
 	int result;
+	int lock_result;
 	int old_expires;
 
 	g_server_stat.total_inc_count++;
+
+	RWLOCK_WRITE_LOCK(lock_result)
 
 	hash_data = hash_find_ex(g_hash_array, pKey, key_len);
 	if (hash_data == NULL)
@@ -297,6 +402,8 @@ int mp_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 		g_server_stat.success_inc_count++;
 	}
 
+	RWLOCK_UNLOCK(lock_result)
+
 	return result;
 }
 
@@ -309,6 +416,7 @@ int mp_clear_expired_keys(void *arg)
 	HashData *previous;
 	time_t current_time;
 	int expires;
+	int lock_result;
 	struct timeval tv_start;
 	struct timeval tv_end;
 	int old_item_count;
@@ -336,14 +444,19 @@ int mp_clear_expired_keys(void *arg)
 		return 0;
 	}
 
+	RWLOCK_WRITE_LOCK(lock_result)
+
 	if (clearing)
 	{
 		logInfo("file: "__FILE__", line: %d, " \
 			"clear proccess already running", __LINE__);
+
+		RWLOCK_UNLOCK(lock_result)
+
 		return 0;
 	}
-	clearing = true;
 
+	clearing = true;
 	old_item_count = g_hash_array->item_count;
 	bucket_end = g_hash_array->buckets + (*g_hash_array->capacity);
 	for (ppBucket=g_hash_array->buckets; ppBucket<bucket_end; ppBucket++)
@@ -392,6 +505,8 @@ int mp_clear_expired_keys(void *arg)
 			previous->next = NULL;
 		}
 	}
+
+	RWLOCK_UNLOCK(lock_result)
 
 	gettimeofday(&tv_end, NULL);
 

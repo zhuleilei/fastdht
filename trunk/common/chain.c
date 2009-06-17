@@ -13,8 +13,8 @@
 #include "chain.h"
 //#include "use_mmalloc.h"
 
-void chain_init_ex(ChainList *pList, const int type, FreeDataFunc freeDataFunc,\
-		CompareFunc compareFunc, const bool bMallocNode)
+void chain_init(ChainList *pList, const int type, FreeDataFunc freeDataFunc, \
+		CompareFunc compareFunc)
 {
 	if (pList == NULL)
 	{
@@ -26,7 +26,6 @@ void chain_init_ex(ChainList *pList, const int type, FreeDataFunc freeDataFunc,\
 	pList->type = type;
 	pList->freeDataFunc = freeDataFunc;
 	pList->compareFunc = compareFunc;
-	pList->is_malloc_node = bMallocNode;
 
 	return;
 }
@@ -59,21 +58,21 @@ void freeChainNode(ChainList *pList, ChainNode *pChainNode)
 		pList->freeDataFunc(pChainNode->data);
 	}
 
-	if (pList->is_malloc_node)
-	{
-		free(pChainNode);
-	}
+	free(pChainNode);
 }
 
-int insertNodePrior_ex(ChainList *pList, void *data, ChainNode *pNode)
+int insertNodePrior(ChainList *pList, void *data)
 {
-	if (pList->is_malloc_node)
+	ChainNode *pNode;
+	if (pList == NULL)
 	{
-		pNode = (ChainNode *)malloc(sizeof(ChainNode));
-		if (pNode == NULL)
-		{
-			return ENOMEM;
-		}
+		return EINVAL;
+	}
+
+	pNode = (ChainNode *)malloc(sizeof(ChainNode));
+	if (pNode == NULL)
+	{
+		return ENOMEM;
 	}
 	
 	pNode->data = data;
@@ -88,15 +87,18 @@ int insertNodePrior_ex(ChainList *pList, void *data, ChainNode *pNode)
 	return 0;
 }
 
-int appendNode_ex(ChainList *pList, void *data, ChainNode *pNode)
+int appendNode(ChainList *pList, void *data)
 {
-	if (pList->is_malloc_node)
+	ChainNode *pNode;
+	if (pList == NULL)
 	{
-		pNode = (ChainNode *)malloc(sizeof(ChainNode));
-		if (pNode == NULL)
-		{
-			return ENOMEM;
-		}
+		return EINVAL;
+	}
+
+	pNode = (ChainNode *)malloc(sizeof(ChainNode));
+	if (pNode == NULL)
+	{
+		return ENOMEM;
 	}
 	
 	pNode->data = data;
@@ -116,22 +118,20 @@ int appendNode_ex(ChainList *pList, void *data, ChainNode *pNode)
 	return 0;
 }
 
-int insertNodeAsc_ex(ChainList *pList, void *data, ChainNode *pNew)
+int insertNodeAsc(ChainList *pList, void *data)
 {
+	ChainNode *pNew;
 	ChainNode *pNode;
 	ChainNode *pPrevious;
-	if (pList->compareFunc == NULL)
+	if (pList == NULL || pList->compareFunc == NULL)
 	{
 		return EINVAL;
 	}
 
-	if (pList->is_malloc_node)
+	pNew = (ChainNode *)malloc(sizeof(ChainNode));
+	if (pNew == NULL)
 	{
-		pNew = (ChainNode *)malloc(sizeof(ChainNode));
-		if (pNew == NULL)
-		{
-			return ENOMEM;
-		}
+		return ENOMEM;
 	}
 	
 	pNew->data = data;
@@ -162,19 +162,19 @@ int insertNodeAsc_ex(ChainList *pList, void *data, ChainNode *pNew)
 	return 0;
 }
 
-int addNode_ex(ChainList *pList, void *data, ChainNode *pNode)
+int addNode(ChainList *pList, void *data)
 {
 	if (pList->type == CHAIN_TYPE_INSERT)
 	{
-		return insertNodePrior_ex(pList, data, pNode);
+		return insertNodePrior(pList, data);
 	}
 	else if (pList->type == CHAIN_TYPE_APPEND)
 	{
-		return appendNode_ex(pList, data, pNode);
+		return appendNode(pList, data);
 	}
 	else
 	{
-		return insertNodeAsc_ex(pList, data, pNode);
+		return insertNodeAsc(pList, data);
 	}
 }
 
@@ -275,7 +275,7 @@ int deleteNode(ChainList *pList, void *data, bool bDeleteAll)
 	int nCount;
 	int nCompareRes;
 
-	if (pList->compareFunc == NULL)
+	if (pList == NULL || pList->compareFunc == NULL)
 	{
 		return EINVAL;
 	}

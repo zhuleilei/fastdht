@@ -21,7 +21,6 @@
 #include "sockopt.h"
 #include "fdht_types.h"
 #include "fdht_proto.h"
-#include "fnio_proto.h"
 
 extern int g_network_timeout;
 
@@ -203,89 +202,6 @@ int fdht_connect_server(FDHTServerInfo *pServer)
 		return result;
 	}
 
-	return 0;
-}
-
-int fdht_connect_proxy_server(const char *proxy_ip_addr, const int proxy_port,\
-		FDHTServerInfo *pServer)
-{
-	int result;
-	int ip_addr_len;
-	int pkg_len;
-	char out_buff[sizeof(FNIOProtoHeader) + sizeof(FNIOProtoServerInfo)];
-	char in_buff[sizeof(FNIOProtoHeader) + 4];
-	FNIOProtoHeader *pHeader;
-	FNIOProtoServerInfo *pDestServerInfo;
-	FDHTServerInfo server;
-
-	memset(out_buff, 0, sizeof(out_buff));
-
-	pHeader = (FNIOProtoHeader *)out_buff;
-	pDestServerInfo = (FNIOProtoServerInfo *)(out_buff + 
-			sizeof(FNIOProtoHeader));
-	int2buff(sizeof(FNIOProtoServerInfo), pHeader->pkg_len);
-
-	ip_addr_len = snprintf(pDestServerInfo->ip_addr, \
-			sizeof(pDestServerInfo->ip_addr), \
-			"%s", pServer->ip_addr);
-	int2buff(ip_addr_len, pDestServerInfo->szIpAddrLen);
-	int2buff(pServer->port, pDestServerInfo->szPort);
-
-	strcpy(server.ip_addr, proxy_ip_addr);
-	server.port = proxy_port;
-	if ((result=fdht_connect_server(&server)) != 0)
-	{
-		return result;
-	}
-
-	if ((result=tcpsenddata_nb(server.sock, out_buff, \
-		sizeof(out_buff), g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"send data to proxy server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			server.ip_addr, server.port, \
-			result, strerror(result));
-		close(server.sock);
-		return result;
-	}
-
-	if ((result=tcprecvdata_nb(server.sock, in_buff, sizeof(in_buff), \
-		 g_network_timeout)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"recv data from proxy server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			server.ip_addr, server.port, \
-			result, strerror(result));
-		close(server.sock);
-		return result;
-	}
-
-	pkg_len = buff2int(((FNIOProtoHeader *)in_buff)->pkg_len);
-	if (pkg_len != 4)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"proxy server %s:%d, invalid pkg_len: %d != 4", \
-			__LINE__, server.ip_addr, server.port, \
-			pkg_len);
-		close(server.sock);
-		return EINVAL;
-	}
-
-	result = buff2int(in_buff + sizeof(FNIOProtoHeader));
-	if (result != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"connect to server %s:%d fail, " \
-			"errno: %d, error info: %s", __LINE__, \
-			pServer->ip_addr, pServer->port, \
-			result, strerror(result));
-		close(server.sock);
-		return result;
-	}
-
-	pServer->sock = server.sock;
 	return 0;
 }
 
