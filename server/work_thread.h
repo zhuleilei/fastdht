@@ -22,9 +22,8 @@
 extern "C" {
 #endif
 
-int work_thread_init();
+int work_thread_init(int server_sock);
 void work_thread_destroy();
-int work_notify_task();
 int work_deal_task(struct task_info *pTask);
 
 #ifdef __cplusplus

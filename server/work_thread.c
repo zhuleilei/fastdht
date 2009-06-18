@@ -32,8 +32,8 @@
 #include "ini_file_reader.h"
 #include "sockopt.h"
 #include "task_queue.h"
-#include "recv_thread.h"
-#include "send_thread.h"
+#include "recv.h"
+#include "send.h"
 #include "func.h"
 #include "db_op.h"
 #include "sync.h"
@@ -42,7 +42,6 @@
 #define SYNC_REQ_WAIT_SECONDS	60
 
 static pthread_mutex_t work_thread_mutex;
-static pthread_cond_t work_thread_cond;
 static pthread_mutex_t inc_thread_mutex;
 static int init_pthread_cond();
 static time_t first_sync_req_time = 0;
@@ -62,10 +61,12 @@ static int deal_cmd_batch_set(struct task_info *pTask);
 static int deal_cmd_batch_del(struct task_info *pTask);
 static int deal_cmd_stat(struct task_info *pTask);
 
-int work_thread_init()
+int work_thread_init(int server_sock)
 {
 	int i;
 	int result;
+	struct thread_data *pThreadData;
+	struct thread_data *pDataEnd;
 	pthread_t tid;
 	pthread_attr_t thread_attr;
 
@@ -95,16 +96,47 @@ int work_thread_init()
 		return result;
 	}
 
-	if ((result=init_pthread_cond()) != 0)
+	g_thread_data = (struct thread_data *)malloc(sizeof( \
+				struct thread_data) * g_max_threads);
+	if (g_thread_data == NULL)
 	{
-		return result;
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, errno: %d, error info: %s", \
+			__LINE__, sizeof(struct thread_data) * g_max_threads,\
+			errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
 	}
 
 	g_thread_count = 0;
-	for (i=0; i<g_max_threads; i++)
+	pDataEnd = g_thread_data + g_max_threads;
+	for (pThreadData=g_thread_data; pThreadData<pDataEnd; pThreadData++)
 	{
+		pThreadData->ev_base = event_base_new();
+		if (pThreadData->ev_base == NULL)
+		{
+			result = errno != 0 ? errno : ENOMEM;
+			logError("file: "__FILE__", line: %d, " \
+				"event_base_new fail.", __LINE__);
+			return result;
+		}
+
+		if (pipe(pThreadData->pipe_fds) != 0)
+		{
+			result = errno != 0 ? errno : EPERM;
+			logError("file: "__FILE__", line: %d, " \
+				"call pipe fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, result, strerror(result));
+			break;
+		}
+
+		if ((result=set_nonblock(pThreadData->pipe_fds[0])) != 0)
+		{
+			break;
+		}
+
 		if ((result=pthread_create(&tid, &thread_attr, \
-			work_thread_entrance, NULL)) != 0)
+			work_thread_entrance, pThreadData)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"create thread failed, startup threads: %d, " \
@@ -135,110 +167,38 @@ int work_thread_init()
 
 	pthread_attr_destroy(&thread_attr);
 
-	return 0;
-}
-
-void work_thread_destroy()
-{
-	if (g_max_threads > 1)  //thread mode
-	{
-		wait_for_work_threads_exit();
-
-		pthread_mutex_destroy(&work_thread_mutex);
-		pthread_cond_destroy(&work_thread_cond);
-		pthread_mutex_destroy(&inc_thread_mutex);
-	}
-}
-
-int work_notify_task()
-{
-	int result;
-	if ((result=pthread_cond_signal(&work_thread_cond)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"pthread_cond_signal failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-	}
-
 	return result;
-}
-
-static void wait_for_work_threads_exit()
-{
-	int i;
-	int result;
-
-	for (i=0; i<g_thread_count; i++)
-	{
-		if ((result=pthread_cond_signal(&work_thread_cond)) != 0)
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"pthread_cond_signal failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
-		}
-	}
-
-	while (g_thread_count != 0)
-	{
-		if ((result=pthread_cond_signal(&work_thread_cond)) != 0)
-		{
-			logError("file: "__FILE__", line: %d, " \
-				"pthread_cond_signal failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
-		}
-
-		sleep(1);
-	}
 }
 
 static void *work_thread_entrance(void* arg)
 {
-	struct task_info *pTask;
-	int result;
+	struct thread_data *pThreadData;
+	struct event ev_notify;
 
-	while (g_continue_flag)
+	pThreadData = (struct thread_data *)arg;
+	do
 	{
-		if ((result=pthread_mutex_lock(&work_thread_mutex)) != 0)
+		event_set(&ev_notify, pThreadData->pipe_fds[0], \
+			EV_READ | EV_PERSIST, send_notify_read, NULL);
+		if ((result=event_base_set(pThreadData->ev_base, &ev_notify)) != 0)
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"call pthread_mutex_lock fail, " \
-				"errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
-			sleep(1);
-			continue;
+			logCrit("file: "__FILE__", line: %d, " \
+				"event_base_set fail.", __LINE__);
+			break;
 		}
-
-		while ((pTask = work_queue_pop()) == NULL && g_continue_flag)
+		if ((result=event_add(&ev_notify, NULL)) != 0)
 		{
-			if ((result=pthread_cond_wait(&work_thread_cond, \
-					&work_thread_mutex)) != 0)
-			{
-				logError("file: "__FILE__", line: %d, " \
-					"pthread_cond_wait failed, " \
-					"errno: %d, error info: %s", \
-					__LINE__, result, strerror(result));
-				break;
-			}
+			logCrit("file: "__FILE__", line: %d, " \
+				"event_add fail.", __LINE__);
+			break;
 		}
-
-		if ((result=pthread_mutex_unlock(&work_thread_mutex)) != 0)
+		while (g_continue_flag)
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"call pthread_mutex_unlock fail, " \
-				"errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
+			event_base_loop(pThreadData->ev_base, 0);
 		}
+	} while (0);
 
-		if (pTask == NULL)
-		{
-			continue;
-		}
-
-		work_deal_task(pTask);
-	}
+	event_base_free(pThreadData->ev_base);
 
 	if ((result=pthread_mutex_lock(&work_thread_mutex)) != 0)
 	{
@@ -251,7 +211,7 @@ static void *work_thread_entrance(void* arg)
 	if ((result=pthread_mutex_unlock(&work_thread_mutex)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
-			"call pthread_mutex_unlock fail, " \
+			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, result, strerror(result));
 	}
@@ -259,30 +219,26 @@ static void *work_thread_entrance(void* arg)
 	return NULL;
 }
 
-static int init_pthread_cond()
+void work_thread_destroy()
 {
+	if (g_max_threads > 1)  //thread mode
+	{
+		wait_for_work_threads_exit();
+
+		pthread_mutex_destroy(&work_thread_mutex);
+		pthread_mutex_destroy(&inc_thread_mutex);
+	}
+}
+
+static void wait_for_work_threads_exit()
+{
+	int i;
 	int result;
-	pthread_condattr_t thread_condattr;
-	if ((result=pthread_condattr_init(&thread_condattr)) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"pthread_condattr_init failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-		return result;
-	}
 
-	if ((result=pthread_cond_init(&work_thread_cond, &thread_condattr)) != 0)
+	while (g_thread_count != 0)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"pthread_cond_init failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
-		return result;
+		sleep(1);
 	}
-
-	pthread_condattr_destroy(&thread_condattr);
-	return 0;
 }
 
 int work_deal_task(struct task_info *pTask)

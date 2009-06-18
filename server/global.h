@@ -27,6 +27,12 @@ extern "C" {
 
 #define FDHT_MAX_LOCAL_IP_ADDRS     4
 
+struct thread_data
+{
+	struct event_base *ev_base;
+	int pipe_fds[2];
+};
+
 extern bool g_continue_flag;
 
 extern int g_server_port;
@@ -76,7 +82,7 @@ extern int g_store_type;
 extern int g_mpool_init_capacity;
 extern double g_mpool_load_factor;
 extern int g_mpool_clear_min_interval;
-extern struct event_base *g_event_base;
+extern struct thread_data *g_thread_data;
 
 void load_local_host_ip_addrs();
 bool is_local_host_ip(const char *client_ip);
