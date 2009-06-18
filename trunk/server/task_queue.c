@@ -7,8 +7,8 @@
 #include "global.h"
 #include "logger.h"
 #include "shared_func.h"
-#include "recv_thread.h"
-#include "send_thread.h"
+#include "recv.h"
+#include "send.h"
 #include "work_thread.h"
 
 static struct task_queue_info g_send_queue;
@@ -218,7 +218,7 @@ int send_queue_push(struct task_info *pTask)
 
 	pTask->offset = 0;
 	result = _queue_push_task(&g_send_queue, pTask);
-	send_notify_write();
+	//send_notify_write();
 	return result;
 }
 
@@ -236,7 +236,7 @@ int work_queue_push(struct task_info *pTask)
 {
 	int result;
 	result = _queue_push_task(&g_work_queue, pTask);
-	work_notify_task();
+	//work_notify_task();
 	return result;
 }
 

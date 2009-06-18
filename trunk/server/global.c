@@ -62,7 +62,7 @@ int g_mpool_init_capacity = FDHT_DEFAULT_MPOOL_INIT_CAPACITY;
 double g_mpool_load_factor = FDHT_DEFAULT_MPOOL_LOAD_FACTOR;
 int g_mpool_clear_min_interval = FDHT_DEFAULT_MPOOL_CLEAR_MIN_INTEVAL;
 
-struct event_base *g_event_base = NULL;
+extern struct thread_data *g_thread_data = NULL;
 
 bool is_local_host_ip(const char *client_ip)
 {

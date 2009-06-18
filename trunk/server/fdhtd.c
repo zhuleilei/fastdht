@@ -31,8 +31,8 @@
 #include "sockopt.h"
 #include "sched_thread.h"
 #include "task_queue.h"
-#include "recv_thread.h"
-#include "send_thread.h"
+#include "recv.h"
+#include "send.h"
 #include "work_thread.h"
 #include "func.h"
 #include "sync.h"
@@ -270,59 +270,6 @@ static void sigChildHandler(int sig)
 			"child process %d exits, status=%d.", \
 			__LINE__, pid, status);
 	}
-}
-
-static int create_sock_io_threads(int server_sock)
-{
-	int result;
-
-	result = 0;
-
-	g_event_base = event_init();
-	if (g_event_base == NULL)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-				"event_base_new fail.", __LINE__);
-		return ENOMEM;
-	}
-
-	if (g_max_threads == 1)  //proccess mode
-	{
-		result = recv_process_init(server_sock);
-		if (result != 0)
-		{
-			return result;
-		}
-
-		result = send_process_init();
-		if (result != 0)
-		{
-			return result;
-		}
-	}
-	else
-	{
-		result = recv_thread_init(server_sock);
-		if (result != 0)
-		{
-			return result;
-		}
-
-		result = send_thread_init();
-		if (result != 0)
-		{
-			return result;
-		}
-	}
-
-	while (g_continue_flag)
-	{
-		event_base_loop(g_event_base, 0);
-	}
-
-	event_base_free(g_event_base);
-
-	return 0;
 }
 
 static int fdht_compress_binlog_func(void *arg)

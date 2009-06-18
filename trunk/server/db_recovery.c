@@ -20,8 +20,6 @@
 #include "global.h"
 #include "fdht_func.h"
 #include "task_queue.h"
-#include "recv_thread.h"
-#include "send_thread.h"
 #include "sync.h"
 #include "func.h"
 #include "db_recovery.h"
