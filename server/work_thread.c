@@ -176,10 +176,15 @@ void fdht_accept_loop(int server_sock)
 		incomesock = nbaccept(server_sock, g_network_timeout, &result);
 		if (incomesock < 0) //error
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"accept failed, " \
-				"errno: %d, error info: %s", \
-				__LINE__, errno, strerror(errno));
+			if (!(result == ETIMEDOUT || result == EINTR || \
+				result == EAGAIN))
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"accept failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, result, strerror(result));
+			}
+
 			continue;
 		}
 
