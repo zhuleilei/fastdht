@@ -165,7 +165,6 @@ int work_thread_init()
 void fdht_accept_loop(int server_sock)
 {
 	int incomesock;
-	int result;
 	struct sockaddr_in inaddr;
 	unsigned int sockaddr_len;
 	struct thread_data *pThreadData;
@@ -173,16 +172,15 @@ void fdht_accept_loop(int server_sock)
 	while (g_continue_flag)
 	{
 		sockaddr_len = sizeof(inaddr);
-		incomesock = nbaccept(server_sock, g_network_timeout, &result);
+		incomesock = accept(server_sock, (struct sockaddr*)&inaddr, &sockaddr_len);
 		if (incomesock < 0) //error
 		{
-			if (!(result == ETIMEDOUT || result == EINTR || \
-				result == EAGAIN))
+			if (!(errno == EINTR || errno == EAGAIN))
 			{
 				logError("file: "__FILE__", line: %d, " \
 					"accept failed, " \
 					"errno: %d, error info: %s", \
-					__LINE__, result, strerror(result));
+					__LINE__, errno, strerror(errno));
 			}
 
 			continue;
