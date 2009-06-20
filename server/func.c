@@ -20,8 +20,6 @@
 #include "global.h"
 #include "fdht_func.h"
 #include "task_queue.h"
-#include "recv.h"
-#include "send.h"
 #include "sync.h"
 #include "func.h"
 #include "store.h"
@@ -1138,21 +1136,28 @@ int fdht_write_to_stat_file()
 int fdht_terminate()
 {
 	int result;
+	struct thread_data *pThreadData;
+	struct thread_data *pDataEnd;
+	int quit_sock;
 
 	g_continue_flag = false;
 
-	
 	if (g_store_type == FDHT_STORE_TYPE_BDB)
 	{
 		pthread_kill(dld_tid, SIGINT);
 	}
 
-	if (g_event_base != NULL)
+	if (g_thread_data != NULL)
 	{
-		struct timeval tv;
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
-		event_base_loopexit(g_event_base, &tv);
+		pDataEnd = g_thread_data + g_max_threads;
+		quit_sock = 0;
+		for (pThreadData=g_thread_data; pThreadData<pDataEnd; \
+			pThreadData++)
+		{
+			quit_sock--;
+			write(pThreadData->pipe_fds[1], &quit_sock, \
+					sizeof(quit_sock));
+		}
 	}
 
 	return result;

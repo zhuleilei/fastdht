@@ -48,18 +48,6 @@ int free_queue_push(struct task_info *pTask);
 struct task_info *free_queue_pop();
 int free_queue_count();
 
-int recv_queue_push(struct task_info *pTask);
-struct task_info *recv_queue_pop();
-int recv_queue_count();
-
-int send_queue_push(struct task_info *pTask);
-struct task_info *send_queue_pop();
-int send_queue_count();
-
-int work_queue_push(struct task_info *pTask);
-struct task_info *work_queue_pop();
-int work_queue_count();
-
 #ifdef __cplusplus
 }
 #endif
