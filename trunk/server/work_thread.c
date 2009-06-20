@@ -32,8 +32,7 @@
 #include "ini_file_reader.h"
 #include "sockopt.h"
 #include "task_queue.h"
-#include "recv.h"
-#include "send.h"
+#include "fdht_io.h"
 #include "func.h"
 #include "db_op.h"
 #include "sync.h"
@@ -43,7 +42,6 @@
 
 static pthread_mutex_t work_thread_mutex;
 static pthread_mutex_t inc_thread_mutex;
-static int init_pthread_cond();
 static time_t first_sync_req_time = 0;
 
 static void *work_thread_entrance(void* arg);
@@ -61,19 +59,13 @@ static int deal_cmd_batch_set(struct task_info *pTask);
 static int deal_cmd_batch_del(struct task_info *pTask);
 static int deal_cmd_stat(struct task_info *pTask);
 
-int work_thread_init(int server_sock)
+int work_thread_init()
 {
-	int i;
 	int result;
 	struct thread_data *pThreadData;
 	struct thread_data *pDataEnd;
 	pthread_t tid;
 	pthread_attr_t thread_attr;
-
-	if (g_max_threads == 1)  //proccess mode
-	{
-		return 0;
-	}
 
 	if ((result=init_pthread_lock(&work_thread_mutex)) != 0)
 	{
@@ -170,8 +162,43 @@ int work_thread_init(int server_sock)
 	return result;
 }
 
+void fdht_accept_loop(int server_sock)
+{
+	int incomesock;
+	int result;
+	struct sockaddr_in inaddr;
+	unsigned int sockaddr_len;
+	struct thread_data *pThreadData;
+
+	while (g_continue_flag)
+	{
+		sockaddr_len = sizeof(inaddr);
+		incomesock = nbaccept(server_sock, g_network_timeout, &result);
+		if (incomesock < 0) //error
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"accept failed, " \
+				"errno: %d, error info: %s", \
+				__LINE__, errno, strerror(errno));
+			continue;
+		}
+
+		pThreadData = g_thread_data + incomesock % g_max_threads;
+		if (write(pThreadData->pipe_fds[1], &incomesock, \
+			sizeof(incomesock)) != sizeof(incomesock))
+		{
+			close(incomesock);
+			logError("file: "__FILE__", line: %d, " \
+				"call write failed, " \
+				"errno: %d, error info: %s", \
+				__LINE__, errno, strerror(errno));
+		}
+	}
+}
+
 static void *work_thread_entrance(void* arg)
 {
+	int result;
 	struct thread_data *pThreadData;
 	struct event ev_notify;
 
@@ -179,7 +206,7 @@ static void *work_thread_entrance(void* arg)
 	do
 	{
 		event_set(&ev_notify, pThreadData->pipe_fds[0], \
-			EV_READ | EV_PERSIST, send_notify_read, NULL);
+			EV_READ | EV_PERSIST, recv_notify_read, NULL);
 		if ((result=event_base_set(pThreadData->ev_base, &ev_notify)) != 0)
 		{
 			logCrit("file: "__FILE__", line: %d, " \
@@ -192,6 +219,7 @@ static void *work_thread_entrance(void* arg)
 				"event_add fail.", __LINE__);
 			break;
 		}
+
 		while (g_continue_flag)
 		{
 			event_base_loop(pThreadData->ev_base, 0);
@@ -221,20 +249,14 @@ static void *work_thread_entrance(void* arg)
 
 void work_thread_destroy()
 {
-	if (g_max_threads > 1)  //thread mode
-	{
-		wait_for_work_threads_exit();
+	wait_for_work_threads_exit();
 
-		pthread_mutex_destroy(&work_thread_mutex);
-		pthread_mutex_destroy(&inc_thread_mutex);
-	}
+	pthread_mutex_destroy(&work_thread_mutex);
+	pthread_mutex_destroy(&inc_thread_mutex);
 }
 
 static void wait_for_work_threads_exit()
 {
-	int i;
-	int result;
-
 	while (g_thread_count != 0)
 	{
 		sleep(1);
@@ -313,14 +335,7 @@ int work_deal_task(struct task_info *pTask)
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(FDHTProtoHeader), pHeader->pkg_len);
 
-	if (g_max_threads > 1)  //thread mode
-	{
-		send_queue_push(pTask);
-	}
-	else  //proccess mode
-	{
-		send_add_event(pTask);
-	}
+	send_add_event(pTask);
 
 	return 0;
 }

@@ -7,13 +7,8 @@
 #include "global.h"
 #include "logger.h"
 #include "shared_func.h"
-#include "recv.h"
-#include "send.h"
 #include "work_thread.h"
 
-static struct task_queue_info g_send_queue;
-static struct task_queue_info g_recv_queue;
-static struct task_queue_info g_work_queue;
 static struct task_queue_info g_free_queue;
 
 static struct task_info *g_mpool = NULL;
@@ -29,27 +24,6 @@ int task_queue_init()
 	struct task_info *pEnd;
 	int alloc_size;
 	int result;
-
-	if ((result=init_pthread_lock(&(g_send_queue.lock))) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"init_pthread_lock fail, program exit!", __LINE__);
-		return result;
-	}
-
-	if ((result=init_pthread_lock(&(g_recv_queue.lock))) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"init_pthread_lock fail, program exit!", __LINE__);
-		return result;
-	}
-
-	if ((result=init_pthread_lock(&(g_work_queue.lock))) != 0)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"init_pthread_lock fail, program exit!", __LINE__);
-		return result;
-	}
 
 	if ((result=init_pthread_lock(&(g_free_queue.lock))) != 0)
 	{
@@ -85,12 +59,6 @@ int task_queue_init()
 		}
 	}
 
-	g_send_queue.head = NULL;
-	g_send_queue.tail = NULL;
-
-	g_recv_queue.head = NULL;
-	g_recv_queue.tail = NULL;
-
 	g_free_queue.head = g_mpool;
 	g_free_queue.tail = pEnd - 1;
 	for (pTask=g_mpool; pTask<g_free_queue.tail; pTask++)
@@ -125,9 +93,6 @@ void task_queue_destroy()
 	free(g_mpool);
 	g_mpool = NULL;
 
-	pthread_mutex_destroy(&(g_send_queue.lock));
-	pthread_mutex_destroy(&(g_recv_queue.lock));
-	pthread_mutex_destroy(&(g_work_queue.lock));
 	pthread_mutex_destroy(&(g_free_queue.lock));
 }
 
@@ -189,65 +154,6 @@ int free_queue_push(struct task_info *pTask)
 int free_queue_count()
 {
 	return _task_queue_count(&g_free_queue);
-}
-
-int recv_queue_push(struct task_info *pTask)
-{
-	int result;
-
-	pTask->length = 0;
-	pTask->offset = 0;
-	result = _queue_push_task(&g_recv_queue, pTask);
-	//recv_notify_write();
-	return result;
-}
-
-struct task_info *recv_queue_pop()
-{
-	return _queue_pop_task(&g_recv_queue);
-}
-
-int recv_queue_count()
-{
-	return _task_queue_count(&g_recv_queue);
-}
-
-int send_queue_push(struct task_info *pTask)
-{
-	int result;
-
-	pTask->offset = 0;
-	result = _queue_push_task(&g_send_queue, pTask);
-	//send_notify_write();
-	return result;
-}
-
-struct task_info *send_queue_pop()
-{
-	return _queue_pop_task(&g_send_queue);
-}
-
-int send_queue_count()
-{
-	return _task_queue_count(&g_send_queue);
-}
-
-int work_queue_push(struct task_info *pTask)
-{
-	int result;
-	result = _queue_push_task(&g_work_queue, pTask);
-	//work_notify_task();
-	return result;
-}
-
-struct task_info *work_queue_pop()
-{
-	return _queue_pop_task(&g_work_queue);
-}
-
-int work_queue_count()
-{
-	return _task_queue_count(&g_work_queue);
 }
 
 static int _queue_push_task(struct task_queue_info *pQueue, \

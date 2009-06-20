@@ -19,6 +19,7 @@ Version 1.09  2009-06-17
  * bugfix: never expired / persistent keys not be cleared when clear expired keys
  * inc use thread lock for atomicity
  * mpool use rwlock, support multi-threads
+ * change work thread mode
 
 Version 1.08  2009-04-12
  * common/shared_func.c: rindex change to strrchr, add #include <netinet/in.h>

@@ -31,8 +31,7 @@
 #include "sockopt.h"
 #include "sched_thread.h"
 #include "task_queue.h"
-#include "recv.h"
-#include "send.h"
+#include "fdht_io.h"
 #include "work_thread.h"
 #include "func.h"
 #include "sync.h"
@@ -47,8 +46,6 @@ static void sigQuitHandler(int sig);
 static void sigHupHandler(int sig);
 static void sigUsrHandler(int sig);
 static void sigChildHandler(int sig);
-
-static int create_sock_io_threads(int server_sock);
 
 int main(int argc, char *argv[])
 {
@@ -192,14 +189,7 @@ int main(int argc, char *argv[])
 
 	log_set_cache(true);
 
-	if ((result=create_sock_io_threads(sock)) != 0)
-	{
-		fdht_terminate();
-		work_thread_destroy();
-		fdht_func_destroy();
-		log_destory();
-		return result;
-	}
+	fdht_accept_loop(sock);
 
 	work_thread_destroy();
 

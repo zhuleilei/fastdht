@@ -30,136 +30,144 @@
 #include "sockopt.h"
 #include "fdht_proto.h"
 #include "task_queue.h"
-#include "send_thread.h"
 #include "work_thread.h"
 
-static void server_sock_read(int sock, short event, void *arg);
 static void client_sock_read(int sock, short event, void *arg);
+static void client_sock_write(int sock, short event, void *arg);
 
-static struct event ev_sock_server;
-
-int recv_process_init(int server_sock)
+void recv_notify_read(int sock, short event, void *arg)
 {
-	int result;
-
-	event_set(&ev_sock_server, server_sock, EV_READ | EV_PERSIST, \
-		server_sock_read, &ev_sock_server);
-	if ((result=event_base_set(g_event_base, &ev_sock_server)) != 0)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_base_set fail.", __LINE__);
-		return result;
-	}
-	if ((result=event_add(&ev_sock_server, NULL)) != 0)
-	{
-		logCrit("file: "__FILE__", line: %d, " \
-			"event_add fail.", __LINE__);
-		return result;
-	}
-
-	return 0;
-}
-
-int recv_add_event(struct task_info *pTask)
-{
-	int result;
-
-	pTask->offset = 0;
-	pTask->length  = 0;
-
-	if ((result=event_add(&pTask->ev_read, &g_network_tv)) != 0)
-	{
-		close(pTask->ev_read.ev_fd);
-		free_queue_push(pTask);
-
-		logError("file: "__FILE__", line: %d, " \
-			"event_add fail.", __LINE__);
-		return result;
-	}
-
-	return 0;
-}
-
-static void server_sock_read(int sock, short event, void *arg)
-{
+	int bytes;
 	int incomesock;
-	struct sockaddr_in inaddr;
-	unsigned int sockaddr_len;
+	int result;
+	struct thread_data *pThreadData;
 	struct task_info *pTask;
 	char szClientIp[IP_ADDRESS_SIZE];
 	in_addr_t client_addr;
 
-	sockaddr_len = sizeof(inaddr);
-	incomesock = accept(sock, (struct sockaddr*)&inaddr, &sockaddr_len);
-
-	if (incomesock < 0) //error
+	while (1)
 	{
-		logError("file: "__FILE__", line: %d, " \
-			"accept failed, " \
-			"errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
-		return;
-	}
-	
-	client_addr = getPeerIpaddr(incomesock, \
-				szClientIp, IP_ADDRESS_SIZE);
-	if (g_allow_ip_count >= 0)
-	{
-		if (bsearch(&client_addr, g_allow_ip_addrs, g_allow_ip_count, \
-			sizeof(in_addr_t), cmp_by_ip_addr_t) == NULL)
+		if ((bytes=read(sock, &incomesock, sizeof(incomesock))) < 0)
 		{
-			logError("file: "__FILE__", line: %d, " \
-				"ip addr %s is not allowed to access", \
-				__LINE__, szClientIp);
+			if (!(errno == EAGAIN || errno == EWOULDBLOCK))
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"call read failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, errno, strerror(errno));
+			}
 
-			close(incomesock);
+			break;
+		}
+		else if (bytes == 0)
+		{
+			break;
+		}
+
+		if (incomesock < 0)
+		{
+			struct timeval tv;
+                        tv.tv_sec = 1;
+                        tv.tv_usec = 0;
+			pThreadData = g_thread_data + (-1 * incomesock - 1) % \
+					g_max_threads;
+			event_base_loopexit(pThreadData->ev_base, &tv);
 			return;
 		}
-	}
 
-	if (tcpsetnonblockopt(incomesock) != 0)
-	{
-		close(incomesock);
-		return;
-	}
+		client_addr = getPeerIpaddr(incomesock, \
+				szClientIp, IP_ADDRESS_SIZE);
+		if (g_allow_ip_count >= 0)
+		{
+			if (bsearch(&client_addr, g_allow_ip_addrs, \
+					g_allow_ip_count, sizeof(in_addr_t), \
+					cmp_by_ip_addr_t) == NULL)
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"ip addr %s is not allowed to access", \
+					__LINE__, szClientIp);
 
-	pTask = free_queue_pop();
-	if (pTask == NULL)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"malloc task buff failed", \
-			__LINE__);
-		close(incomesock);
-		return;
-	}
+				close(incomesock);
+				continue;
+			}
+		}
 
-	strcpy(pTask->client_ip, szClientIp);
-	event_set(&pTask->ev_read, incomesock, EV_READ, \
-			client_sock_read, pTask);
-	if (event_base_set(g_event_base, &pTask->ev_read) != 0)
+		if (tcpsetnonblockopt(incomesock) != 0)
+		{
+			close(incomesock);
+			continue;
+		}
+
+		pTask = free_queue_pop();
+		if (pTask == NULL)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"malloc task buff failed", \
+				__LINE__);
+			close(incomesock);
+			continue;
+		}
+
+		pThreadData = g_thread_data + incomesock % g_max_threads;
+
+		strcpy(pTask->client_ip, szClientIp);
+		event_set(&pTask->ev_read, incomesock, EV_READ, \
+				client_sock_read, pTask);
+		if (event_base_set(pThreadData->ev_base, &pTask->ev_read) != 0)
+		{
+			free_queue_push(pTask);
+			close(incomesock);
+
+			logError("file: "__FILE__", line: %d, " \
+				"event_base_set fail.", __LINE__);
+			continue;
+		}
+
+		event_set(&pTask->ev_write, incomesock, EV_WRITE, \
+				client_sock_write, pTask);
+		if ((result=event_base_set(pThreadData->ev_base, \
+				&pTask->ev_write)) != 0)
+		{
+			free_queue_push(pTask);
+			close(incomesock);
+
+			logError("file: "__FILE__", line: %d, " \
+					"event_base_set fail.", __LINE__);
+			continue;
+		}
+
+		if (event_add(&pTask->ev_read, &g_network_tv) != 0)
+		{
+			free_queue_push(pTask);
+			close(incomesock);
+
+			logError("file: "__FILE__", line: %d, " \
+				"event_add fail.", __LINE__);
+			continue;
+		}
+	}
+}
+
+int send_add_event(struct task_info *pTask)
+{
+	pTask->offset = 0;
+
+	/* direct send */
+	client_sock_write(pTask->ev_write.ev_fd, EV_WRITE, pTask);
+
+	/*
+	if ((result=event_add(&pTask->ev_write, &g_network_tv)) != 0)
 	{
+		close(pTask->ev_write.ev_fd);
 		free_queue_push(pTask);
-		close(incomesock);
 
 		logError("file: "__FILE__", line: %d, " \
-			"event_base_set fail.", __LINE__);
-		return;
+				"event_add fail.", __LINE__);
+		return result;
 	}
-	if (send_set_event(pTask, incomesock) != 0)
-	{
-		free_queue_push(pTask);
-		close(incomesock);
-		return;
-	}
-	if (event_add(&pTask->ev_read, &g_network_tv) != 0)
-	{
-		free_queue_push(pTask);
-		close(incomesock);
+	*/
 
-		logError("file: "__FILE__", line: %d, " \
-			"event_add fail.", __LINE__);
-		return;
-	}
+	return 0;
 }
 
 static void client_sock_read(int sock, short event, void *arg)
@@ -323,19 +331,102 @@ static void client_sock_read(int sock, short event, void *arg)
 		pTask->offset += bytes;
 		if (pTask->offset >= pTask->length) //recv done
 		{
-			if (g_max_threads > 1)  //thread mode
-			{
-				work_queue_push(pTask);
-			}
-			else //proccess mode
-			{
-				work_deal_task(pTask);
-			}
-
+			work_deal_task(pTask);
 			return;
 		}
 	}
 
 	return;
+}
+
+static void client_sock_write(int sock, short event, void *arg)
+{
+	int bytes;
+	int result;
+	struct task_info *pTask;
+
+	pTask = (struct task_info *)arg;
+	if (event == EV_TIMEOUT)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"send timeout", __LINE__);
+
+		close(pTask->ev_write.ev_fd);
+		free_queue_push(pTask);
+
+		return;
+	}
+
+	while (1)
+	{
+		bytes = send(sock, pTask->data + pTask->offset, \
+				pTask->length - pTask->offset,  0);
+		//printf("%08X sended %d bytes\n", (int)pTask, bytes);
+		if (bytes < 0)
+		{
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				if (event_add(&pTask->ev_write, &g_network_tv) != 0)
+				{
+					close(pTask->ev_write.ev_fd);
+					free_queue_push(pTask);
+
+					logError("file: "__FILE__", line: %d, " \
+						"event_add fail.", __LINE__);
+				}
+			}
+			else
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"client ip: %s, recv failed, " \
+					"errno: %d, error info: %s", \
+					__LINE__, pTask->client_ip, \
+					errno, strerror(errno));
+
+				close(pTask->ev_write.ev_fd);
+				free_queue_push(pTask);
+			}
+
+			return;
+		}
+		else if (bytes == 0)
+		{
+			logWarning("file: "__FILE__", line: %d, " \
+				"send failed, connection disconnected.", \
+				__LINE__);
+
+			close(pTask->ev_write.ev_fd);
+			free_queue_push(pTask);
+			return;
+		}
+
+		pTask->offset += bytes;
+		if (pTask->offset >= pTask->length)
+		{
+			if (((FDHTProtoHeader *)pTask->data)->keep_alive)
+			{
+				pTask->offset = 0;
+				pTask->length  = 0;
+
+				if ((result=event_add(&pTask->ev_read, \
+						&g_network_tv)) != 0)
+				{
+					close(pTask->ev_read.ev_fd);
+					free_queue_push(pTask);
+
+					logError("file: "__FILE__", line: %d, "\
+						"event_add fail.", __LINE__);
+					return;
+				}
+			}
+			else
+			{
+				close(pTask->ev_write.ev_fd);
+				free_queue_push(pTask);
+			}
+
+			return;
+		}
+	}
 }
 

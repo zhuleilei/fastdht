@@ -22,12 +22,8 @@
 extern "C" {
 #endif
 
-#define recv_thread_init(server_sock)  recv_process_init(server_sock)
-
-int recv_notify_write();
-
-int recv_process_init(int server_sock);
-int recv_add_event(struct task_info *pTask);
+void recv_notify_read(int sock, short event, void *arg);
+int send_add_event(struct task_info *pTask);
 
 #ifdef __cplusplus
 }
