@@ -588,12 +588,25 @@ int nbaccept(int sock, const int timeout, int *err_no)
 {
 	struct sockaddr_in inaddr;
 	unsigned int sockaddr_len;
+	int result;
+#ifdef USE_SELECT
 	fd_set read_set;
 	struct timeval t;
-	int result;
-	
+#else
+	struct pollfd pollfds;
+#endif
+
+#ifdef USE_SELECT
+	FD_ZERO(&read_set);
+	FD_SET(sock, &read_set);
+#else
+	pollfds.fd = sock;
+	pollfds.events = POLLIN;
+#endif
+
 	if (timeout > 0)
 	{
+#ifdef USE_SELECT
 		t.tv_usec = 0;
 		t.tv_sec = timeout;
 		
@@ -601,6 +614,10 @@ int nbaccept(int sock, const int timeout, int *err_no)
 		FD_SET(sock, &read_set);
 		
 		result = select(sock+1, &read_set, NULL, NULL, &t);
+#else
+		result = poll(&pollfds, 1, 1000 * timeout);
+#endif
+
 		if (result == 0)  //timeout
 		{
 			*err_no = ETIMEDOUT;
