@@ -27,7 +27,7 @@ make; make install
 # http://code.google.com/p/fastdht/downloads/list
 # then unpack the source package as:
 # tar xzf FastDHT_v1.xx.tar.gz
-tar xzf FastDHT_v1.08.tar.gz
+tar xzf FastDHT_v1.09.tar.gz
 cd FastDHT
 ./make.sh; ./make.sh install
 
@@ -69,7 +69,7 @@ max_threads=32
 max_pkg_size=64KB
 
 # min buff size, the task queue size at least: max_connections * min_buff_size,
-# you can set the value of min_buff_size to that of max_pkg_size to avoid
+# you can set the value of min_buff_size to that of max_pkg_size to avoid 
 # memory re-alloc if memory is enough.
 # bytes unit can be one of follows:
 ### G or g for gigabyte(GB)
@@ -79,20 +79,25 @@ max_pkg_size=64KB
 # default value is 64KB
 min_buff_size=64KB
 
-# the db filename prefix
-db_prefix = db
+# store type
+### BDB for Berkeley DB
+### MPOOL for memory pool
+store_type = BDB
 
-# BDB cache size
+# cache size
 # bytes unit can be one of follows:
 ### G or g for gigabyte(GB)
 ### M or m for megabyte(MB)
 ### K or k for kilobyte(KB)
 ### no unit for byte(B)
 # default value is 64MB
-cache_size = 64MB
+cache_size = 32MB
+
+# the BDB db filename prefix
+db_prefix = db
 
 # BDB page size. The minimum page size is 512 bytes, the maximum page size is 
-# 64K bytes, and the page size must be a power-of-two
+# 64KB, and the page size must be a power-of-two
 # bytes unit can be one of follows:
 ### K or k for kilobyte(KB)
 ### no unit for byte(B)
@@ -103,6 +108,20 @@ page_size = 4096
 # btree: BTREE type (default)
 # hash: HASH table
 db_type = btree
+
+# MPOOL hash table init capacity
+# default value is 10000
+mpool_init_capacity = 10000
+
+# MPOOL hash table load factor
+# should >= 0.1 and <= 1.0
+# default value is 0.75
+mpool_load_factor = 0.75
+
+
+# MPOOL hash table clear expired key min interval (seconds)
+mpool_clear_min_interval = 30
+
 
 #standard log level as syslog, case insensitive, value list:
 ### emerg for emergency
@@ -130,12 +149,21 @@ run_by_user=
 # allow_hosts=host[01-08,20-25].domain.com
 allow_hosts=*
 
+# sync log buff to disk every interval seconds
+# default value is 10 seconds
+sync_log_buff_interval=10
+
+# the base time for syncing db to disk, time format: HH:MM
+# empty for the current time when the program starts
+# default value is 00:00
+sync_db_time_base=00:00
+
 # sync db to disk every interval seconds
 # default value is 86400 seconds (sync every day)
 # <= 0 for never sync
 sync_db_interval=86400
 
-# if write to binlog file. set to 0 to disable replication
+# if write to binlog file, set to 0 to disable replication
 # default value is 1
 write_to_binlog=1
 
@@ -150,9 +178,9 @@ sync_binlog_buff_interval=60
 clear_expired_time_base=04:00
 
 # clear expired keys every interval seconds
-# default value is 0 seconds (never clear)
+# default value is 86400 seconds (clear every day)
 # <= 0 for never clear
-clear_expired_interval=0
+clear_expired_interval=86400
 
 # detect Berkeley DB dead lock every interval milliseconds
 # default value is 1000 milliseconds
@@ -204,6 +232,8 @@ memo:
 ----------------------------------------------------
 | base_path              | string |         |  Y   |
 ----------------------------------------------------
+| store_type             | string |         |  Y   |
+----------------------------------------------------
 | db_prefix              | string |         |  Y   |
 ----------------------------------------------------
 | disabled               | boolean| false   |  N   |
@@ -225,6 +255,12 @@ memo:
 | page_size              | string |  4KB    |  N   |
 ----------------------------------------------------
 | db_type                | string | btree   |  N   |
+----------------------------------------------------
+| mpool_init_capacity    | int    | 10000   |  N   |
+----------------------------------------------------
+| mpool_load_factor      | double | 0.75    |  N   |
+----------------------------------------------------
+| mpool_clear_min_interval| int   | 30 (s)  |  N   |
 ----------------------------------------------------
 | run_by_group           | string |         |  N   |
 ----------------------------------------------------

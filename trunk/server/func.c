@@ -687,6 +687,11 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
+		if (*nCacheSize < 1024 * 1024)
+		{
+			*nCacheSize = 1024 * 1024;
+		}
+
 		memset(&groupArray, 0, sizeof(groupArray));
 		result = fdht_load_groups(items, nItemCount, &groupArray);
 		if (result != 0)

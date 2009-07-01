@@ -221,8 +221,8 @@ static void sigQuitHandler(int sig)
 {
 	if (g_continue_flag)
 	{
-		pthread_kill(schedule_tid, SIGINT);
 		fdht_terminate();
+		pthread_kill(schedule_tid, SIGINT);
 		logCrit("file: "__FILE__", line: %d, " \
 			"catch signal %d, program exiting...", \
 			__LINE__, sig);

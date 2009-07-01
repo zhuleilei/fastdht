@@ -1732,12 +1732,16 @@ static int deal_cmd_stat(struct task_info *pTask)
 
 		p += sprintf(p, "total_items=%d\n", hs.item_count);
 		p += sprintf(p, "bucket count=%d\n", hs.capacity);
-		p += sprintf(p, "used_bytes="INT64_PRINTF_FORMAT"\n", \
-			g_hash_array->bytes_used);
-		p += sprintf(p, "max bytes="INT64_PRINTF_FORMAT"\n", \
+		p += sprintf(p, "used_bytes="INT64_PRINTF_FORMAT" (%.2f%%)\n",\
+			g_hash_array->bytes_used, \
+			(100.00 * g_hash_array->bytes_used) / \
 			g_hash_array->max_bytes);
-		p += sprintf(p, "free bytes="INT64_PRINTF_FORMAT"\n", \
-			g_hash_array->max_bytes - g_hash_array->bytes_used);
+		p += sprintf(p, "max bytes="INT64_PRINTF_FORMAT" (100.00%%)\n",\
+			g_hash_array->max_bytes);
+		p += sprintf(p, "free bytes="INT64_PRINTF_FORMAT" (%.2f%%)\n", \
+			g_hash_array->max_bytes - g_hash_array->bytes_used, \
+			(100.00 * (g_hash_array->max_bytes - \
+			g_hash_array->bytes_used)) / g_hash_array->max_bytes);
 		p += sprintf(p, "bucket_used=%d\n", hs.bucket_used);
 		p += sprintf(p, "bucket_max_length=%d\n", hs.bucket_max_length);
 		p += sprintf(p, "bucket_avg_length=%.4f\n", \
