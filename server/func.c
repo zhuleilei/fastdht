@@ -1140,7 +1140,6 @@ int fdht_write_to_stat_file()
 
 int fdht_terminate()
 {
-	int result;
 	struct thread_data *pThreadData;
 	struct thread_data *pDataEnd;
 	int quit_sock;
@@ -1165,6 +1164,6 @@ int fdht_terminate()
 		}
 	}
 
-	return result;
+	return 0;
 }
 

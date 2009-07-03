@@ -917,6 +917,10 @@ int getFileContent(const char *filename, char **buff, off_t *file_size)
 	{
 		*buff = NULL;
 		*file_size = 0;
+		logError("file: "__FILE__", line: %d, " \
+			"open file %s fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			filename, errno, strerror(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -925,6 +929,10 @@ int getFileContent(const char *filename, char **buff, off_t *file_size)
 		*buff = NULL;
 		*file_size = 0;
 		close(fd);
+		logError("file: "__FILE__", line: %d, " \
+			"lseek file %s fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			filename, errno, strerror(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -945,6 +953,10 @@ int getFileContent(const char *filename, char **buff, off_t *file_size)
 		*buff = NULL;
 		*file_size = 0;
 		close(fd);
+		logError("file: "__FILE__", line: %d, " \
+			"lseek file %s fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			filename, errno, strerror(errno));
 		return errno != 0 ? errno : EIO;
 	}
 	if (read(fd, *buff, *file_size) != *file_size)
@@ -953,6 +965,10 @@ int getFileContent(const char *filename, char **buff, off_t *file_size)
 		*buff = NULL;
 		*file_size = 0;
 		close(fd);
+		logError("file: "__FILE__", line: %d, " \
+			"read from file %s fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			filename, errno, strerror(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
