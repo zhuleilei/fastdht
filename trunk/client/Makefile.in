@@ -8,14 +8,14 @@ TARGET_PATH = $(TARGET_PATH)
 STATIC_OBJS = ../common/hash.o ../common/chain.o \
               ../common/shared_func.o ../common/ini_file_reader.o \
               ../common/logger.o ../common/sockopt.o \
-              ../common/fdfs_base64.o \
+              ../common/fdfs_base64.o ../common/http_func.o \
               ../common/fdht_global.o ../common/fdht_proto.o \
               ../common/fdht_func.o fdht_client.o
 
 SHARED_OBJS = ../common/hash.lo ../common/chain.lo \
               ../common/shared_func.lo ../common/ini_file_reader.lo \
               ../common/logger.lo ../common/sockopt.lo \
-              ../common/fdfs_base64.lo \
+              ../common/fdfs_base64.lo ../common/http_func.lo \
               ../common/fdht_global.lo ../common/fdht_proto.lo \
               ../common/fdht_func.lo fdht_client.lo
 
@@ -26,7 +26,7 @@ HEADER_FILES = ../common/common_define.h ../common/fdht_define.h  \
                ../common/fdfs_base64.h ../common/shared_func.h \
                ../common/ini_file_reader.h ../common/_os_bits.h \
                ../common/sockopt.h ../common/sched_thread.h \
-               ../common/logger.h fdht_client.h
+               ../common/logger.h ../common/http_func.h fdht_client.h
 
 ALL_OBJS = $(STATIC_OBJS) $(SHARED_OBJS)
 
