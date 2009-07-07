@@ -1,5 +1,6 @@
-Version 1.10  2009-07-03
+Version 1.10  2009-07-07
  * ini reader support HTTP protocol, conf file can be an url
+ * hash does not use macro: HASH_MALLOC_VALUE, add member is_malloc_value
 
 Version 1.09  2009-07-01
  * correct php extension error info

@@ -32,8 +32,8 @@ int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 		return errno != 0 ? errno : ENOMEM;
 	}
 
-	if ((result=hash_init_ex(g_hash_array, PJWHash, \
-		g_mpool_init_capacity, g_mpool_load_factor, nCacheSize)) != 0)
+	if ((result=hash_init_ex(g_hash_array, PJWHash, g_mpool_init_capacity,\
+		g_mpool_load_factor, nCacheSize, true)) != 0)
 	{
 		return result;
 	}
@@ -131,7 +131,7 @@ int mp_get(StoreHandle *pHandle, const char *pKey, const int key_len, \
 			}
 
 			*size = hash_data->value_len;
-			memcpy(*ppValue, HASH_VALUE(hash_data), hash_data->value_len);
+			memcpy(*ppValue, hash_data->value, hash_data->value_len);
 			g_server_stat.success_get_count++;
 			result = 0;
 			break;
@@ -150,7 +150,7 @@ int mp_get(StoreHandle *pHandle, const char *pKey, const int key_len, \
 			break;
 		}
 
-		memcpy(*ppValue, HASH_VALUE(hash_data), hash_data->value_len);
+		memcpy(*ppValue, hash_data->value, hash_data->value_len);
 		g_server_stat.success_get_count++;
 		result = 0;
 	} while (0);
@@ -252,7 +252,7 @@ int mp_partial_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 
 		if (offset + value_len <= hash_data->value_len)
 		{
-			memcpy(HASH_VALUE(hash_data)+offset, pValue, value_len);
+			memcpy(hash_data->value+offset, pValue, value_len);
 			result = 0;
 			break;
 		}
@@ -271,7 +271,7 @@ int mp_partial_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 
 		if (offset > 0)
 		{
-			memcpy(pNewBuff, HASH_VALUE(hash_data), offset);
+			memcpy(pNewBuff, hash_data->value, offset);
 		}
 		memcpy(pNewBuff+offset, pValue, value_len);
 		result = mp_do_set(g_hash_array, pKey, key_len, \
@@ -329,7 +329,7 @@ int mp_inc(StoreHandle *pHandle, const char *pKey, const int key_len, \
 		}
 		else
 		{
-			memcpy(pValue, HASH_VALUE(hash_data), \
+			memcpy(pValue, hash_data->value, \
 					hash_data->value_len);
 			pValue[hash_data->value_len] = '\0';
 			n = strtoll(pValue, NULL, 10);
@@ -370,7 +370,7 @@ int mp_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	}
 	else
 	{
-		old_expires = buff2int(HASH_VALUE(hash_data));
+		old_expires = buff2int(hash_data->value);
 		if (old_expires != FDHT_EXPIRES_NEVER && \
 			old_expires < time(NULL)) //expired
 		{
@@ -384,7 +384,7 @@ int mp_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 			}
 			else
 			{
-				memcpy(pValue, HASH_VALUE(hash_data), \
+				memcpy(pValue, hash_data->value, \
 					hash_data->value_len);
 				pValue[hash_data->value_len] = '\0';
 				n = strtoll(pValue + 4, NULL, 10);
@@ -470,7 +470,7 @@ int mp_clear_expired_keys(void *arg)
 		previous = NULL;
 		do
 		{
-			expires = buff2int(HASH_VALUE(hash_data));
+			expires = buff2int(hash_data->value);
 			if (expires == FDHT_EXPIRES_NEVER || \
 				expires > current_time)
 			{
