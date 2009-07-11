@@ -1701,6 +1701,13 @@ static void* fdht_sync_thread_entrance(void* arg)
 			break;
 		}
 
+		if (tcpsetnonblockopt(fdht_server.sock) != 0)
+		{
+			close(fdht_server.sock);
+			fdht_server.sock = -1;
+			continue;
+		}
+	
 		tcpsetnodelay(fdht_server.sock);
 
 		if (fdht_reader_init(&fdht_server, &reader) != 0)
