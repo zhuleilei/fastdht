@@ -1,8 +1,9 @@
-Version 1.10  2009-07-11
+Version 1.10  2009-07-19
  * ini reader support HTTP protocol, conf file can be an url
  * hash does not use macro: HASH_MALLOC_VALUE, add member is_malloc_value
  * sockopt.c sendfile and recvfile support non-block socket
  * sync.c call tcpsetnonblock after connect
+ * bug fix: sockopt.c do not set non-block in function tcpsetserveropt
 
 Version 1.09  2009-07-01
  * correct php extension error info
