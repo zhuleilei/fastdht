@@ -66,8 +66,8 @@ typedef struct
 	int buff_size;
 } CompressWalkArg;
 
-static int g_binlog_index;
-static time_t g_current_time;
+static int gn_binlog_index;
+static time_t gt_current_time;
 
 static int get_current_binlog_index();
 static int get_binlog_compressed_index();
@@ -126,15 +126,15 @@ int main(int argc, char *argv[])
 
 	if (strcmp(argv[2], "all") == 0)
 	{
-		if (g_binlog_index == 0)
+		if (gn_binlog_index == 0)
 		{
 			logError("Current binlog index: %d == 0, " \
-				"can't compress!", g_binlog_index);
+				"can't compress!", gn_binlog_index);
 			return EINVAL;
 		}
 
 		start_index = 0;
-		end_index = g_binlog_index - 1;
+		end_index = gn_binlog_index - 1;
 	}
 	else if (strcmp(argv[2], "auto") == 0)
 	{
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 			return result;
 		}
 
-		end_index = g_binlog_index - 2; //make sure syncing is done
+		end_index = gn_binlog_index - 2; //make sure syncing is done
 		if (start_index > end_index)
 		{
 			return 0;
@@ -160,11 +160,11 @@ int main(int argc, char *argv[])
 			return EINVAL;
 		}
 
-		if (start_index >= g_binlog_index)
+		if (start_index >= gn_binlog_index)
 		{
 			logError("The compress index: %d >= current binlog " \
 				"index: %d, can't compress!", \
-				start_index, g_binlog_index);
+				start_index, gn_binlog_index);
 			return EINVAL;
 		}
 	}
@@ -303,12 +303,12 @@ static int get_current_binlog_index()
 	}
 
 	file_buff[bytes] = '\0';
-	g_binlog_index = atoi(file_buff);
-	if (g_binlog_index < 0)
+	gn_binlog_index = atoi(file_buff);
+	if (gn_binlog_index < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"in file \"%s\", binlog_index: %d < 0", \
-			__LINE__, full_filename, g_binlog_index);
+			__LINE__, full_filename, gn_binlog_index);
 		return EINVAL;
 	}
 
@@ -540,7 +540,7 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 static int compress_write_to_binlog(CompressWalkArg *pWalkArg, CompressRawRow *pRow)
 {
 	if ((pRow->expires != FDHT_EXPIRES_NEVER && \
-		pRow->expires < g_current_time) || \
+		pRow->expires < gt_current_time) || \
 		(pRow->op_type == FDHT_OP_TYPE_SOURCE_DEL || \
 		pRow->op_type == FDHT_OP_TYPE_REPLICA_DEL))
 	{
@@ -753,7 +753,7 @@ static int compress_binlog_file(CompressReader *pReader)
 		return errno != 0 ? errno : EACCES;
 	}
 
-	g_current_time = time(NULL);
+	gt_current_time = time(NULL);
 
 	walk_arg.pReader = pReader;
 	walk_arg.buff_size = 64 * 1024;
