@@ -1,5 +1,6 @@
-Version 1.11  2009-07-22
+Version 1.11  2009-08-04
  * bug fixed: http_func.c logError parameter mismatched
+ * base64 use context, functions changed
 
 Version 1.10  2009-07-19
  * ini reader support HTTP protocol, conf file can be an url

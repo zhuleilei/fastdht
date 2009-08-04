@@ -68,6 +68,7 @@ typedef struct
 
 static int gn_binlog_index;
 static time_t gt_current_time;
+static struct base64_context gc_base64_context;
 
 static int get_current_binlog_index();
 static int get_binlog_compressed_index();
@@ -96,7 +97,7 @@ int main(int argc, char *argv[])
 		return EINVAL;
 	}
 
-	base64_init(0);
+	base64_init(&gc_base64_context, 0);
 	memset(&reader, 0, sizeof(reader));
 	reader.binlog_fd = -1;
 
@@ -671,8 +672,8 @@ static int compress_binlog_file(CompressReader *pReader)
 
 		FDHT_PACK_FULL_KEY(record.key_info, full_key, full_key_len, p)
 
-		base64_encode_ex(full_key, full_key_len, base64_key, \
-			&base64_key_len, false);
+		base64_encode_ex(&gc_base64_context, full_key, full_key_len, \
+				base64_key, &base64_key_len, false);
 
 		buff_len = sprintf(buff, "%s %d %c "INT64_PRINTF_FORMAT" %d\n", \
 			base64_key, (int)record.expires, record.op_type, \
