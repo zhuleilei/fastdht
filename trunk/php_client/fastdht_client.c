@@ -1471,7 +1471,7 @@ static int load_config_files()
 	{
 		fprintf(stderr, "file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail!\n",\
-			__LINE__, sizeof(FDHTConfigInfo) * config_count);
+			__LINE__, (int)sizeof(FDHTConfigInfo) * config_count);
 		return errno != 0 ? errno : ENOMEM;
 	}
 
@@ -1479,7 +1479,7 @@ static int load_config_files()
 	for (pConfigInfo=config_list; pConfigInfo<pConfigEnd; pConfigInfo++)
 	{
 		nItemLen = sprintf(szItemName, "%s%d", ITEM_NAME_CONF_FILE, \
-				pConfigInfo - config_list);
+				(int)(pConfigInfo - config_list));
 		if (zend_get_configuration_directive(szItemName, \
 			nItemLen + 1, &conf_filename) != SUCCESS)
 		{
@@ -1517,7 +1517,7 @@ static int load_config_files()
 			{
 				fprintf(stderr, "file: "__FILE__", line: %d, " \
 					"malloc %d bytes fail!\n", \
-					__LINE__, sizeof(GroupArray));
+					__LINE__, (int)sizeof(GroupArray));
 				return errno != 0 ? errno : ENOMEM;
 			}
 		}
