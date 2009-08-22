@@ -77,7 +77,7 @@ typedef char  bool;
 #endif
 
 #ifndef byte
-#define byte char
+#define byte signed char
 #endif
 
 #ifndef ubyte
@@ -105,6 +105,19 @@ typedef struct
 	char major;
 	char minor;
 } Version;
+
+typedef struct
+{
+	char *key;
+	char *value;
+} KeyValuePair;
+
+typedef struct
+{
+	char *buff;
+	int alloc_size;
+	int length;
+} BufferInfo;
 
 typedef void (*FreeDataFunc)(void *ptr);
 typedef int (*CompareFunc)(void *p1, void *p2);
