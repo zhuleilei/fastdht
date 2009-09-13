@@ -1876,7 +1876,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 		return 0;
 	}
 
-	if ((result=init_pthread_attr(&pattr)) != 0)
+	if ((result=init_pthread_attr(&pattr, g_thread_stack_size)) != 0)
 	{
 		return result;
 	}

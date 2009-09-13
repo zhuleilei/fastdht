@@ -84,6 +84,8 @@ extern double g_mpool_load_factor;
 extern int g_mpool_clear_min_interval;
 extern struct thread_data *g_thread_data;
 
+extern int g_thread_stack_size;
+
 void load_local_host_ip_addrs();
 bool is_local_host_ip(const char *client_ip);
 int insert_into_local_host_ip(const char *client_ip);

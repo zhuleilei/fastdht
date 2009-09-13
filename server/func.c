@@ -342,12 +342,14 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char *pMaxPkgSize;
 	char *pMinBuffSize;
 	char *pStoreType;
-	int64_t nPageSize;
+	char *pThreadStackSize;
 	IniItemInfo *items;
 	int nItemCount;
 	int result;
+	int64_t nPageSize;
 	int64_t max_pkg_size;
 	int64_t min_buff_size;
+	int64_t thread_stack_size;
 	GroupArray groupArray;
 	char sz_sync_db_time_base[16];
 	char sz_clear_expired_time_base[16];
@@ -363,8 +365,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	}
 
 	//iniPrintItems(items, nItemCount);
-
-	while (1)
+	do
 	{
 		if (iniGetBoolValue("disabled", items, nItemCount, false))
 		{
@@ -791,6 +792,19 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"compress_binlog_interval", items, nItemCount, \
 			COMPRESS_BINLOG_DEF_INTERVAL);
 
+		pThreadStackSize = iniGetStrValue( \
+			"thread_stack_size", items, nItemCount);
+		if (pThreadStackSize == NULL)
+		{
+			g_thread_stack_size = 1 * 1024 * 1024;
+		}
+		else if ((result=parse_bytes(pThreadStackSize, 1, \
+				&thread_stack_size)) != 0)
+		{
+			return result;
+		}
+		g_thread_stack_size = (int)thread_stack_size;
+
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -808,7 +822,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"clear_expired_interval=%ds, " \
 			"write_to_binlog=%d, sync_binlog_buff_interval=%ds, " \
 			"compress_binlog_time_base=%s, " \
-			"compress_binlog_interval=%ds", \
+			"compress_binlog_interval=%ds, " \
+			"thread_stack_size=%d KB",  \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_network_timeout, \
@@ -823,10 +838,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_write_to_binlog_flag, \
 			g_sync_binlog_buff_interval, \
 			sz_compress_binlog_time_base,\
-			g_compress_binlog_interval);
+			g_compress_binlog_interval, g_thread_stack_size / 1024);
 
-		break;
-	}
+	} while (0);
 
 	iniFreeItems(items);
 
@@ -928,7 +942,7 @@ int start_dl_detect_thread()
 		return 0;
 	}
 	
-	if ((result=init_pthread_attr(&thread_attr)) != 0)
+	if ((result=init_pthread_attr(&thread_attr, g_thread_stack_size)) != 0)
 	{
 		return result;
 	}
