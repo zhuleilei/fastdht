@@ -434,6 +434,6 @@ static int fdht_init_schedule()
 		}
 	}
 
-	return sched_start(&scheduleArray, &schedule_tid);
+	return sched_start(&scheduleArray, &schedule_tid, g_thread_stack_size);
 }
 

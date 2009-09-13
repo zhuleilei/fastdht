@@ -81,7 +81,7 @@ int work_thread_init()
 		return result;
 	}
 
-	if ((result=init_pthread_attr(&thread_attr)) != 0)
+	if ((result=init_pthread_attr(&thread_attr, g_thread_stack_size)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_attr fail, program exit!", __LINE__);
