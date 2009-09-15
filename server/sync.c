@@ -1708,7 +1708,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 			continue;
 		}
 	
-		tcpsetnodelay(fdht_server.sock);
+		tcpsetnodelay(fdht_server.sock, g_network_timeout);
 
 		if (fdht_reader_init(&fdht_server, &reader) != 0)
 		{
