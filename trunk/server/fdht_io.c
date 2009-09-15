@@ -98,12 +98,6 @@ void recv_notify_read(int sock, short event, void *arg)
 			continue;
 		}
 
-		if (tcpsetkeepalive(incomesock, 2 * g_network_timeout + 1) != 0)
-		{
-			close(incomesock);
-			continue;
-		}
-
 		pTask = free_queue_pop();
 		if (pTask == NULL)
 		{
