@@ -796,7 +796,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"thread_stack_size", items, nItemCount);
 		if (pThreadStackSize == NULL)
 		{
-			g_thread_stack_size = 1 * 1024 * 1024;
+			thread_stack_size = 1 * 1024 * 1024;
 		}
 		else if ((result=parse_bytes(pThreadStackSize, 1, \
 				&thread_stack_size)) != 0)
