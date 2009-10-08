@@ -1120,6 +1120,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 					key_hash_code, FDHT_EXPIRES_NEVER, \
 					&key_info, NULL, 0);
 			}
+
 			success_count++;
 		}
 	}
