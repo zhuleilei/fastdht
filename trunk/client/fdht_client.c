@@ -197,9 +197,13 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 	FDHTServerInfo **ppServer;
 	FDHTServerInfo **ppEnd;
 	int server_index;
-	unsigned int new_hash_code;
+	int new_hash_code;
 
 	new_hash_code = (hash_code << 16) | (hash_code >> 16);
+	if (new_hash_code < 0)
+	{
+		new_hash_code &= 0x7FFFFFFF;
+	}
 	server_index = new_hash_code % pServerArray->count;
 	ppEnd = pServerArray->servers + pServerArray->count;
 	for (ppServer = pServerArray->servers + server_index; \
