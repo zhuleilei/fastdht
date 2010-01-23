@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	log_init();
 	conf_filename = argv[1];
 
 	g_log_level = LOG_DEBUG;

@@ -1,3 +1,7 @@
+
+Version 1.12  2010-01-23
+ * copy common files from FastDFS/common
+
 Version 1.11  2009-10-13
  * bug fixed: http_func.c logError parameter mismatched
  * base64 use context, functions changed

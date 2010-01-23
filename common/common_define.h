@@ -12,6 +12,7 @@
 #define _COMMON_DEFINE_H_
 
 #include <pthread.h>
+#include <errno.h>
 
 #ifdef WIN32
 
@@ -58,6 +59,16 @@ extern int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int kind);
   #define INT64_PRINTF_FORMAT   "%lld"
 #endif
 
+#ifdef OFF_BITS
+  #if OFF_BITS == 64
+    #define OFF_PRINTF_FORMAT   INT64_PRINTF_FORMAT
+  #else
+    #define OFF_PRINTF_FORMAT   "%d"
+  #endif
+#else
+  #define OFF_PRINTF_FORMAT   INT64_PRINTF_FORMAT
+#endif
+
 #define USE_SENDFILE
 
 #define MAX_PATH_SIZE				256
@@ -88,6 +99,10 @@ typedef char  bool;
 
 #ifndef INADDR_NONE
 #define  INADDR_NONE  ((in_addr_t) 0xffffffff)
+#endif
+
+#ifndef ECANCELED
+#define ECANCELED 125
 #endif
 
 #define IS_UPPER_HEX(ch) ((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F'))

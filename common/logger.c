@@ -22,12 +22,18 @@
 #include "shared_func.h"
 #include "logger.h"
 
+#ifndef LINE_MAX
+#define LINE_MAX 2048
+#endif
+
+#define LOG_BUFF_SIZE    64 * 1024
+
 int g_log_level = LOG_INFO;
 int g_log_fd = STDERR_FILENO;
 static pthread_mutex_t log_thread_lock;
 static bool log_to_cache = false;
-static char log_buff[64 * 1024];
-static char *pcurrent_log_buff = log_buff;
+static char *log_buff = NULL;
+static char *pcurrent_log_buff = NULL;
 
 static int log_fsync(const bool bNeedLock);
 
@@ -50,19 +56,34 @@ static int check_and_mk_log_dir(const char *base_path)
 	return 0;
 }
 
-int log_init(const char *base_path, const char *filename_prefix)
+int log_init()
+{
+	int result;
+
+	log_buff = (char *)malloc(LOG_BUFF_SIZE);
+	if (log_buff == NULL)
+	{
+		fprintf(stderr, "malloc %d bytes fail, " \
+			"errno: %d, error info: %s", \
+			LOG_BUFF_SIZE, errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
+	pcurrent_log_buff = log_buff;
+
+	if ((result=init_pthread_lock(&log_thread_lock)) != 0)
+	{
+		return result;
+	}
+
+	return 0;
+}
+
+int log_set_prefix(const char *base_path, const char *filename_prefix)
 {
 	int result;
 	char logfile[MAX_PATH_SIZE];
 
 	if ((result=check_and_mk_log_dir(base_path)) != 0)
-	{
-		return result;
-	}
-
-	log_destory();
-
-	if ((result=init_pthread_lock(&log_thread_lock)) != 0)
 	{
 		return result;
 	}
@@ -76,14 +97,10 @@ int log_init(const char *base_path, const char *filename_prefix)
 			"errno: %d, error info: %s", \
 			logfile, errno, strerror(errno));
 		g_log_fd = STDERR_FILENO;
-		result = errno != 0 ? errno : EACCES;
-	}
-	else
-	{
-		result = 0;
+		return errno != 0 ? errno : EACCES;
 	}
 
-	return result;
+	return 0;
 }
 
 void log_set_cache(const bool bLogCache)
@@ -101,6 +118,13 @@ void log_destory()
 		g_log_fd = STDERR_FILENO;
 
 		pthread_mutex_destroy(&log_thread_lock);
+	}
+
+	if (log_buff != NULL)
+	{
+		free(log_buff);
+		log_buff = NULL;
+		pcurrent_log_buff = NULL;
 	}
 }
 
@@ -161,7 +185,7 @@ static int log_fsync(const bool bNeedLock)
 	return result;
 }
 
-static void doLog(const char *caption, const char* text, const int text_len, \
+static void doLog(const char *caption, const char *text, const int text_len, \
 		const bool bNeedSync)
 {
 	time_t t;
@@ -179,16 +203,16 @@ static void doLog(const char *caption, const char* text, const int text_len, \
 			__LINE__, result, strerror(result));
 	}
 
-	if (text_len + 64 > sizeof(log_buff))
+	if (text_len + 64 > LOG_BUFF_SIZE)
 	{
 		fprintf(stderr, "file: "__FILE__", line: %d, " \
 			"log buff size: %d < log text length: %d ", \
-			__LINE__, (int)sizeof(log_buff), text_len + 64);
+			__LINE__, LOG_BUFF_SIZE, text_len + 64);
 		pthread_mutex_unlock(&log_thread_lock);
 		return;
 	}
 
-	if ((pcurrent_log_buff - log_buff) + text_len + 64 > sizeof(log_buff))
+	if ((pcurrent_log_buff - log_buff) + text_len + 64 > LOG_BUFF_SIZE)
 	{
 		log_fsync(false);
 	}
@@ -214,6 +238,54 @@ static void doLog(const char *caption, const char* text, const int text_len, \
 			"errno: %d, error info: %s", \
 			__LINE__, result, strerror(result));
 	}
+}
+
+void log_it_ex(const int priority, const char *text, const int text_len)
+{
+	bool bNeedSync;
+	char *caption;
+
+	switch(priority)
+	{
+		case LOG_DEBUG:
+			bNeedSync = true;
+			caption = "DEBUG";
+			break;
+		case LOG_INFO:
+			bNeedSync = true;
+			caption = "INFO";
+			break;
+		case LOG_NOTICE:
+			bNeedSync = false;
+			caption = "NOTICE";
+			break;
+		case LOG_WARNING:
+			bNeedSync = false;
+			caption = "WARNING";
+			break;
+		case LOG_ERR:
+			bNeedSync = false;
+			caption = "ERROR";
+			break;
+		case LOG_CRIT:
+			bNeedSync = true;
+			caption = "CRIT";
+			break;
+		case LOG_ALERT:
+			bNeedSync = true;
+			caption = "ALERT";
+			break;
+		case LOG_EMERG:
+			bNeedSync = true;
+			caption = "EMERG";
+			break;
+		default:
+			bNeedSync = false;
+			caption = "UNKOWN";
+			break;
+	}
+
+	doLog(caption, text, text_len, bNeedSync);
 }
 
 void log_it(const int priority, const char* format, ...)

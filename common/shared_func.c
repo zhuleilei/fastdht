@@ -93,7 +93,7 @@ char *replaceCRLF2Space(char *s)
 	return s;
 }
 
-char *getAppAbsolutePath(const char *exeName, char *szAbsPath, \
+char *getExeAbsolutePath(const char *exeName, char *szAbsPath, \
 		const int pathSize)
 {
 	char *p;
@@ -106,7 +106,7 @@ char *getAppAbsolutePath(const char *exeName, char *szAbsPath, \
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail", __LINE__, \
-			strlen(exeName) + 1);
+			(int)strlen(exeName) + 1);
 		return NULL;
 	}
 	
@@ -118,7 +118,7 @@ char *getAppAbsolutePath(const char *exeName, char *szAbsPath, \
 	else
 	{
 		nPathLen = p - exeName;
-		strncpy(szPath, exeName, nPathLen);
+		memcpy(szPath, exeName, nPathLen);
 		szPath[nPathLen] = '\0';
 	}
 	
@@ -155,6 +155,104 @@ char *getAppAbsolutePath(const char *exeName, char *szAbsPath, \
 	return szAbsPath;
 }
 
+char *getExeAbsoluteFilename(const char *exeFilename, char *szAbsFilename, \
+		const int nameSize)
+{
+	const char *exeName;
+	const char *p;
+	int nFileLen;
+	int nPathLen;
+	char cwd[256];
+	char szPath[256];
+	
+	nFileLen = strlen(exeFilename);
+	if (nFileLen >= sizeof(szPath))
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"filename length: %d is too long, exceeds %d!", \
+			__LINE__, nFileLen, (int)sizeof(szPath));
+		return NULL;
+	}
+	
+	p = strrchr(exeFilename, '/');
+	if (p == NULL)
+	{
+		int i;
+		char *search_paths[] = {"/bin", "/usr/bin", "/usr/local/bin"};
+
+		*szPath = '\0';
+		exeName = exeFilename;
+		for (i=0; i<3; i++)
+		{
+			snprintf(cwd, sizeof(cwd), "%s/%s", \
+				search_paths[i], exeName);
+			if (fileExists(cwd))
+			{
+				strcpy(szPath, search_paths[i]);
+				break;
+			}
+		}
+
+		if (*szPath == '\0')
+		{
+			if (!fileExists(exeName))
+			{
+				logError("file: "__FILE__", line: %d, " \
+					"can't find exe file %s!", __LINE__, \
+					exeName);
+				return NULL;
+			}
+		}
+		else
+		{
+			snprintf(szAbsFilename, nameSize, "%s/%s", \
+				szPath, exeName);
+			return szAbsFilename;
+		}
+	}
+	else
+	{
+		exeName = p + 1;
+		nPathLen = p - exeFilename;
+		memcpy(szPath, exeFilename, nPathLen);
+		szPath[nPathLen] = '\0';
+	}
+	
+	if (*szPath == '/')
+	{
+		snprintf(szAbsFilename, nameSize, "%s/%s", szPath, exeName);
+	}
+	else
+	{
+		if (getcwd(cwd, sizeof(cwd)) == NULL)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"call getcwd fail, errno: %d, error info: %s", \
+				__LINE__, errno, strerror(errno));
+			return NULL;
+		}
+		
+		nPathLen = strlen(cwd);
+		if (cwd[nPathLen - 1] == '/')
+		{
+			cwd[nPathLen - 1] = '\0';
+		}
+		
+		if (*szPath != '\0')
+		{
+			snprintf(szAbsFilename, nameSize, "%s/%s/%s", \
+				cwd, szPath, exeName);
+		}
+		else
+		{
+			snprintf(szAbsFilename, nameSize, "%s/%s", \
+				cwd, exeName);
+		}
+	}
+	
+	return szAbsFilename;
+}
+
 int getProccessCount(const char *progName, const bool bAllOwners)
 {
 	int *pids = NULL;
@@ -189,7 +287,7 @@ int getUserProcIds(const char *progName, const bool bAllOwners, \
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail", __LINE__, \
-			strlen(progName) + 1);
+			(int)strlen(progName) + 1);
 		return -1;
 	}
 
@@ -525,7 +623,7 @@ char **split(char *src, const char seperator, const int nMaxCols, int *nColCount
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail", __LINE__, \
-			sizeof(char *) * (*nColCount));
+			(int)sizeof(char *) * (*nColCount));
 		return NULL;
 	}
 
@@ -930,7 +1028,7 @@ int init_pthread_attr(pthread_attr_t *pattr, const int stack_size)
 	return 0;
 }
 
-int getFileContent(const char *filename, char **buff, off_t *file_size)
+int getFileContent(const char *filename, char **buff, int64_t *file_size)
 {
 	int fd;
 	
@@ -1170,42 +1268,6 @@ int set_rlimit(int resource, const rlim_t value)
 	return 0;
 }
 
-/*
-data filename format:
-HH/HH/filename: HH for 2 uppercase hex chars
-*/
-int fdfs_check_data_filename(const char *filename, const int len)
-{
-	if (len < 6)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"the length=%d of filename \"%s\" is too short", \
-			__LINE__, len, filename);
-		return EINVAL;
-	}
-
-	if (!IS_UPPER_HEX(*filename) || !IS_UPPER_HEX(*(filename+1)) || \
-	    *(filename+2) != '/' || \
-	    !IS_UPPER_HEX(*(filename+3)) || !IS_UPPER_HEX(*(filename+4)) || \
-	    *(filename+5) != '/')
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"the format of filename \"%s\" is invalid", \
-			__LINE__, filename);
-		return EINVAL;
-	}
-
-	if (strchr(filename + 6, '/') != NULL)
-	{
-		logError("file: "__FILE__", line: %d, " \
-			"the format of filename \"%s\" is invalid", \
-			__LINE__, filename);
-		return EINVAL;
-	}
-
-	return 0;
-}
-
 bool is_filename_secure(const char *filename, const int len)
 {
 	if (len < 3)
@@ -1221,9 +1283,9 @@ bool is_filename_secure(const char *filename, const int len)
 	return (strstr(filename, "/../") == NULL);
 }
 
-void load_log_level(IniItemInfo *items, const int nItemCount)
+void load_log_level(IniItemContext *pItemContext)
 {
-	set_log_level(iniGetStrValue("log_level", items, nItemCount));
+	set_log_level(iniGetStrValue("log_level", pItemContext));
 }
 
 void set_log_level(char *pLogLevel)
@@ -1350,7 +1412,7 @@ int set_run_by(const char *group_name, const char *username)
 	return 0;
 }
 
-int load_allow_hosts(IniItemInfo *items, const int nItemCount, \
+int load_allow_hosts(IniItemContext *pItemContext, \
 		in_addr_t **allow_ip_addrs, int *allow_ip_count)
 {
 	int count;
@@ -1369,7 +1431,7 @@ int load_allow_hosts(IniItemInfo *items, const int nItemCount, \
 	char hostname[256];
 
 	if ((pItemStart=iniGetValuesEx("allow_hosts", \
-		items, nItemCount, &count)) == NULL)
+		pItemContext, &count)) == NULL)
 	{
 		*allow_ip_count = -1; /* -1 means match any ip address */
 		*allow_ip_addrs = NULL;
@@ -1394,7 +1456,7 @@ int load_allow_hosts(IniItemInfo *items, const int nItemCount, \
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s.", \
-			__LINE__, sizeof(in_addr_t) * alloc_count, \
+			__LINE__, (int)sizeof(in_addr_t) * alloc_count, \
 			errno, strerror(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -1430,8 +1492,8 @@ int load_allow_hosts(IniItemInfo *items, const int nItemCount, \
 					logError("file: "__FILE__", line: %d, "\
 						"malloc %d bytes fail, " \
 						"errno: %d, error info: %s", \
-						__LINE__, \
-						sizeof(in_addr_t)*alloc_count,\
+						__LINE__, (int)sizeof(in_addr_t)
+							* alloc_count, \
 						errno, strerror(errno));
 
 					return errno != 0 ? errno : ENOMEM;
@@ -1586,7 +1648,8 @@ int load_allow_hosts(IniItemInfo *items, const int nItemCount, \
 						"malloc %d bytes fail, " \
 						"errno: %d, error info: %s.", \
 						__LINE__, \
-						sizeof(in_addr_t)*alloc_count,\
+						(int)sizeof(in_addr_t) * \
+						alloc_count,\
 						errno, strerror(errno));
 
 					free(pItemValue);
@@ -1757,7 +1820,7 @@ int set_rand_seed()
 	return 0;
 }
 
-int get_time_item_from_conf(IniItemInfo *items, const int nItemCount, \
+int get_time_item_from_conf(IniItemContext *pItemContext, \
 		const char *item_name, TimeInfo *pTimeInfo, \
 		const byte default_hour, const byte default_minute)
 {
@@ -1765,7 +1828,7 @@ int get_time_item_from_conf(IniItemInfo *items, const int nItemCount, \
 	int hour;
 	int minute;
 
-	pValue = iniGetStrValue(item_name, items, nItemCount);
+	pValue = iniGetStrValue(item_name, pItemContext);
 	if (pValue == NULL)
 	{
 		pTimeInfo->hour = default_hour;
@@ -1954,6 +2017,38 @@ int buffer_memcpy(BufferInfo *pBuff, const char *buff, const int len)
 	}
 
 	memcpy(pBuff->buff, buff, pBuff->length);
+	return 0;
+}
+
+int getExecResult(const char *command, char *output, const int buff_size)
+{
+	FILE *fp;
+	char *pCurrent;
+	int bytes_read;
+	int remain_bytes;
+
+	if((fp=popen(command, "r")) == NULL)
+	{
+		return errno != 0 ? errno : EMFILE;
+	}
+
+	pCurrent = output;
+	remain_bytes = buff_size;
+	while (remain_bytes > 0 && \
+		(bytes_read=fread(pCurrent, 1, remain_bytes, fp)) > 0)
+	{
+		pCurrent += bytes_read;
+		remain_bytes -= bytes_read;
+	}
+
+	pclose(fp);
+
+	if (remain_bytes <= 0)
+	{
+		return ENOSPC;
+	}
+
+	*pCurrent = '\0';
 	return 0;
 }
 

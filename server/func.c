@@ -343,8 +343,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char *pMinBuffSize;
 	char *pStoreType;
 	char *pThreadStackSize;
-	IniItemInfo *items;
-	int nItemCount;
+	IniItemContext itemContext;
 	int result;
 	int64_t nPageSize;
 	int64_t max_pkg_size;
@@ -356,7 +355,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char sz_compress_binlog_time_base[16];
 	char szStoreParams[160];
 
-	if ((result=iniLoadItems(filename, &items, &nItemCount)) != 0)
+	if ((result=iniLoadItems(filename, &itemContext)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"load conf file \"%s\" fail, ret code: %d", \
@@ -364,10 +363,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		return result;
 	}
 
-	//iniPrintItems(items, nItemCount);
+	//iniPrintItems(&itemContext);
 	do
 	{
-		if (iniGetBoolValue("disabled", items, nItemCount, false))
+		if (iniGetBoolValue("disabled", &itemContext, false))
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"conf file \"%s\" disabled=true, exit", \
@@ -376,7 +375,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		pBasePath = iniGetStrValue("base_path", items, nItemCount);
+		pBasePath = iniGetStrValue("base_path", &itemContext);
 		if (pBasePath == NULL)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -406,14 +405,14 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		load_log_level(items, nItemCount);
+		load_log_level(&itemContext);
 		if ((result=log_init(g_base_path, "fdhtd")) != 0)
 		{
 			break;
 		}
 
 		g_network_timeout = iniGetIntValue("network_timeout", \
-				items, nItemCount, DEFAULT_NETWORK_TIMEOUT);
+				&itemContext, DEFAULT_NETWORK_TIMEOUT);
 		if (g_network_timeout <= 0)
 		{
 			g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
@@ -426,14 +425,14 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_heart_beat_interval = 1;
 		}
 
-		g_server_port = iniGetIntValue("port", items, nItemCount, \
+		g_server_port = iniGetIntValue("port", &itemContext, \
 					FDHT_SERVER_DEFAULT_PORT);
 		if (g_server_port <= 0)
 		{
 			g_server_port = FDHT_SERVER_DEFAULT_PORT;
 		}
 
-		pBindAddr = iniGetStrValue("bind_addr", items, nItemCount);
+		pBindAddr = iniGetStrValue("bind_addr", &itemContext);
 		if (pBindAddr == NULL)
 		{
 			bind_addr[0] = '\0';
@@ -444,7 +443,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_max_connections = iniGetIntValue("max_connections", \
-				items, nItemCount, DEFAULT_MAX_CONNECTONS);
+				&itemContext, DEFAULT_MAX_CONNECTONS);
 		if (g_max_connections <= 0)
 		{
 			g_max_connections = DEFAULT_MAX_CONNECTONS;
@@ -454,7 +453,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		pStoreType = iniGetStrValue("store_type", items, nItemCount);
+		pStoreType = iniGetStrValue("store_type", &itemContext);
 		if (pStoreType == NULL)
 		{
 			g_store_type = FDHT_STORE_TYPE_BDB;
@@ -479,7 +478,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		if (g_store_type == FDHT_STORE_TYPE_MPOOL)
 		{
 			g_mpool_init_capacity = iniGetIntValue( \
-				"mpool_init_capacity", items, nItemCount, \
+				"mpool_init_capacity", &itemContext, \
 				FDHT_DEFAULT_MPOOL_INIT_CAPACITY);
 			if (g_mpool_init_capacity < 0)
 			{
@@ -488,7 +487,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			}
 
 			g_mpool_load_factor = iniGetDoubleValue( \
-				"mpool_load_factor", items, nItemCount, \
+				"mpool_load_factor", &itemContext, \
 				FDHT_DEFAULT_MPOOL_LOAD_FACTOR);
 			if (g_mpool_load_factor <= 0.0001)
 			{
@@ -497,7 +496,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			}
 
 			g_mpool_clear_min_interval = iniGetIntValue( \
-				"mpool_clear_min_interval", items, nItemCount, \
+				"mpool_clear_min_interval", &itemContext, \
 				FDHT_DEFAULT_MPOOL_CLEAR_MIN_INTEVAL);
 			if (g_mpool_clear_min_interval <= 0)
 			{
@@ -514,7 +513,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 		else
 		{
-			pDbType = iniGetStrValue("db_type", items, nItemCount);
+			pDbType = iniGetStrValue("db_type", &itemContext);
 			if (pDbType == NULL)
 			{
 				*db_type = DB_BTREE;
@@ -537,8 +536,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			}
 
 			nPageSize = 4 * 1024;
-			pPageSize = iniGetStrValue("page_size", \
-						items, nItemCount);
+			pPageSize = iniGetStrValue("page_size", &itemContext);
 			if (pPageSize != NULL && (result=parse_bytes( \
 				pPageSize, 1, &nPageSize)) != 0)
 			{
@@ -556,8 +554,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			}
 			*page_size = (int)nPageSize;
 
-			pDbFilePrefix = iniGetStrValue("db_prefix", \
-						items, nItemCount);
+			pDbFilePrefix = iniGetStrValue("db_prefix", &itemContext);
 			if (pDbFilePrefix == NULL || *pDbFilePrefix == '\0')
 			{
 				logError("file: "__FILE__", line: %d, " \
@@ -569,10 +566,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			snprintf(db_file_prefix, DB_FILE_PREFIX_MAX_SIZE, \
 				"%s", pDbFilePrefix);
 			g_sync_db_interval = iniGetIntValue( \
-				"sync_db_interval", items, nItemCount, \
+				"sync_db_interval", &itemContext, \
 				DEFAULT_SYNC_DB_INVERVAL);
 
-			if ((result=get_time_item_from_conf(items, nItemCount, \
+			if ((result=get_time_item_from_conf(&itemContext, \
 				"sync_db_time_base", &g_sync_db_time_base, \
 				0, 0)) != 0)
 			{
@@ -590,8 +587,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 						g_sync_db_time_base.minute);
 			}
 			g_db_dead_lock_detect_interval = iniGetIntValue( \
-				"db_dead_lock_detect_interval", \
-				items, nItemCount, \
+				"db_dead_lock_detect_interval", &itemContext, \
 				DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL);
 
 			snprintf(szStoreParams, sizeof(szStoreParams), \
@@ -606,8 +602,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				g_db_dead_lock_detect_interval);
 		}
 
-		g_max_threads = iniGetIntValue("max_threads", items, \
-				nItemCount, FDHT_DEFAULT_MAX_THREADS);
+		g_max_threads = iniGetIntValue("max_threads", &itemContext, \
+					FDHT_DEFAULT_MAX_THREADS);
 		if (g_max_threads <= 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -618,8 +614,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		pMaxPkgSize = iniGetStrValue("max_pkg_size", \
-				items, nItemCount);
+		pMaxPkgSize = iniGetStrValue("max_pkg_size", &itemContext);
 		if (pMaxPkgSize == NULL)
 		{
 			g_max_pkg_size = FDHT_MAX_PKG_SIZE;
@@ -634,8 +629,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_max_pkg_size = (int)max_pkg_size;
 		}
 
-		pMinBuffSize = iniGetStrValue("min_buff_size", \
-				items, nItemCount);
+		pMinBuffSize = iniGetStrValue("min_buff_size", &itemContext);
 		if (pMinBuffSize == NULL)
 		{
 			g_min_buff_size = FDHT_MIN_BUFF_SIZE;
@@ -655,7 +649,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_sync_wait_usec = iniGetIntValue("sync_wait_msec", \
-			 items, nItemCount, DEFAULT_SYNC_WAIT_MSEC);
+			 &itemContext, DEFAULT_SYNC_WAIT_MSEC);
 		if (g_sync_wait_usec <= 0)
 		{
 			g_sync_wait_usec = DEFAULT_SYNC_WAIT_MSEC;
@@ -663,22 +657,20 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		g_sync_wait_usec *= 1000;
 
 		
-		pRunByGroup = iniGetStrValue("run_by_group", \
-						items, nItemCount);
-		pRunByUser = iniGetStrValue("run_by_user", \
-						items, nItemCount);
+		pRunByGroup = iniGetStrValue("run_by_group", &itemContext);
+		pRunByUser = iniGetStrValue("run_by_user", &itemContext);
 		if ((result=set_run_by(pRunByGroup, pRunByUser)) != 0)
 		{
 			break;
 		}
 
-		if ((result=load_allow_hosts(items, nItemCount, \
+		if ((result=load_allow_hosts(&itemContext, \
                 	 &g_allow_ip_addrs, &g_allow_ip_count)) != 0)
 		{
 			break;
 		}
 
-		pCacheSize = iniGetStrValue("cache_size", items, nItemCount);
+		pCacheSize = iniGetStrValue("cache_size", &itemContext);
 		if (pCacheSize == NULL)
 		{
 			*nCacheSize = 64 * 1024 * 1024;
@@ -694,7 +686,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		memset(&groupArray, 0, sizeof(groupArray));
-		result = fdht_load_groups(items, nItemCount, &groupArray);
+		result = fdht_load_groups(&itemContext, &groupArray);
 		if (result != 0)
 		{
 			break;
@@ -729,7 +721,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		*/
 
 		g_sync_log_buff_interval = iniGetIntValue( \
-				"sync_log_buff_interval", items, nItemCount, \
+				"sync_log_buff_interval", &itemContext, \
 				SYNC_LOG_BUFF_DEF_INTERVAL);
 		if (g_sync_log_buff_interval <= 0)
 		{
@@ -738,10 +730,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 
 
 		g_clear_expired_interval = iniGetIntValue( \
-				"clear_expired_interval", items, nItemCount, \
+				"clear_expired_interval", &itemContext, \
 				DEFAULT_CLEAR_EXPIRED_INVERVAL);
 		
-		if ((result=get_time_item_from_conf(items, nItemCount, \
+		if ((result=get_time_item_from_conf(&itemContext, \
 			"clear_expired_time_base", &g_clear_expired_time_base, \
 			4, 0)) != 0)
 		{
@@ -760,17 +752,17 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_write_to_binlog_flag = iniGetBoolValue("write_to_binlog", \
-					items, nItemCount, true);
+					&itemContext, true);
 
 		g_sync_binlog_buff_interval = iniGetIntValue( \
-				"sync_binlog_buff_interval", items, nItemCount, \
+				"sync_binlog_buff_interval", &itemContext, \
 				SYNC_BINLOG_BUFF_DEF_INTERVAL);
 		if (g_sync_binlog_buff_interval <= 0)
 		{
 			g_sync_binlog_buff_interval = SYNC_BINLOG_BUFF_DEF_INTERVAL;
 		}
 
-		if ((result=get_time_item_from_conf(items, nItemCount, \
+		if ((result=get_time_item_from_conf(&itemContext, \
 			"compress_binlog_time_base", &g_compress_binlog_time_base, \
 			2, 0)) != 0)
 		{
@@ -789,11 +781,11 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_compress_binlog_interval = iniGetIntValue( \
-			"compress_binlog_interval", items, nItemCount, \
+			"compress_binlog_interval", &itemContext, \
 			COMPRESS_BINLOG_DEF_INTERVAL);
 
 		pThreadStackSize = iniGetStrValue( \
-			"thread_stack_size", items, nItemCount);
+			"thread_stack_size", &itemContext);
 		if (pThreadStackSize == NULL)
 		{
 			thread_stack_size = 1 * 1024 * 1024;
@@ -842,7 +834,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 
 	} while (0);
 
-	iniFreeItems(items);
+	iniFreeItems(&itemContext);
 
 	return result;
 }
@@ -851,8 +843,7 @@ static int fdht_load_stat_from_file()
 {
 	char full_filename[MAX_PATH_SIZE];
 	char data_path[MAX_PATH_SIZE];
-	IniItemInfo *items;
-	int nItemCount;
+	IniItemContext itemContext;
 	int result;
 
 	memset(&g_server_stat, 0, sizeof(g_server_stat));
@@ -873,7 +864,7 @@ static int fdht_load_stat_from_file()
 	fdht_get_stat_filename(NULL, full_filename);
 	if (fileExists(full_filename))
 	{
-		if ((result=iniLoadItems(full_filename, &items, &nItemCount)) \
+		if ((result=iniLoadItems(full_filename, &itemContext)) \
 			 != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -885,7 +876,7 @@ static int fdht_load_stat_from_file()
 
 		if (nItemCount < 8)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in stat file \"%s\", item count: %d < 12", \
 				__LINE__, full_filename, nItemCount);
@@ -894,29 +885,29 @@ static int fdht_load_stat_from_file()
 
 		g_server_stat.total_set_count = iniGetInt64Value( \
 				STAT_ITEM_TOTAL_SET, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		g_server_stat.success_set_count = iniGetInt64Value( \
 				STAT_ITEM_SUCCESS_SET, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		g_server_stat.total_get_count = iniGetInt64Value( \
 				STAT_ITEM_TOTAL_GET, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		g_server_stat.success_get_count = iniGetInt64Value( \
 				STAT_ITEM_SUCCESS_GET, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		g_server_stat.total_inc_count = iniGetInt64Value( \
 				STAT_ITEM_TOTAL_INC, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		g_server_stat.success_inc_count = iniGetInt64Value( \
 				STAT_ITEM_SUCCESS_INC, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		g_server_stat.total_delete_count = iniGetInt64Value( \
 				STAT_ITEM_TOTAL_DELETE, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		g_server_stat.success_delete_count = iniGetInt64Value( \
 				STAT_ITEM_SUCCESS_DELETE, \
-				items, nItemCount, 0);
-		iniFreeItems(items);
+				&itemContext, 0);
+		iniFreeItems(&itemContext);
 	}
 
 	fdht_stat_fd = open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
