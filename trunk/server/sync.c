@@ -405,8 +405,7 @@ static int create_sync_threads()
 
 static int load_sync_init_data()
 {
-	IniItemInfo *items;
-	int nItemCount;
+	IniItemContext itemContext;
 	char *pValue;
 	int result;
 	char data_filename[MAX_PATH_SIZE];
@@ -415,9 +414,7 @@ static int load_sync_init_data()
 			g_base_path, DATA_DIR_INITED_FILENAME);
 	if (fileExists(data_filename))
 	{
-		if ((result=iniLoadItems(data_filename, \
-				&items, &nItemCount)) \
-			 != 0)
+		if ((result=iniLoadItems(data_filename, &itemContext)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"load from file \"%s\" fail, " \
@@ -427,10 +424,10 @@ static int load_sync_init_data()
 		}
 		
 		pValue = iniGetStrValue(INIT_ITEM_SERVER_JOIN_TIME, \
-				items, nItemCount);
+				&itemContext);
 		if (pValue == NULL)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in file \"%s\", item \"%s\" not exists", \
 				__LINE__, data_filename, \
@@ -440,10 +437,10 @@ static int load_sync_init_data()
 		g_server_join_time = atoi(pValue);
 
 		pValue = iniGetStrValue(INIT_ITEM_SYNC_OLD_DONE, \
-				items, nItemCount);
+				&itemContext);
 		if (pValue == NULL)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in file \"%s\", item \"%s\" not exists", \
 				__LINE__, data_filename, \
@@ -453,10 +450,10 @@ static int load_sync_init_data()
 		g_sync_old_done = atoi(pValue);
 
 		pValue = iniGetStrValue(INIT_ITEM_SYNC_SRC_SERVER, \
-				items, nItemCount);
+				&itemContext);
 		if (pValue == NULL)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in file \"%s\", item \"%s\" not exists", \
 				__LINE__, data_filename, \
@@ -467,17 +464,17 @@ static int load_sync_init_data()
 				"%s", pValue);
 
 		g_sync_src_port = iniGetIntValue(INIT_ITEM_SYNC_SRC_PORT, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		
 		g_sync_until_timestamp = iniGetIntValue( \
 				INIT_ITEM_SYNC_UNTIL_TIMESTAMP, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 
 		g_sync_done_timestamp = iniGetIntValue( \
 				INIT_ITEM_SYNC_DONE_TIMESTAMP, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 
-		iniFreeItems(items);
+		iniFreeItems(&itemContext);
 
 		//printf("g_sync_old_done = %d\n", g_sync_old_done);
 		//printf("g_sync_src_ip_addr = %s\n", g_sync_src_ip_addr);
@@ -770,8 +767,7 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 			BinLogReader *pReader)
 {
 	char full_filename[MAX_PATH_SIZE];
-	IniItemInfo *items;
-	int nItemCount;
+	IniItemContext itemContext;
 	int result;
 	bool bFileExist;
 
@@ -786,7 +782,7 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 	bFileExist = fileExists(full_filename);
 	if (bFileExist)
 	{
-		if ((result=iniLoadItems(full_filename, &items, &nItemCount)) \
+		if ((result=iniLoadItems(full_filename, &itemContext)) \
 			 != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
@@ -798,7 +794,7 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 
 		if (nItemCount < 7)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in mark file \"%s\", item count: %d < 7", \
 				__LINE__, full_filename, nItemCount);
@@ -807,29 +803,29 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 
 		pReader->binlog_index = iniGetIntValue( \
 				MARK_ITEM_BINLOG_FILE_INDEX, \
-				items, nItemCount, -1);
+				&itemContext, -1);
 		pReader->binlog_offset = iniGetInt64Value( \
 				MARK_ITEM_BINLOG_FILE_OFFSET, \
-				items, nItemCount, -1);
+				&itemContext, -1);
 		pReader->need_sync_old = iniGetBoolValue(   \
 				MARK_ITEM_NEED_SYNC_OLD, \
-				items, nItemCount, false);
+				&itemContext, false);
 		pReader->sync_old_done = iniGetBoolValue(  \
 				MARK_ITEM_SYNC_OLD_DONE, \
-				items, nItemCount, false);
+				&itemContext, false);
 		pReader->until_timestamp = iniGetIntValue( \
 				MARK_ITEM_UNTIL_TIMESTAMP, \
-				items, nItemCount, -1);
+				&itemContext, -1);
 		pReader->scan_row_count = iniGetInt64Value( \
 				MARK_ITEM_SCAN_ROW_COUNT, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 		pReader->sync_row_count = iniGetInt64Value( \
 				MARK_ITEM_SYNC_ROW_COUNT, \
-				items, nItemCount, 0);
+				&itemContext, 0);
 
 		if (pReader->binlog_index < 0)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in mark file \"%s\", " \
 				"binlog_index: %d < 0", \
@@ -839,7 +835,7 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 		}
 		if (pReader->binlog_offset < 0)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in mark file \"%s\", " \
 				"binlog_offset: "INT64_PRINTF_FORMAT" < 0", \
@@ -848,7 +844,7 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 			return EINVAL;
 		}
 
-		iniFreeItems(items);
+		iniFreeItems(&itemContext);
 	}
 	else
 	{

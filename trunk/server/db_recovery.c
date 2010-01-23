@@ -45,8 +45,7 @@ int fdht_db_recovery_init()
 {
 	int result;
 	char full_filename[MAX_PATH_SIZE];
-	IniItemInfo *items;
-	int nItemCount;
+	IniItemContext itemContext;
 	char *pValue;
 	int synced_binlog_index;
 	int64_t synced_binlog_offset;
@@ -60,7 +59,7 @@ int fdht_db_recovery_init()
 	if ((bMarkFileExists=fileExists(full_filename)))
 	{
 		if ((result=iniLoadItems(full_filename, \
-				&items, &nItemCount)) != 0)
+				&itemContext)) != 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"load from file \"%s\" fail, " \
@@ -71,10 +70,10 @@ int fdht_db_recovery_init()
 		}
 
 		pValue = iniGetStrValue(MARK_ITEM_BINLOG_FILE_INDEX, \
-				items, nItemCount);
+				&itemContext);
 		if (pValue == NULL)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in file \"%s\", item \"%s\" not exists", \
 				__LINE__, full_filename, \
@@ -84,10 +83,10 @@ int fdht_db_recovery_init()
 		synced_binlog_index = atoi(pValue);
 
 		pValue = iniGetStrValue(MARK_ITEM_BINLOG_FILE_OFFSET, \
-				items, nItemCount);
+				&itemContext);
 		if (pValue == NULL)
 		{
-			iniFreeItems(items);
+			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in file \"%s\", item \"%s\" not exists", \
 				__LINE__, full_filename, \
@@ -96,7 +95,7 @@ int fdht_db_recovery_init()
 		}
 		synced_binlog_offset = strtoll(pValue, NULL, 10);
 
-		iniFreeItems(items);
+		iniFreeItems(&itemContext);
 	}
 	else
 	{

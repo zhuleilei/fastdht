@@ -33,13 +33,16 @@ char *formatDatetime(const time_t nTime, \
 int getCharLen(const char *s);
 char *replaceCRLF2Space(char *s);
 
-char *getAppAbsolutePath(const char *exeName, char *szAbsPath, \
+char *getExeAbsolutePath(const char *exeName, char *szAbsPath, \
 				const int pathSize);
+char *getExeAbsoluteFilename(const char *exeFilename, char *szAbsFilename, \
+		const int nameSize);
 
 int getProccessCount(const char *progName, const bool bAllOwners);
 
 int getUserProcIds(const char *progName, const bool bAllOwners, \
 			int pids[], const int arrSize);
+int getExecResult(const char *command, char *output, const int buff_size);
 
 void daemon_init(bool bCloseFiles);
 
@@ -75,18 +78,17 @@ bool fileExists(const char *filename);
 bool isDir(const char *filename);
 bool isFile(const char *filename);
 bool is_filename_secure(const char *filename, const int len);
-int fdfs_check_data_filename(const char *filename, const int len);
-void load_log_level(IniItemInfo *items, const int nItemCount);
+void load_log_level(IniItemContext *pItemContext);
 void set_log_level(char *pLogLevel);
-int load_allow_hosts(IniItemInfo *items, const int nItemCount, \
+int load_allow_hosts(IniItemContext *pItemContext, \
 		in_addr_t **allow_ip_addrs, int *allow_ip_count);
 
-int get_time_item_from_conf(IniItemInfo *items, const int nItemCount, \
+int get_time_item_from_conf(IniItemContext *pItemContext, \
 		const char *item_name, TimeInfo *pTimeInfo, \
 		const byte default_hour, const byte default_minute);
 
 void chopPath(char *filePath);
-int getFileContent(const char *filename, char **buff, off_t *file_size);
+int getFileContent(const char *filename, char **buff, int64_t *file_size);
 int writeToFile(const char *filename, const char *buff, const int file_size);
 int fd_gets(int fd, char *buff, const int size, int once_bytes);
 

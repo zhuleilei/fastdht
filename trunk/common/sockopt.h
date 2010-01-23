@@ -13,7 +13,7 @@
 
 #include "common_define.h"
 
-#define FDFS_WRITE_BUFF_SIZE  512 * 1024
+#define FDFS_WRITE_BUFF_SIZE  256 * 1024
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +41,7 @@ int tcprecvdata_nb_ex(int sock, void *data, const int size, \
 		const int timeout, int *count);
 int tcpsenddata(int sock, void* data, const int size, const int timeout);
 int tcpsenddata_nb(int sock, void* data, const int size, const int timeout);
-int connectserverbyip(int sock, char* ip, short port);
+int connectserverbyip(int sock, const char *server_ip, const short server_port);
 int nbaccept(int sock, const int timeout, int *err_no);
 int tcpsetserveropt(int fd, const int timeout);
 int tcpsetnonblockopt(int fd);
@@ -54,6 +54,7 @@ in_addr_t getIpaddr(getnamefunc getname, int sock, \
 char *getHostnameByIp(const char *szIpAddr, char *buff, const int bufferSize);
 in_addr_t getIpaddrByName(const char *name, char *buff, const int bufferSize);
 
+int socketBind(int sock, const char *bind_ipaddr, const int port);
 int socketServer(const char *bind_ipaddr, const int port, int *err_no);
 
 #define tcprecvdata(sock, data, size, timeout) \

@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	log_init();
 	conf_filename = argv[1];
 
 	g_log_level = LOG_DEBUG;
@@ -64,7 +65,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	log_init(g_base_path, "fdht_test_set");
+	log_set_prefix(g_base_path, "fdht_test_set");
 	log_set_cache(false);
 
 	memset(&act, 0, sizeof(act));

@@ -50,6 +50,20 @@
 //#define USE_SELECT
 #define USE_POLL
 
+#ifdef OS_LINUX
+#ifndef TCP_KEEPIDLE
+#define TCP_KEEPIDLE	 4	/* Start keeplives after this period */
+#endif
+
+#ifndef TCP_KEEPINTVL
+#define TCP_KEEPINTVL	 5	/* Interval between keepalives */
+#endif
+
+#ifndef TCP_KEEPCNT
+#define TCP_KEEPCNT 	6	/* Number of keepalives before death */
+#endif
+#endif
+
 int tcpgets(int sock, char* s, const int size, const int timeout)
 {
 	int result;
@@ -58,10 +72,6 @@ int tcpgets(int sock, char* s, const int size, const int timeout)
 
 	if (s == NULL || size <= 0)
 	{
-#ifdef __DEBUG__
-		fprintf(stderr,"%s,%d:tcpgets argument is illegal.\n",
-				__FILE__,__LINE__);
-#endif
 		return EINVAL;
 	}
 
@@ -70,10 +80,6 @@ int tcpgets(int sock, char* s, const int size, const int timeout)
 		result = tcprecvdata(sock, &t, 1, timeout);
 		if (result != 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcpgets call tcprecvdata failed.\n",
-					__FILE__,__LINE__);
-#endif
 			*s = 0;
 			return result;
 		}
@@ -151,19 +157,11 @@ int tcprecvdata_ex(int sock, void *data, const int size, \
 
 		if (res < 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcprecvdata call select failed:%s.\n",
-				__FILE__,__LINE__,strerror(errno));
-#endif
 			ret_code = errno != 0 ? errno : EINTR;
 			break;
 		}
 		else if (res == 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcprecvdata call select timeout.\n",
-				__FILE__,__LINE__);
-#endif
 			ret_code = ETIMEDOUT;
 			break;
 		}
@@ -171,22 +169,11 @@ int tcprecvdata_ex(int sock, void *data, const int size, \
 		read_bytes = recv(sock, p, left_bytes, 0);
 		if (read_bytes < 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcprecvdata call read failed:%s.\n",
-					__FILE__,__LINE__,strerror(errno));
-#endif
 			ret_code = errno != 0 ? errno : EINTR;
 			break;
 		}
 		if (read_bytes == 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr, "%s,%d:tcprecvdata call read return 0,"\
-					" remote close connection? " \
-					"errno:%d, error info:%s.\n",
-					__FILE__, __LINE__, \
-					errno, strerror(errno));
-#endif
 			ret_code = ENOTCONN;
 			break;
 		}
@@ -250,28 +237,16 @@ int tcpsenddata(int sock, void* data, const int size, const int timeout)
 
 		if (result < 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcpsenddata call select failed:%s.\n",
-				__FILE__,__LINE__,strerror(errno));
-#endif
 			return errno != 0 ? errno : EINTR;
 		}
 		else if (result == 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcpsenddata call select timeout.\n",
-				__FILE__,__LINE__);
-#endif
 			return ETIMEDOUT;
 		}
 
 		write_bytes = send(sock, p, left_bytes, 0);
 		if (write_bytes < 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcpsenddata call write failed:%s.\n",
-					__FILE__,__LINE__,strerror(errno));
-#endif			
 			return errno != 0 ? errno : EINTR;
 		}
 
@@ -324,23 +299,12 @@ int tcprecvdata_nb_ex(int sock, void *data, const int size, \
 
 			if (!(errno == EAGAIN || errno == EWOULDBLOCK))
 			{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcprecvdata call read failed:%s.\n",
-					__FILE__,__LINE__,strerror(errno));
-#endif
-			ret_code = errno != 0 ? errno : EINTR;
-			break;
+				ret_code = errno != 0 ? errno : EINTR;
+				break;
 			}
 		}
 		else
 		{
-#ifdef __DEBUG__
-			fprintf(stderr, "%s,%d:tcprecvdata call read return 0,"\
-					" remote close connection? " \
-					"errno:%d, error info:%s.\n",
-					__FILE__, __LINE__, \
-					errno, strerror(errno));
-#endif
 			ret_code = ENOTCONN;
 			break;
 		}
@@ -367,19 +331,11 @@ int tcprecvdata_nb_ex(int sock, void *data, const int size, \
 
 		if (res < 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcprecvdata call select failed:%s.\n",
-				__FILE__,__LINE__,strerror(errno));
-#endif
 			ret_code = errno != 0 ? errno : EINTR;
 			break;
 		}
 		else if (res == 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcprecvdata call select timeout.\n",
-				__FILE__,__LINE__);
-#endif
 			ret_code = ETIMEDOUT;
 			break;
 		}
@@ -423,11 +379,7 @@ int tcpsenddata_nb(int sock, void* data, const int size, const int timeout)
 		{
 			if (!(errno == EAGAIN || errno == EWOULDBLOCK))
 			{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcpsenddata call write failed:%s.\n",
-					__FILE__,__LINE__,strerror(errno));
-#endif			
-			return errno != 0 ? errno : EINTR;
+				return errno != 0 ? errno : EINTR;
 			}
 		}
 		else
@@ -458,18 +410,10 @@ int tcpsenddata_nb(int sock, void* data, const int size, const int timeout)
 
 		if (result < 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcpsenddata call select failed:%s.\n",
-				__FILE__,__LINE__,strerror(errno));
-#endif
 			return errno != 0 ? errno : EINTR;
 		}
 		else if (result == 0)
 		{
-#ifdef __DEBUG__
-			fprintf(stderr,"%s,%d:tcpsenddata call select timeout.\n",
-				__FILE__,__LINE__);
-#endif
 			return ETIMEDOUT;
 		}
 	}
@@ -477,33 +421,22 @@ int tcpsenddata_nb(int sock, void* data, const int size, const int timeout)
 	return 0;
 }
 
-int connectserverbyip(int sock, char* ip, short port)
+int connectserverbyip(int sock, const char *server_ip, const short server_port)
 {
 	int result;
 	struct sockaddr_in addr;
 
 	addr.sin_family = PF_INET;
-	addr.sin_port = htons(port);
-	result = inet_aton(ip, &addr.sin_addr);
+	addr.sin_port = htons(server_port);
+	result = inet_aton(server_ip, &addr.sin_addr);
 	if (result == 0 )
 	{
-#ifdef __DEBUG__
-		fprintf(stderr,"file: %s, line: %d:connectserverbyip call " \
-			"inet_aton failed: errno: %d, error info: %s.\n",
-			__FILE__, __LINE__, errno, strerror(errno));
-#endif
 		return EINVAL;
 	}
 
 	result = connect(sock, (const struct sockaddr*)&addr, sizeof(addr));
 	if (result < 0)
 	{
-#ifdef __DEBUG__
-		fprintf(stderr,"file: %s, line: %d, connectserverbyip " \
-			"%s:%d, call connect is failed, " \
-			"errno: %d, error info: %s.\n",
-			__FILE__, __LINE__, ip, port, errno, strerror(errno));
-#endif
 		return errno != 0 ? errno : EINTR;
 	}
 
@@ -654,33 +587,10 @@ int nbaccept(int sock, const int timeout, int *err_no)
 	return result;
 }
 
-int socketServer(const char *bind_ipaddr, const int port, int *err_no)
+int socketBind(int sock, const char *bind_ipaddr, const int port)
 {
 	struct sockaddr_in bindaddr;
-	int sock;
-	int result;
-	
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock < 0)
-	{
-		*err_no = errno != 0 ? errno : EMFILE;
-		logError("file: "__FILE__", line: %d, " \
-			"socket create failed, errno: %d, error info: %s.", \
-			__LINE__, errno, strerror(errno));
-		return -1;
-	}
 
-	result = 1;
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &result, sizeof(int)) < 0)
-	{
-		*err_no = errno != 0 ? errno : ENOMEM;
-		logError("file: "__FILE__", line: %d, " \
-			"setsockopt failed, errno: %d, error info: %s.", \
-			__LINE__, errno, strerror(errno));
-		close(sock);
-		return -2;
-	}
-	
 	bindaddr.sin_family = AF_INET;
 	bindaddr.sin_port = htons(port);
 	if (bind_ipaddr == NULL || *bind_ipaddr == '\0')
@@ -691,37 +601,66 @@ int socketServer(const char *bind_ipaddr, const int port, int *err_no)
 	{
 		if (inet_aton(bind_ipaddr, &bindaddr.sin_addr) == 0)
 		{
-			*err_no = EINVAL;
 			logError("file: "__FILE__", line: %d, " \
 				"invalid ip addr %s", \
 				__LINE__, bind_ipaddr);
-			close(sock);
-			return -3;
+			return EINVAL;
 		}
 	}
 
-	result = bind(sock, (struct sockaddr*)&bindaddr, sizeof(bindaddr));
-	if (result < 0)
+	if (bind(sock, (struct sockaddr*)&bindaddr, sizeof(bindaddr)) < 0)
 	{
-		*err_no = errno != 0 ? errno : ENOMEM;
 		logError("file: "__FILE__", line: %d, " \
 			"bind port %d failed, " \
 			"errno: %d, error info: %s.", \
 			__LINE__, port, errno, strerror(errno));
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	return 0;
+}
+
+int socketServer(const char *bind_ipaddr, const int port, int *err_no)
+{
+	int sock;
+	int result;
+	
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0)
+	{
+		*err_no = errno != 0 ? errno : EMFILE;
+		logError("file: "__FILE__", line: %d, " \
+			"socket create failed, errno: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
+		return -1;
+	}
+
+	result = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &result, sizeof(int))<0)
+	{
+		*err_no = errno != 0 ? errno : ENOMEM;
+		logError("file: "__FILE__", line: %d, " \
+			"setsockopt failed, errno: %d, error info: %s", \
+			__LINE__, errno, strerror(errno));
 		close(sock);
-		return -4;
+		return -2;
+	}
+
+	if ((*err_no=socketBind(sock, bind_ipaddr, port)) != 0)
+	{
+		close(sock);
+		return -3;
 	}
 	
-	result = listen(sock, 1024);
-	if (result < 0)
+	if (listen(sock, 1024) < 0)
 	{
 		*err_no = errno != 0 ? errno : EINVAL;
 		logError("file: "__FILE__", line: %d, " \
 			"listen port %d failed, " \
-			"errno: %d, error info: %s.", \
+			"errno: %d, error info: %s", \
 			__LINE__, port, errno, strerror(errno));
 		close(sock);
-		return -5;
+		return -4;
 	}
 
 	*err_no = 0;
@@ -959,11 +898,15 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 {
 	int fd;
 	int64_t send_bytes;
-	int64_t remain_bytes;
 	int result;
 	int flags;
 #ifdef USE_SENDFILE
 	off_t offset;
+	#ifdef OS_LINUX
+	int64_t remain_bytes;
+	#endif
+#else
+	int64_t remain_bytes;
 #endif
 
 	fd = open(filename, O_RDONLY);
@@ -1001,12 +944,22 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 	}
 	*/
 
+#define FILE_1G_SIZE    (1 * 1024 * 1024 * 1024)
+
 	result = 0;
 	offset = file_offset;
 	remain_bytes = file_bytes;
 	while (remain_bytes > 0)
 	{
-		send_bytes = sendfile(sock, fd, &offset, remain_bytes);
+		if (remain_bytes > FILE_1G_SIZE)
+		{
+			send_bytes = sendfile(sock, fd, &offset, FILE_1G_SIZE);
+		}
+		else
+		{
+			send_bytes = sendfile(sock, fd, &offset, remain_bytes);
+		}
+
 		if (send_bytes <= 0)
 		{
 			result = errno != 0 ? errno : EIO;
@@ -1128,19 +1081,17 @@ int tcpsetserveropt(int fd, const int timeout)
 	if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO,
                &waittime, (socklen_t)sizeof(struct timeval)) < 0)
 	{
-		logError("file: "__FILE__", line: %d, " \
+		logWarning("file: "__FILE__", line: %d, " \
 			"setsockopt failed, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,
                &waittime, (socklen_t)sizeof(struct timeval)) < 0)
 	{
-		logError("file: "__FILE__", line: %d, " \
+		logWarning("file: "__FILE__", line: %d, " \
 			"setsockopt failed, errno: %d, error info: %s", \
 			__LINE__, errno, strerror(errno));
-		return errno != 0 ? errno : ENOMEM;
 	}
 
 	/*
@@ -1248,7 +1199,7 @@ int tcpsetkeepalive(int fd, const int idleSeconds)
 int tcpprintkeepalive(int fd)
 {
 	int keepAlive;
-	int len;
+	socklen_t len;
 
 #ifdef OS_LINUX
 	int keepIdle;
