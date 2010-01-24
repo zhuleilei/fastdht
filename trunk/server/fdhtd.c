@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	log_init();
 	conf_filename = argv[1];
 	if ((result=fdht_func_init(conf_filename, bind_addr, \
 		sizeof(bind_addr))) != 0)
