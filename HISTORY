@@ -1,6 +1,7 @@
 
-Version 1.12  2010-01-23
+Version 1.12  2010-01-27
  * copy common files from FastDFS/common
+ * remove compile warning info of logError
 
 Version 1.11  2009-10-13
  * bug fixed: http_func.c logError parameter mismatched

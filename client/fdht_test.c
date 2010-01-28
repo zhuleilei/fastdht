@@ -29,8 +29,6 @@ int main(int argc, char *argv[])
 	int result;
 	int expires;
 	FDHTKeyInfo key_info;
-	int conn_success_count;
-	int conn_fail_count;
 	char szValue[256];
 	int value_len;
 	int i;

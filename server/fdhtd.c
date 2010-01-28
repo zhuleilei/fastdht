@@ -343,7 +343,7 @@ static int fdht_init_schedule()
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, sizeof(ScheduleEntry) * entry_count, \
+			__LINE__, (int)sizeof(ScheduleEntry) * entry_count, \
 			errno, strerror(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -414,7 +414,7 @@ static int fdht_init_schedule()
 					g_clear_expired_interval;
 				pScheduleEntry->task_func = \
 					db_clear_expired_keys;
-				pScheduleEntry->func_args = (void *)i;
+				pScheduleEntry->func_args = (void *)(long)i;
 				pScheduleEntry++;
 			}
 		}

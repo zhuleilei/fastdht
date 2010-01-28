@@ -87,9 +87,8 @@ static int load_group_servers(GroupArray *pGroupArray, \
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, \
-			sizeof(FDHTGroupServer) * pServerArray->count, \
-			errno, strerror(errno));
+			__LINE__, (int)sizeof(FDHTGroupServer) * \
+			pServerArray->count, errno, strerror(errno));
 
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -137,7 +136,7 @@ static int load_group_servers(GroupArray *pGroupArray, \
 
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, sizeof(int) * (*server_count), \
+			__LINE__, (int)sizeof(int) * (*server_count), \
 			errno, strerror(errno));
 
 		return errno != 0 ? errno : ENOMEM;
@@ -256,7 +255,7 @@ static int load_group_ids(GroupArray *pGroupArray, \
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, sizeof(int) * pGroupArray->group_count, \
+			__LINE__, (int)sizeof(int) * pGroupArray->group_count, \
 			errno, strerror(errno));
 
 		return errno != 0 ? errno : ENOMEM;
@@ -874,12 +873,12 @@ static int fdht_load_stat_from_file()
 			return result;
 		}
 
-		if (nItemCount < 8)
+		if (itemContext.count < 8)
 		{
 			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in stat file \"%s\", item count: %d < 12", \
-				__LINE__, full_filename, nItemCount);
+				__LINE__, full_filename, itemContext.count);
 			return ENOENT;
 		}
 
@@ -997,7 +996,7 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, sizeof(StoreHandle *) * g_db_count, \
+			__LINE__, (int)sizeof(StoreHandle *) * g_db_count, \
 			errno, strerror(errno));
 		free(group_ids);
 		return errno != 0 ? errno : ENOMEM;
