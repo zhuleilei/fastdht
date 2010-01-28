@@ -28,7 +28,8 @@ int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, sizeof(HashArray), errno, strerror(errno));
+			__LINE__, (int)sizeof(HashArray), \
+			errno, strerror(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 

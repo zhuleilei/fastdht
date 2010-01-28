@@ -574,7 +574,7 @@ int db_clear_expired_keys(void *arg)
 		return -1;
 	}
 
-	db_index = (int)arg;
+	db_index = (long)arg;
 	db = (DB *)(g_db_list[db_index]);
 	if ((result=db->cursor(db, NULL, &cursor, 0)) != 0)
 	{

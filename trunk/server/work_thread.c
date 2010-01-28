@@ -94,8 +94,8 @@ int work_thread_init()
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, sizeof(struct thread_data) * g_max_threads,\
-			errno, strerror(errno));
+			__LINE__, (int)sizeof(struct thread_data) * \
+			g_max_threads, errno, strerror(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 
@@ -688,8 +688,8 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, body length: %d != %d", \
 				__LINE__, pTask->client_ip, nInBodyLen, \
-				common_fileds_len + (pSrc - pSrcStart) + \
-				8 + key_info.key_len);
+				common_fileds_len + (int)(pSrc - pSrcStart) \
+				+ 8 + key_info.key_len);
 			pTask->length = sizeof(FDHTProtoHeader);
 			return EINVAL;
 		}
@@ -703,8 +703,8 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, body length: %d != %d", \
 				__LINE__, pTask->client_ip, nInBodyLen, \
-				common_fileds_len + (pSrc - pSrcStart) + \
-				4 + value_len);
+				common_fileds_len + (int)(pSrc - pSrcStart) \
+				+ 4 + value_len);
 			pTask->length = sizeof(FDHTProtoHeader);
 			return EINVAL;
 		}
@@ -740,8 +740,8 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
-			__LINE__, pTask->client_ip, \
-			nInBodyLen, common_fileds_len + (pSrc - pSrcStart));
+			__LINE__, pTask->client_ip, nInBodyLen, \
+			common_fileds_len + (int)(pSrc - pSrcStart));
 		pTask->length = sizeof(FDHTProtoHeader);
 		return EINVAL;
 	}
@@ -877,7 +877,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, body length: %d != %d", \
 				__LINE__, pTask->client_ip, nInBodyLen, \
-				common_fileds_len + (pSrc - in_buff) + \
+				common_fileds_len + (int)(pSrc - in_buff) + \
 				4 + key_info.key_len);
 			pTask->length = sizeof(FDHTProtoHeader);
 			return EINVAL;
@@ -978,8 +978,8 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
-			__LINE__, pTask->client_ip, \
-			nInBodyLen, common_fileds_len + (pSrc - in_buff));
+			__LINE__, pTask->client_ip, nInBodyLen, \
+			common_fileds_len + (int)(pSrc - in_buff));
 		pTask->length = sizeof(FDHTProtoHeader);
 		return EINVAL;
 	}
@@ -1094,7 +1094,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, body length: %d != %d", \
 				__LINE__, pTask->client_ip, nInBodyLen, \
-				common_fileds_len + (pSrc - in_buff) + \
+				common_fileds_len + (int)(pSrc - in_buff) + \
 				4 + key_info.key_len);
 			pTask->length = sizeof(FDHTProtoHeader);
 			return EINVAL;
@@ -1129,8 +1129,8 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"client ip: %s, body length: %d != %d", \
-			__LINE__, pTask->client_ip, \
-			nInBodyLen, common_fileds_len + (pSrc - in_buff));
+			__LINE__, pTask->client_ip, nInBodyLen, \
+			common_fileds_len + (int)(pSrc - in_buff));
 		pTask->length = sizeof(FDHTProtoHeader);
 		return EINVAL;
 	}

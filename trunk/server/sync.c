@@ -792,12 +792,12 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 			return result;
 		}
 
-		if (nItemCount < 7)
+		if (itemContext.count < 7)
 		{
 			iniFreeItems(&itemContext);
 			logError("file: "__FILE__", line: %d, " \
 				"in mark file \"%s\", item count: %d < 7", \
-				__LINE__, full_filename, nItemCount);
+				__LINE__, full_filename, itemContext.count);
 			return ENOENT;
 		}
 
@@ -1910,7 +1910,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 		logError("file: "__FILE__", line: %d, " \
 			"realloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, sizeof(pthread_t) * \
+			__LINE__, (int)sizeof(pthread_t) * \
 			g_fdht_sync_thread_count, \
 			errno, strerror(errno));
 	}
