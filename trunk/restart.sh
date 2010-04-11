@@ -23,6 +23,12 @@ else
   EXPR=/usr/bin/expr
 fi
 
+if [ -f /bin/sed ]; then
+  SED=/bin/sed
+else
+  SED=/usr/bin/sed
+fi
+
 program=`/bin/echo $1 | $AWK -F '/' '{print $NF;}'`
 param=''
 grep_cmd="$GREP -w $program"
@@ -34,7 +40,8 @@ for i in $list; do
     break
   fi
   param="$param $p"
-  first_ch=`$EXPR substr "$p" 1 1`
+  #first_ch=`$EXPR substr "$p" 1 1`
+  first_ch=`/bin/echo "$p" | $SED -e 's/\(.\).*/\1/'`
   if [ "$first_ch" = "-" ]; then
       p="'\\$p'"
   fi
@@ -43,7 +50,6 @@ done
 
 cmd="/bin/ps auxww | $grep_cmd | $GREP -v grep | $GREP -v $0 | $AWK '{print \$2;}'"
 pids=`/bin/sh -c "$cmd"`
-
 if [ ! -z "$pids" ]; then
   i=0
   count=0
