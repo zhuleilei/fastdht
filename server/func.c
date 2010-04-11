@@ -211,6 +211,7 @@ static int load_group_ids(GroupArray *pGroupArray, \
 
 	int result;
 	char host_addrs[MAX_HOST_ADDRS][IP_ADDRESS_SIZE];
+	char szIfAliasPrefix[FDHT_IF_ALIAS_PREFIX_MAX_SIZE];
 	int addrs_count;
 	int alias_count;
 	char *if_alias_prefixes[FDHT_MAX_ALIAS_PREFIX_COUNT];
@@ -231,14 +232,15 @@ static int load_group_ids(GroupArray *pGroupArray, \
 	}
 	else
 	{
+		strcpy(szIfAliasPrefix, g_if_alias_prefix);
 		memset(if_alias_prefixes, 0, sizeof(if_alias_prefixes));
-		if (*g_if_alias_prefix == '\0')
+		if (*szIfAliasPrefix == '\0')
 		{
 			alias_count = 0;
 		}
 		else
 		{
-			alias_count = splitEx(g_if_alias_prefix, ',', \
+			alias_count = splitEx(szIfAliasPrefix, ',', \
 				if_alias_prefixes, FDHT_MAX_ALIAS_PREFIX_COUNT);
 			for (k=0; k<alias_count; k++)
 			{
@@ -260,10 +262,12 @@ static int load_group_ids(GroupArray *pGroupArray, \
 			return ENOENT;
 		}
 
+		/*
 		for (k=0; k < addrs_count; k++)
 		{
 			printf("%d. ip addr: %s\n", k+1, host_addrs[k]);
 		}
+		*/
 	}
 
 	*group_ids = (int *)malloc(sizeof(int) * pGroupArray->group_count);
@@ -701,6 +705,18 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			*nCacheSize = 1024 * 1024;
 		}
 
+		pIfAliasPrefix = iniGetStrValue(NULL, \
+			"if_alias_prefix", &iniContext);
+		if (pIfAliasPrefix == NULL)
+		{
+			*g_if_alias_prefix = '\0';
+		}
+		else
+		{
+			snprintf(g_if_alias_prefix, sizeof(g_if_alias_prefix), 
+				"%s", pIfAliasPrefix);
+		}
+
 		memset(&groupArray, 0, sizeof(groupArray));
 		result = fdht_load_groups(&iniContext, &groupArray);
 		if (result != 0)
@@ -812,18 +828,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			return result;
 		}
 		g_thread_stack_size = (int)thread_stack_size;
-
-		pIfAliasPrefix = iniGetStrValue(NULL, \
-			"if_alias_prefix", &iniContext);
-		if (pIfAliasPrefix == NULL)
-		{
-			*g_if_alias_prefix = '\0';
-		}
-		else
-		{
-			snprintf(g_if_alias_prefix, sizeof(g_if_alias_prefix), 
-				"%s", pIfAliasPrefix);
-		}
 
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \

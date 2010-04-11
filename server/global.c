@@ -109,6 +109,7 @@ void load_local_host_ip_addrs()
 {
 #define FDHT_MAX_ALIAS_PREFIX_COUNT  4
 	char ip_addresses[FDHT_MAX_LOCAL_IP_ADDRS][IP_ADDRESS_SIZE];
+	char szIfAliasPrefix[FDHT_IF_ALIAS_PREFIX_MAX_SIZE];
 	int count;
 	int k;
 	char *if_alias_prefixes[FDHT_MAX_ALIAS_PREFIX_COUNT];
@@ -116,14 +117,15 @@ void load_local_host_ip_addrs()
 
 	insert_into_local_host_ip("127.0.0.1");
 
+	strcpy(szIfAliasPrefix, g_if_alias_prefix);
 	memset(if_alias_prefixes, 0, sizeof(if_alias_prefixes));
-	if (*g_if_alias_prefix == '\0')
+	if (*szIfAliasPrefix == '\0')
 	{
 		alias_count = 0;
 	}
 	else
 	{
-		alias_count = splitEx(g_if_alias_prefix, ',', \
+		alias_count = splitEx(szIfAliasPrefix, ',', \
 			if_alias_prefixes, FDHT_MAX_ALIAS_PREFIX_COUNT);
 		for (k=0; k<alias_count; k++)
 		{
