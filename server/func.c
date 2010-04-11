@@ -207,10 +207,13 @@ static int load_group_ids(GroupArray *pGroupArray, \
 		const char *bind_addr, int **group_ids, int *group_count)
 {
 #define MAX_HOST_ADDRS	10
+#define FDHT_MAX_ALIAS_PREFIX_COUNT  4
 
 	int result;
 	char host_addrs[MAX_HOST_ADDRS][IP_ADDRESS_SIZE];
 	int addrs_count;
+	int alias_count;
+	char *if_alias_prefixes[FDHT_MAX_ALIAS_PREFIX_COUNT];
 	ServerArray *pServerArray;
 	ServerArray *pArrayEnd;
 	FDHTServerInfo **ppServerInfo;
@@ -228,8 +231,23 @@ static int load_group_ids(GroupArray *pGroupArray, \
 	}
 	else
 	{
-		result = gethostaddrs(host_addrs, MAX_HOST_ADDRS, &addrs_count);
-		if (result != 0)
+		memset(if_alias_prefixes, 0, sizeof(if_alias_prefixes));
+		if (*g_if_alias_prefix == '\0')
+		{
+			alias_count = 0;
+		}
+		else
+		{
+			alias_count = splitEx(g_if_alias_prefix, ',', \
+				if_alias_prefixes, FDHT_MAX_ALIAS_PREFIX_COUNT);
+			for (k=0; k<alias_count; k++)
+			{
+				trim(if_alias_prefixes[k]);
+			}
+		}
+
+		if ((result=gethostaddrs(if_alias_prefixes, alias_count, \
+			host_addrs, MAX_HOST_ADDRS, &addrs_count)) != 0)
 		{
 			return result;
 		}
@@ -242,12 +260,10 @@ static int load_group_ids(GroupArray *pGroupArray, \
 			return ENOENT;
 		}
 
-		/*
 		for (k=0; k < addrs_count; k++)
 		{
-			//printf("%d. ip addr: %s\n", k+1, host_addrs[k]);
+			printf("%d. ip addr: %s\n", k+1, host_addrs[k]);
 		}
-		*/
 	}
 
 	*group_ids = (int *)malloc(sizeof(int) * pGroupArray->group_count);
@@ -342,6 +358,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char *pMinBuffSize;
 	char *pStoreType;
 	char *pThreadStackSize;
+	char *pIfAliasPrefix;
 	IniContext iniContext;
 	int result;
 	int64_t nPageSize;
@@ -796,6 +813,18 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 		g_thread_stack_size = (int)thread_stack_size;
 
+		pIfAliasPrefix = iniGetStrValue(NULL, \
+			"if_alias_prefix", &iniContext);
+		if (pIfAliasPrefix == NULL)
+		{
+			*g_if_alias_prefix = '\0';
+		}
+		else
+		{
+			snprintf(g_if_alias_prefix, sizeof(g_if_alias_prefix), 
+				"%s", pIfAliasPrefix);
+		}
+
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -814,7 +843,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"write_to_binlog=%d, sync_binlog_buff_interval=%ds, " \
 			"compress_binlog_time_base=%s, " \
 			"compress_binlog_interval=%ds, " \
-			"thread_stack_size=%d KB",  \
+			"thread_stack_size=%d KB, if_alias_prefix=%s",  \
 			g_version.major, g_version.minor, \
 			g_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_network_timeout, \
@@ -829,7 +858,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_write_to_binlog_flag, \
 			g_sync_binlog_buff_interval, \
 			sz_compress_binlog_time_base,\
-			g_compress_binlog_interval, g_thread_stack_size / 1024);
+			g_compress_binlog_interval, g_thread_stack_size/1024, \
+			g_if_alias_prefix);
 
 	} while (0);
 

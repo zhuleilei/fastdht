@@ -11,6 +11,7 @@
 #include <errno.h>
 #include "logger.h"
 #include "sockopt.h"
+#include "shared_func.h"
 #include "global.h"
 
 bool g_continue_flag = true;
@@ -56,6 +57,8 @@ in_addr_t *g_allow_ip_addrs = NULL;  /* sorted array, asc order */
 int g_local_host_ip_count = 0;
 char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
 				IP_ADDRESS_SIZE];
+char g_if_alias_prefix[FDHT_IF_ALIAS_PREFIX_MAX_SIZE] = {0};
+
 time_t g_server_start_time = 0;
 int g_store_type = FDHT_STORE_TYPE_BDB;
 int g_mpool_init_capacity = FDHT_DEFAULT_MPOOL_INIT_CAPACITY;
@@ -104,12 +107,32 @@ int insert_into_local_host_ip(const char *client_ip)
 
 void load_local_host_ip_addrs()
 {
+#define FDHT_MAX_ALIAS_PREFIX_COUNT  4
 	char ip_addresses[FDHT_MAX_LOCAL_IP_ADDRS][IP_ADDRESS_SIZE];
 	int count;
 	int k;
+	char *if_alias_prefixes[FDHT_MAX_ALIAS_PREFIX_COUNT];
+	int alias_count;
 
 	insert_into_local_host_ip("127.0.0.1");
-	if (gethostaddrs(ip_addresses, FDHT_MAX_LOCAL_IP_ADDRS, &count) != 0)
+
+	memset(if_alias_prefixes, 0, sizeof(if_alias_prefixes));
+	if (*g_if_alias_prefix == '\0')
+	{
+		alias_count = 0;
+	}
+	else
+	{
+		alias_count = splitEx(g_if_alias_prefix, ',', \
+			if_alias_prefixes, FDHT_MAX_ALIAS_PREFIX_COUNT);
+		for (k=0; k<alias_count; k++)
+		{
+			trim(if_alias_prefixes[k]);
+		}
+	}
+
+	if (gethostaddrs(if_alias_prefixes, alias_count, ip_addresses, \
+			FDHT_MAX_LOCAL_IP_ADDRS, &count) != 0)
 	{
 		return;
 	}

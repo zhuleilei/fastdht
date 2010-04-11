@@ -1,9 +1,11 @@
 
-Version 1.12  2010-04-10
+Version 1.12  2010-04-11
  * copy common files from FastDFS/common
  * remove compile warning info of logError
  * ini file reader supoort section
  * redirect stdout and stderr to log file
+ * storage.conf: add if_alias_prefix parameter to get the ip address of the
+   local host
 
 Version 1.11  2009-10-13
  * bug fixed: http_func.c logError parameter mismatched

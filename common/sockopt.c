@@ -539,7 +539,7 @@ in_addr_t getIpaddrByName(const char *name, char *buff, const int bufferSize)
 int nbaccept(int sock, const int timeout, int *err_no)
 {
 	struct sockaddr_in inaddr;
-	unsigned int sockaddr_len;
+	socklen_t sockaddr_len;
 	fd_set read_set;
 	struct timeval t;
 	int result;
@@ -901,10 +901,12 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 	int result;
 	int flags;
 #ifdef USE_SENDFILE
+   #if defined(OS_FREEBSD) || defined(OS_LINUX)
 	off_t offset;
 	#ifdef OS_LINUX
 	int64_t remain_bytes;
 	#endif
+   #endif
 #else
 	int64_t remain_bytes;
 #endif
@@ -1304,11 +1306,15 @@ int tcpsetnodelay(int fd, const int timeout)
 	return 0;
 }
 
-int gethostaddrs(char ip_addrs[][IP_ADDRESS_SIZE], \
-	const int max_count, int *count)
+int gethostaddrs(char **if_alias_prefixes, const int prefix_count, \
+	char ip_addrs[][IP_ADDRESS_SIZE], const int max_count, int *count)
 {
 	struct hostent *ent;
 	char hostname[128];
+	char *alias_prefixes1[1];
+	char **true_alias_prefixes;
+	int true_count;
+	int i;
 	int k;
 	int sock;
 	struct ifreq req;
@@ -1325,11 +1331,13 @@ int gethostaddrs(char ip_addrs[][IP_ADDRESS_SIZE], \
 		return errno != 0 ? errno : EMFILE;
 	}
 
+	if (prefix_count <= 0)
+	{
 #ifdef OS_FREEBSD
-  #define IF_NAME_PREFIX   "bge"
+	#define IF_NAME_PREFIX    "bge"
 #else
   #ifdef OS_SUNOS
-      #define IF_NAME_PREFIX   "e1000g"
+	#define IF_NAME_PREFIX   "e1000g"
   #else
       #ifdef OS_AIX
           #define IF_NAME_PREFIX   "en"
@@ -1339,10 +1347,22 @@ int gethostaddrs(char ip_addrs[][IP_ADDRESS_SIZE], \
   #endif
 #endif
 
-	memset(&req, 0, sizeof(req));
+  		alias_prefixes1[0] = IF_NAME_PREFIX;
+		true_count = 1;
+		true_alias_prefixes = alias_prefixes1;
+	}
+	else
+	{
+		true_count = prefix_count;
+		true_alias_prefixes = if_alias_prefixes;
+	}
+
+	for (i=0; i<true_count && *count<max_count; i++)
+	{
 	for (k=0; k<max_count; k++)
 	{
-		sprintf(req.ifr_name, "%s%d", IF_NAME_PREFIX, k);
+		memset(&req, 0, sizeof(req));
+		sprintf(req.ifr_name, "%s%d", true_alias_prefixes[i], k);
 		ret = ioctl(sock, SIOCGIFADDR, &req);
 		if (ret == -1)
 		{
@@ -1354,7 +1374,12 @@ int gethostaddrs(char ip_addrs[][IP_ADDRESS_SIZE], \
 			IP_ADDRESS_SIZE) != NULL)
 		{
 			(*count)++;
+			if (*count >= max_count)
+			{
+				break;
+			}
 		}
+	}
 	}
 
 	close(sock);

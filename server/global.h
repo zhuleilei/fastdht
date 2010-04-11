@@ -26,6 +26,7 @@ extern "C" {
 #endif
 
 #define FDHT_MAX_LOCAL_IP_ADDRS     4
+#define FDHT_IF_ALIAS_PREFIX_MAX_SIZE 32
 
 struct thread_data
 {
@@ -76,6 +77,7 @@ extern in_addr_t *g_allow_ip_addrs;  /* sorted array, asc order */
 extern int g_local_host_ip_count;
 extern char g_local_host_ip_addrs[FDHT_MAX_LOCAL_IP_ADDRS * \
 				IP_ADDRESS_SIZE];
+extern char g_if_alias_prefix[FDHT_IF_ALIAS_PREFIX_MAX_SIZE];
 
 extern time_t g_server_start_time;
 extern int g_store_type;
