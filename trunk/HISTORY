@@ -6,6 +6,8 @@ Version 1.12  2010-04-11
  * redirect stdout and stderr to log file
  * storage.conf: add if_alias_prefix parameter to get the ip address of the
    local host
+ * make.sh compile use debug mode
+ * make.sh: default not install FastDHT services in Linux server
 
 Version 1.11  2009-10-13
  * bug fixed: http_func.c logError parameter mismatched

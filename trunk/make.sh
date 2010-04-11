@@ -8,7 +8,7 @@ int main()
 }
 EOF
 
-gcc $tmp_src_filename
+gcc -D_FILE_OFFSET_BITS=64 -o a.out $tmp_src_filename
 bytes=`./a.out`
 
 /bin/rm -f  a.out $tmp_src_filename
@@ -27,9 +27,11 @@ cat <<EOF > common/_os_bits.h
 #endif
 EOF
 
+#WITH_LINUX_SERVICE=1
+
 TARGET_PATH=/usr/local/bin
-CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE'
-#CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D__DEBUG__'
+#CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE'
+CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D__DEBUG__'
 
 LIBS=''
 uname=`uname`
@@ -60,8 +62,13 @@ if [ "$1" = "install" ]; then
   cp -f stop.sh $TARGET_PATH
 
   if [ "$uname" = "Linux" ]; then
-    cp -f init.d/fdhtd /etc/rc.d/init.d/
-    /sbin/chkconfig --add fdhtd
+    if [ "$WITH_LINUX_SERVICE" = "1" ]; then
+      mkdir -p /etc/fdht
+      cp -f conf/fdhtd.conf /etc/fdht/
+      cp -f conf/fdht_servers.conf /etc/fdht/
+      cp -f init.d/fdhtd /etc/rc.d/init.d/
+      /sbin/chkconfig --add fdhtd
+    fi
   fi
 fi
 
