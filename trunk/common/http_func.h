@@ -30,9 +30,10 @@ params:
 	content: return the content (HTTP body only, not including HTTP header),
 		 *content should be freed by caller
 	content_len: return content length (bytes)
+return: 0 for success, != 0 for error
 **/
 int get_url_content(const char *url, const int timeout, int *http_status, \
-	char **content, int *content_len);
+	char **content, int *content_len, char *error_info);
 
 /**
 parse url
