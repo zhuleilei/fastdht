@@ -1745,6 +1745,10 @@ static void* fdht_sync_thread_entrance(void* arg)
 					break;
 				}
 				}
+				else
+				{
+					break;
+				}
 
 				}
 				
