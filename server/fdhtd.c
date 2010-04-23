@@ -74,8 +74,8 @@ int main(int argc, char *argv[])
 	daemon_init(true);
 	umask(0);
 	
-	if (dup2(g_log_fd, STDOUT_FILENO) < 0 || \
-		dup2(g_log_fd, STDERR_FILENO) < 0)
+	if (dup2(g_log_context.log_fd, STDOUT_FILENO) < 0 || \
+		dup2(g_log_context.log_fd, STDERR_FILENO) < 0)
 	{
 		logCrit("file: "__FILE__", line: %d, " \
 			"call dup2 fail, errno: %d, error info: %s, " \
@@ -367,7 +367,7 @@ static int fdht_init_schedule()
 	pScheduleEntry->time_base.minute = TIME_NONE;
 	pScheduleEntry->interval = g_sync_log_buff_interval;
 	pScheduleEntry->task_func = log_sync_func;
-	pScheduleEntry->func_args = NULL;
+	pScheduleEntry->func_args = &g_log_context;
 	pScheduleEntry++;
 
 	if (g_store_type == FDHT_STORE_TYPE_BDB && g_sync_db_interval > 0)

@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	log_init();
 	conf_filename = argv[1];
 
-	g_log_level = LOG_DEBUG;
+	g_log_context.log_level = LOG_DEBUG;
 	if ((result=fdht_client_init(conf_filename)) != 0)
 	{
 		return result;

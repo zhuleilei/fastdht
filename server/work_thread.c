@@ -1214,7 +1214,7 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 			__LINE__, pTask->client_ip, targetServer.port);
 		pTask->length = sizeof(FDHTProtoHeader);
 
-		if (g_log_level >= LOG_DEBUG)
+		if (g_log_context.log_level >= LOG_DEBUG)
 		{
 			int k;
 			logDebug("My group server list:");
