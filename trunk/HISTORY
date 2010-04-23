@@ -1,4 +1,7 @@
 
+Version 1.13  2010-04-23
+ * logger support context (multi instance)
+
 Version 1.12  2010-04-11
  * copy common files from FastDFS/common
  * remove compile warning info of logError
