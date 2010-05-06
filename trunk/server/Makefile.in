@@ -10,7 +10,7 @@ SHARED_OBJS = ../common/hash.o  ../common/chain.o \
               ../common/shared_func.o ../common/ini_file_reader.o \
               ../common/logger.o ../common/sockopt.o \
               ../common/fdfs_base64.o ../common/sched_thread.o \
-              ../common/http_func.o \
+              ../common/http_func.o ../common/pthread_func.o \
               ../common/fdht_global.o ../common/fdht_func.o \
               ../common/fdht_proto.o \
               global.o task_queue.o fdht_io.o \

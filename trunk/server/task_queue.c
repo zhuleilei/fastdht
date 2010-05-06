@@ -7,6 +7,7 @@
 #include "global.h"
 #include "logger.h"
 #include "shared_func.h"
+#include "pthread_func.h"
 #include "work_thread.h"
 
 static struct task_queue_info g_free_queue;
