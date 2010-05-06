@@ -1,6 +1,7 @@
 
-Version 1.13  2010-04-23
+Version 1.13  2010-05-06
  * logger support context (multi instance)
+ * add files: common/pthread.h and common/pthread.c
 
 Version 1.12  2010-04-11
  * copy common files from FastDFS/common

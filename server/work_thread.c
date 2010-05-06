@@ -24,6 +24,7 @@
 #include <event.h>
 #include "fdht_define.h"
 #include "shared_func.h"
+#include "pthread_func.h"
 #include "logger.h"
 #include "fdht_global.h"
 #include "fdht_types.h"

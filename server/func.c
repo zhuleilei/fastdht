@@ -15,6 +15,7 @@
 #include "logger.h"
 #include "sockopt.h"
 #include "shared_func.h"
+#include "pthread_func.h"
 #include "ini_file_reader.h"
 #include "fdht_global.h"
 #include "global.h"
