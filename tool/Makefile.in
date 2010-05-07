@@ -6,7 +6,7 @@ LIB_PATH = -L/usr/local/lib $(LIBS)
 TARGET_PATH = $(TARGET_PATH)
 
 COMMON_LIB =
-SHARED_OBJS = ../common/hash.o  ../common/chain.o \
+SHARED_OBJS = ../common/hash.o  ../common/chain.o ../common/pthread_func.o \
               ../common/shared_func.o ../common/ini_file_reader.o \
               ../common/logger.o ../common/sockopt.o ../common/http_func.o \
               ../common/fdfs_base64.o ../common/fdht_global.o
