@@ -5,14 +5,14 @@ INC_PATH = -I../common -I/usr/local/include
 LIB_PATH = -L/usr/local/lib $(LIBS)
 TARGET_PATH = $(TARGET_PATH)
 
-STATIC_OBJS = ../common/hash.o ../common/chain.o \
+STATIC_OBJS = ../common/hash.o ../common/chain.o ../common/pthread_func.o \
               ../common/shared_func.o ../common/ini_file_reader.o \
               ../common/logger.o ../common/sockopt.o \
               ../common/fdfs_base64.o ../common/http_func.o \
               ../common/fdht_global.o ../common/fdht_proto.o \
               ../common/fdht_func.o fdht_client.o
 
-SHARED_OBJS = ../common/hash.lo ../common/chain.lo \
+SHARED_OBJS = ../common/hash.lo ../common/chain.lo ../common/pthread_func.lo \
               ../common/shared_func.lo ../common/ini_file_reader.lo \
               ../common/logger.lo ../common/sockopt.lo \
               ../common/fdfs_base64.lo ../common/http_func.lo \
@@ -22,7 +22,7 @@ SHARED_OBJS = ../common/hash.lo ../common/chain.lo \
 HEADER_FILES = ../common/common_define.h ../common/fdht_define.h  \
                ../common/fdht_func.h  ../common/fdht_global.h  \
                ../common/fdht_proto.h  ../common/fdht_proto_types.h \
-               ../common/fdht_types.h \
+               ../common/fdht_types.h ../common/pthread_func.h \
                ../common/fdfs_base64.h ../common/shared_func.h \
                ../common/ini_file_reader.h ../common/_os_bits.h \
                ../common/sockopt.h ../common/sched_thread.h \
