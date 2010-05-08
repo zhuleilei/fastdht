@@ -31,13 +31,13 @@ HEADER_FILES = ../common/common_define.h ../common/fdht_define.h  \
                ../common/sockopt.h ../common/sched_thread.h \
                ../common/logger.h ../common/http_func.h fdht_client.h
 
-ALL_OBJS = $(STATIC_OBJS) $(FDHT_SHARED_OBJS)
+ALL_OBJS = $(STATIC_OBJS) $(FAST_SHARED_OBJS) $(FDHT_SHARED_OBJS)
 
 ALL_PRGS = fdht_test fdht_batch_test fdht_test_thread fdht_test_set fdht_test_get
-ALL_LIBS = libfast.so.1 libfdhtclient.so.1
+ALL_LIBS = libfastcommon.so.1 libfdhtclient.so.1
 
 all: $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)
-libfast.so.1:
+libfastcommon.so.1:
 	$(COMPILE) -o $@ $< -shared $(FAST_SHARED_OBJS) $(LIB_PATH)
 libfdhtclient.so.1:
 	$(COMPILE) -o $@ $< -shared $(FDHT_SHARED_OBJS) $(LIB_PATH)
@@ -53,8 +53,8 @@ install:
 	cp -f $(ALL_PRGS) $(TARGET_PATH)
 	cp -f $(ALL_LIBS) /usr/local/lib/
 	cp -f $(HEADER_FILES) /usr/local/include/
-	ln -fs /usr/local/lib/libfast.so.1 /usr/local/lib/libfast.so
-	ln -fs /usr/local/lib/libfast.so.1 /usr/lib/libfast.so
+	ln -fs /usr/local/lib/libfastcommon.so.1 /usr/local/lib/libfastcommon.so
+	ln -fs /usr/local/lib/libfastcommon.so.1 /usr/lib/libfastcommon.so
 	ln -fs /usr/local/lib/libfdhtclient.so.1 /usr/local/lib/libfdhtclient.so
 	ln -fs /usr/local/lib/libfdhtclient.so.1 /usr/lib/libfdhtclient.so
 clean:
