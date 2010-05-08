@@ -13,6 +13,8 @@ if test "$PHP_FASTDHT_CLIENT" != "no"; then
 dnl  CC=$ROOT/bin/gcc
 
   PHP_ADD_INCLUDE($ROOT/include)
+  PHP_ADD_INCLUDE($ROOT/include/fastcommon)
+  PHP_ADD_INCLUDE($ROOT/include/fastdfs)
 
   PHP_ADD_LIBRARY_WITH_PATH(fastcommon, $ROOT/lib, FASTDHT_CLIENT_SHARED_LIBADD)
   PHP_ADD_LIBRARY_WITH_PATH(fdhtclient, $ROOT/lib, FASTDHT_CLIENT_SHARED_LIBADD)
