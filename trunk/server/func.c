@@ -341,7 +341,7 @@ static char *fdht_get_stat_filename(const void *pArg, char *full_filename)
 	}
 
 	snprintf(full_filename, MAX_PATH_SIZE, \
-			"%s/data/%s", g_base_path, \
+			"%s/data/%s", g_fdht_base_path, \
 			FDHT_STAT_FILENAME);
 	return full_filename;
 }
@@ -407,40 +407,40 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
-		snprintf(g_base_path, sizeof(g_base_path), "%s", pBasePath);
-		chopPath(g_base_path);
-		if (!fileExists(g_base_path))
+		snprintf(g_fdht_base_path, sizeof(g_fdht_base_path), "%s", pBasePath);
+		chopPath(g_fdht_base_path);
+		if (!fileExists(g_fdht_base_path))
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"\"%s\" can't be accessed, error info: %s", \
-				__LINE__, strerror(errno), g_base_path);
+				__LINE__, strerror(errno), g_fdht_base_path);
 			result = errno != 0 ? errno : ENOENT;
 			break;
 		}
-		if (!isDir(g_base_path))
+		if (!isDir(g_fdht_base_path))
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"\"%s\" is not a directory!", \
-				__LINE__, g_base_path);
+				__LINE__, g_fdht_base_path);
 			result = ENOTDIR;
 			break;
 		}
 
 		load_log_level(&iniContext);
-		if ((result=log_set_prefix(g_base_path, "fdhtd")) != 0)
+		if ((result=log_set_prefix(g_fdht_base_path, "fdhtd")) != 0)
 		{
 			break;
 		}
 
-		g_network_timeout = iniGetIntValue(NULL, "network_timeout", \
+		g_fdht_network_timeout = iniGetIntValue(NULL, "network_timeout", \
 				&iniContext, DEFAULT_NETWORK_TIMEOUT);
-		if (g_network_timeout <= 0)
+		if (g_fdht_network_timeout <= 0)
 		{
-			g_network_timeout = DEFAULT_NETWORK_TIMEOUT;
+			g_fdht_network_timeout = DEFAULT_NETWORK_TIMEOUT;
 		}
 
-		g_network_tv.tv_sec = g_network_timeout;
-		g_heart_beat_interval = g_network_timeout / 2;
+		g_network_tv.tv_sec = g_fdht_network_timeout;
+		g_heart_beat_interval = g_fdht_network_timeout / 2;
 		if (g_heart_beat_interval <= 0)
 		{
 			g_heart_beat_interval = 1;
@@ -849,9 +849,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"compress_binlog_time_base=%s, " \
 			"compress_binlog_interval=%ds, " \
 			"thread_stack_size=%d KB, if_alias_prefix=%s",  \
-			g_version.major, g_version.minor, \
-			g_base_path, g_group_count, *group_count, \
-			g_group_server_count, g_network_timeout, \
+			g_fdht_version.major, g_fdht_version.minor, \
+			g_fdht_base_path, g_group_count, *group_count, \
+			g_group_server_count, g_fdht_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
 			g_max_threads, g_max_pkg_size / 1024, \
 			g_min_buff_size / 1024, \
@@ -882,7 +882,7 @@ static int fdht_load_stat_from_file()
 
 	memset(&g_server_stat, 0, sizeof(g_server_stat));
 
-	snprintf(data_path, sizeof(data_path), "%s/data", g_base_path);
+	snprintf(data_path, sizeof(data_path), "%s/data", g_fdht_base_path);
 	if (!fileExists(data_path))
 	{
 		if (mkdir(data_path, 0755) != 0)
@@ -1051,7 +1051,7 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 		{
 			if ((result=db_init(&g_db_list[*pGroupId], db_type, \
 						nCacheSize, page_size, \
-						g_base_path, db_filename)) != 0)
+						g_fdht_base_path, db_filename)) != 0)
 			{
 				break;
 			}

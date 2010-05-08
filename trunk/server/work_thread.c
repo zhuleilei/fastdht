@@ -1692,7 +1692,7 @@ static int deal_cmd_stat(struct task_info *pTask)
 
 	p += sprintf(p, "server=%s:%d\n", g_local_host_ip_addrs+IP_ADDRESS_SIZE
 			 , g_server_port);
-	p += sprintf(p, "version=%d.%02d\n", g_version.major, g_version.minor);
+	p += sprintf(p, "version=%d.%02d\n", g_fdht_version.major, g_fdht_version.minor);
 	p += sprintf(p, "uptime=%d\n", (int)(current_time-g_server_start_time));
 	p += sprintf(p, "curr_time=%d\n", (int)current_time);
 	p += sprintf(p, "max_connections=%d\n", g_max_connections);
