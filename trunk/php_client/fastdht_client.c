@@ -47,7 +47,10 @@ static int le_fdht;
 
 static zend_class_entry *fdht_ce = NULL;
 static zend_class_entry *fdht_exception_ce = NULL;
+
+#if HAVE_SPL
 static zend_class_entry *spl_ce_RuntimeException = NULL;
+#endif
 
 #if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION < 3)
 const zend_fcall_info empty_fcall_info = { 0, NULL, NULL, NULL, NULL, 0, NULL, NULL, 0 };
@@ -198,7 +201,7 @@ static void php_fdht_batch_set_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	int key_count;
 	int success_count;
 	char *szKey;
-	long index;
+	ulong index;
 	long expires;
 	int result;
 	FDHTObjectInfo obj_info;
@@ -258,8 +261,8 @@ static void php_fdht_batch_set_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		key_value_hash, &pointer))
 	{
 		if (zend_hash_get_current_key_ex(key_value_hash, &szKey, \
-			&(pKeyValue->key_len), &index, 0, &pointer) \
-			!= HASH_KEY_IS_STRING)
+			(uint *)&(pKeyValue->key_len), &index, 0, \
+			&pointer) != HASH_KEY_IS_STRING)
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"fastdht_batch_set, invalid array element, " \
@@ -352,7 +355,7 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	int key_count;
 	int success_count;
 	char *szKey;
-	long index;
+	ulong index;
 	bool return_errno;
 	long expires;
 	int result;
@@ -409,8 +412,8 @@ static void php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		key_value_hash, &pointer))
 	{
 		if (zend_hash_get_current_key_ex(key_value_hash, &szKey, \
-			&(pKeyValue->key_len), &index, 0, &pointer) \
-			== HASH_KEY_IS_STRING)
+			(uint *)&(pKeyValue->key_len), &index, 0, \
+			&pointer) == HASH_KEY_IS_STRING)
 		{
 			TRIM_PHP_KEY(szKey, pKeyValue->key_len)
 		}
@@ -507,7 +510,7 @@ static void php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
 	int key_count;
 	int success_count;
 	char *szKey;
-	long index;
+	ulong index;
 	int result;
 	FDHTObjectInfo obj_info;
 	FDHTKeyValuePair key_list[FDHT_MAX_KEY_COUNT_PER_REQ];
@@ -560,8 +563,8 @@ static void php_fdht_batch_delete_impl(INTERNAL_FUNCTION_PARAMETERS, \
 		key_value_hash, &pointer))
 	{
 		if (zend_hash_get_current_key_ex(key_value_hash, &szKey, \
-			&(pKeyValue->key_len), &index, 0, &pointer) \
-			== HASH_KEY_IS_STRING)
+			(uint *)&(pKeyValue->key_len), &index, 0, \
+			&pointer) == HASH_KEY_IS_STRING)
 		{
 			TRIM_PHP_KEY(szKey, pKeyValue->key_len)
 		}
