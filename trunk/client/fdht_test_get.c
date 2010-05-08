@@ -19,7 +19,6 @@
 #include <fcntl.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
-#include "fdfs_base64.h"
 #include "fdht_global.h"
 #include "sockopt.h"
 #include "logger.h"

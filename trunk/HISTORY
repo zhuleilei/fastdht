@@ -6,6 +6,7 @@ Version 1.13  2010-05-08
  * global variables: g_base_path, g_network_timeout, g_version change to
    g_fdht_base_path, g_fdht_network_timeout, g_fdht_version
  * client add libfastcommon
+ * common/fdfs_base64.h/c change name to common/base64.h/c
 
 Version 1.12  2010-04-11
  * copy common files from FastDFS/common

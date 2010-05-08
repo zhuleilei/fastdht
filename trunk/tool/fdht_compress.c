@@ -25,7 +25,7 @@
 #include "ini_file_reader.h"
 #include "sockopt.h"
 #include "sync.h"
-#include "fdfs_base64.h"
+#include "base64.h"
 
 #define BINLOG_COMPRESSED_INDEX_FILENAME  SYNC_BINLOG_FILE_PREFIX".compressed.index"
 
