@@ -14,6 +14,7 @@ dnl  CC=$ROOT/bin/gcc
 
   PHP_ADD_INCLUDE($ROOT/include)
 
+  PHP_ADD_LIBRARY_WITH_PATH(fast, $ROOT/lib, FASTDHT_CLIENT_SHARED_LIBADD)
   PHP_ADD_LIBRARY_WITH_PATH(fdhtclient, $ROOT/lib, FASTDHT_CLIENT_SHARED_LIBADD)
 
   PHP_NEW_EXTENSION(fastdht_client, fastdht_client.c, $ext_shared)
