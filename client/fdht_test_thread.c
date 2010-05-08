@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 "Public License V3, which may be found in the FastDHT source kit.\n" \
 "Please visit the FastDHT Home Page http://www.csource.org/ \n" \
 "for more detail.\n\n" \
-, g_version.major, g_version.minor);
+, g_fdht_version.major, g_fdht_version.minor);
 
 	if (argc < 2)
 	{

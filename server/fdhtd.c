@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	if ((result=tcpsetserveropt(sock, g_network_timeout)) != 0)
+	if ((result=tcpsetserveropt(sock, g_fdht_network_timeout)) != 0)
 	{
 		fdht_func_destroy();
 		return result;
@@ -298,7 +298,7 @@ static int fdht_compress_binlog_func(void *arg)
 	{
 		cmd = "/usr/bin/fdht_compress";
 	}
-	if (execl(cmd, cmd, g_base_path, "auto", NULL) < 0)
+	if (execl(cmd, cmd, g_fdht_base_path, "auto", NULL) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"execl fdht_compress fail, errno: %d, error info: %s", \

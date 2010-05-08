@@ -92,7 +92,7 @@ static int fdht_report_sync_done(FDHTServerInfo *pDestServer)
 	int2buff(g_server_port, out_buff + sizeof(FDHTProtoHeader));
 
 	if ((result=tcpsenddata(pDestServer->sock, out_buff, \
-		sizeof(FDHTProtoHeader) + 4, g_network_timeout)) != 0)
+		sizeof(FDHTProtoHeader) + 4, g_fdht_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"send data to server %s:%d fail, " \
@@ -154,7 +154,7 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 		out_buff + sizeof(FDHTProtoHeader) + 5);
 
 	if ((result=tcpsenddata(pDestServer->sock, out_buff, \
-		sizeof(FDHTProtoHeader) + 13, g_network_timeout)) != 0)
+		sizeof(FDHTProtoHeader) + 13, g_fdht_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"send data to server %s:%d fail, " \
@@ -180,7 +180,7 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 	}
 
 	if ((result=tcprecvdata(pDestServer->sock, in_buff, \
-                       IP_ADDRESS_SIZE + 9, g_network_timeout)) != 0)
+                       IP_ADDRESS_SIZE + 9, g_fdht_network_timeout)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"recv data from server %s:%d fail, " \
@@ -299,7 +299,7 @@ static int write_to_binlog_index()
 	int len;
 
 	snprintf(full_filename, sizeof(full_filename), \
-			"%s/data/"SYNC_DIR_NAME"/%s", g_base_path, \
+			"%s/data/"SYNC_DIR_NAME"/%s", g_fdht_base_path, \
 			SYNC_BINLOG_INDEX_FILENAME);
 	if ((fd=open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0)
 	{
@@ -339,7 +339,7 @@ static char *get_writable_binlog_filename(char *full_filename)
 	snprintf(full_filename, MAX_PATH_SIZE, \
 			"%s/data/"SYNC_DIR_NAME"/"SYNC_BINLOG_FILE_PREFIX"" \
 			SYNC_BINLOG_FILE_EXT_FMT, \
-			g_base_path, g_binlog_index);
+			g_fdht_base_path, g_binlog_index);
 	return full_filename;
 }
 
@@ -412,7 +412,7 @@ static int load_sync_init_data()
 	char data_filename[MAX_PATH_SIZE];
 
 	snprintf(data_filename, sizeof(data_filename), "%s/data/%s", \
-			g_base_path, DATA_DIR_INITED_FILENAME);
+			g_fdht_base_path, DATA_DIR_INITED_FILENAME);
 	if (fileExists(data_filename))
 	{
 		if ((result=iniLoadFromFile(data_filename, &iniContext)) != 0)
@@ -504,7 +504,7 @@ int fdht_sync_init()
 	int fd;
 
 	snprintf(data_path, sizeof(data_path), \
-			"%s/data", g_base_path);
+			"%s/data", g_fdht_base_path);
 	if (!fileExists(data_path))
 	{
 		if (mkdir(data_path, 0755) != 0)
@@ -675,7 +675,7 @@ static char *get_binlog_readable_filename(BinLogReader *pReader, \
 	snprintf(full_filename, MAX_PATH_SIZE, \
 			"%s/data/"SYNC_DIR_NAME"/"SYNC_BINLOG_FILE_PREFIX"" \
 			SYNC_BINLOG_FILE_EXT_FMT, \
-			g_base_path, pReader->binlog_index);
+			g_fdht_base_path, pReader->binlog_index);
 	return full_filename;
 }
 
@@ -730,7 +730,7 @@ static char *get_mark_filename(const void *pArg, \
 	}
 
 	snprintf(full_filename, MAX_PATH_SIZE, \
-			"%s/data/"SYNC_DIR_NAME"/%s_%d%s", g_base_path, \
+			"%s/data/"SYNC_DIR_NAME"/%s_%d%s", g_fdht_base_path, \
 			pReader->ip_addr, pReader->port, SYNC_MARK_FILE_EXT);
 	return full_filename;
 }
@@ -1945,7 +1945,7 @@ int write_to_sync_ini_file()
 	int len;
 
 	snprintf(full_filename, sizeof(full_filename), \
-		"%s/data/%s", g_base_path, DATA_DIR_INITED_FILENAME);
+		"%s/data/%s", g_fdht_base_path, DATA_DIR_INITED_FILENAME);
 	if ((fd=open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \

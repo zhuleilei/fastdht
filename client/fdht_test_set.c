@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 "Public License V3, which may be found in the FastDHT source kit.\n" \
 "Please visit the FastDHT Home Page http://www.csource.org/ \n" \
 "for more detail.\n\n" \
-, g_version.major, g_version.minor);
+, g_fdht_version.major, g_fdht_version.minor);
 
 	if (argc < 2)
 	{
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	log_set_prefix(g_base_path, "fdht_test_set");
+	log_set_prefix(g_fdht_base_path, "fdht_test_set");
 	log_set_cache(false);
 
 	memset(&act, 0, sizeof(act));
