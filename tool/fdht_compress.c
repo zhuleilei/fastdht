@@ -101,20 +101,20 @@ int main(int argc, char *argv[])
 	memset(&reader, 0, sizeof(reader));
 	reader.binlog_fd = -1;
 
-	snprintf(g_base_path, sizeof(g_base_path), "%s", argv[1]);
-	chopPath(g_base_path);
+	snprintf(g_fdht_base_path, sizeof(g_fdht_base_path), "%s", argv[1]);
+	chopPath(g_fdht_base_path);
 
-	if (!fileExists(g_base_path))
+	if (!fileExists(g_fdht_base_path))
 	{
-		printf("path %s not exist!\n", g_base_path);
+		printf("path %s not exist!\n", g_fdht_base_path);
 		return ENOENT;
 	}
 
 	log_init();
-	log_set_prefix(g_base_path, "fdht_compress");
+	log_set_prefix(g_fdht_base_path, "fdht_compress");
 
 	snprintf(binlog_filepath, sizeof(binlog_filepath), \
-		"%s/data/sync", g_base_path);
+		"%s/data/sync", g_fdht_base_path);
 	if (!fileExists(binlog_filepath))
 	{
 		logError("binlog path %s not exist!", binlog_filepath);
@@ -203,7 +203,7 @@ static int get_binlog_compressed_index(int *compressed_index)
 	int fd;
 
 	snprintf(full_filename, sizeof(full_filename), \
-		"%s/data/"SYNC_DIR_NAME"/%s", g_base_path, \
+		"%s/data/"SYNC_DIR_NAME"/%s", g_fdht_base_path, \
 		BINLOG_COMPRESSED_INDEX_FILENAME);
 	if ((fd=open(full_filename, O_RDONLY)) < 0)
 	{
@@ -248,7 +248,7 @@ static int write_to_binlog_compressed_index(const int compressed_index)
 	int len;
 
 	snprintf(full_filename, sizeof(full_filename), \
-			"%s/data/"SYNC_DIR_NAME"/%s", g_base_path, \
+			"%s/data/"SYNC_DIR_NAME"/%s", g_fdht_base_path, \
 			BINLOG_COMPRESSED_INDEX_FILENAME);
 	if ((fd=open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0)
 	{
@@ -284,7 +284,7 @@ static int get_current_binlog_index()
 	int fd;
 
 	snprintf(full_filename, sizeof(full_filename), \
-		"%s/data/"SYNC_DIR_NAME"/%s", g_base_path, \
+		"%s/data/"SYNC_DIR_NAME"/%s", g_fdht_base_path, \
 		SYNC_BINLOG_INDEX_FILENAME);
 	if ((fd=open(full_filename, O_RDONLY)) < 0)
 	{
@@ -330,7 +330,7 @@ static char *compress_get_binlog_filename(CompressReader *pReader, \
 	snprintf(full_filename, MAX_PATH_SIZE, \
 			"%s/data/"SYNC_DIR_NAME"/"SYNC_BINLOG_FILE_PREFIX"" \
 			SYNC_BINLOG_FILE_EXT_FMT, \
-			g_base_path, pReader->binlog_index);
+			g_fdht_base_path, pReader->binlog_index);
 	return full_filename;
 }
 
@@ -647,7 +647,7 @@ static int compress_binlog_file(CompressReader *pReader)
 	}
 
 	
-	snprintf(tmp_filepath, sizeof(tmp_filepath), "%s/tmp", g_base_path);
+	snprintf(tmp_filepath, sizeof(tmp_filepath), "%s/tmp", g_fdht_base_path);
 
 	compress_get_binlog_filename(pReader, full_filename);
 	snprintf(tmp_filename, sizeof(tmp_filename), "%s.tmp", full_filename);
