@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
 	fdht_func_destroy();
 
 	logInfo("exit nomally.\n");
-	log_destory();
+	log_destroy();
 	
 	return 0;
 }
