@@ -40,6 +40,8 @@ int group_cmp_by_ip_and_port(const void *p1, const void *p2);
 
 int start_dl_detect_thread();
 
+int fdht_stat_file_sync_func(void *args);
+
 #ifdef __cplusplus
 }
 #endif

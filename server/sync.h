@@ -55,7 +55,9 @@ typedef struct
 	off_t binlog_offset;
 	int64_t scan_row_count;
 	int64_t sync_row_count;
-	int64_t last_write_row_count;
+
+	int64_t last_scan_rows;  //for write to mark file
+	int64_t last_sync_rows;  //for write to mark file
 } BinLogReader;
 
 typedef struct

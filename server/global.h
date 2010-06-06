@@ -55,6 +55,8 @@ extern int g_clear_expired_interval;
 extern int g_db_dead_lock_detect_interval;
 extern TimeInfo g_compress_binlog_time_base;
 extern int g_compress_binlog_interval;
+extern int g_sync_stat_file_interval;   //sync stat info to disk interval
+extern int g_write_mark_file_freq;      //write to mark file after sync N files
 
 extern struct timeval g_network_tv;
 
