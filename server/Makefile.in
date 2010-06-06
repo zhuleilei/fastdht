@@ -3,7 +3,7 @@
 COMPILE = $(CC) $(CFLAGS)
 INC_PATH = -I../common -I/usr/local/include
 LIB_PATH = -L/usr/local/lib -levent -ldb $(LIBS)
-TARGET_PATH = $(TARGET_PATH)
+TARGET_PATH = $(TARGET_PREFIX)/bin
 
 COMMON_LIB =
 SHARED_OBJS = ../common/hash.o  ../common/chain.o \
@@ -29,6 +29,7 @@ all: $(ALL_OBJS) $(ALL_PRGS)
 .c.o:
 	$(COMPILE) -c -o $@ $<  $(INC_PATH)
 install:
+	mkdir -p $(TARGET_PATH)
 	cp -f $(ALL_PRGS) $(TARGET_PATH)
 clean:
 	rm -f $(ALL_OBJS) $(ALL_PRGS)

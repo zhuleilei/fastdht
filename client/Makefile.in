@@ -3,7 +3,9 @@
 COMPILE = $(CC) $(CFLAGS)
 INC_PATH = -I../common -I/usr/local/include
 LIB_PATH = -L/usr/local/lib $(LIBS)
-TARGET_PATH = $(TARGET_PATH)
+TARGET_PATH = $(TARGET_PREFIX)/bin
+TARGET_LIB = $(TARGET_PREFIX)/lib
+TARGET_INC = $(TARGET_PREFIX)/include
 
 STATIC_OBJS = ../common/hash.o ../common/chain.o ../common/pthread_func.o \
               ../common/shared_func.o ../common/ini_file_reader.o \
@@ -42,8 +44,10 @@ ALL_LIBS = libfastcommon.so.1 libfdhtclient.so.1
 all: $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)
 libfastcommon.so.1:
 	$(COMPILE) -o $@ $< -shared $(FAST_SHARED_OBJS) $(LIB_PATH)
+	ln -fs libfastcommon.so.1 libfastcommon.so
 libfdhtclient.so.1:
-	$(COMPILE) -o $@ $< -shared $(FDHT_SHARED_OBJS) $(LIB_PATH)
+	$(COMPILE) -o $@ $< -shared $(FDHT_SHARED_OBJS) $(LIB_PATH) -L. -lfastcommon
+	ln -fs libfdhtclient.so.1 libfdhtclient.so
 .o:
 	$(COMPILE) -o $@ $<  $(STATIC_OBJS) $(LIB_PATH) $(INC_PATH)
 .c:
@@ -53,18 +57,21 @@ libfdhtclient.so.1:
 .c.lo:
 	$(COMPILE) -c -fPIC -o $@ $<  $(INC_PATH)
 install:
+	mkdir -p $(TARGET_PATH)
+	mkdir -p $(TARGET_LIB)
 	cp -f $(ALL_PRGS) $(TARGET_PATH)
-	cp -f $(ALL_LIBS) /usr/local/lib/
+	cp -f $(ALL_LIBS) $(TARGET_LIB)
 
-	mkdir -p /usr/local/include/fastcommon
-	mkdir -p /usr/local/include/fastdht
-	cp -f $(FAST_HEADER_FILES) /usr/local/include/fastcommon
-	cp -f $(FDHT_HEADER_FILES) /usr/local/include/fastdht
+	mkdir -p $(TARGET_INC)
+	mkdir -p $(TARGET_INC)/fastcommon
+	mkdir -p $(TARGET_INC)/fastdht
+	cp -f $(FAST_HEADER_FILES) $(TARGET_INC)/fastcommon
+	cp -f $(FDHT_HEADER_FILES) $(TARGET_INC)/fastdht
 
-	ln -fs /usr/local/lib/libfastcommon.so.1 /usr/local/lib/libfastcommon.so
-	ln -fs /usr/local/lib/libfastcommon.so.1 /usr/lib/libfastcommon.so
-	ln -fs /usr/local/lib/libfdhtclient.so.1 /usr/local/lib/libfdhtclient.so
-	ln -fs /usr/local/lib/libfdhtclient.so.1 /usr/lib/libfdhtclient.so
+	ln -fs $(TARGET_LIB)/libfastcommon.so.1 $(TARGET_LIB)/libfastcommon.so
+	ln -fs $(TARGET_LIB)/libfdhtclient.so.1 $(TARGET_LIB)/libfdhtclient.so
+	ln -fs $(TARGET_LIB)/libfastcommon.so.1 /usr/lib/libfastcommon.so
+	ln -fs $(TARGET_LIB)/libfdhtclient.so.1 /usr/lib/libfdhtclient.so
 clean:
 	rm -f $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)
 
