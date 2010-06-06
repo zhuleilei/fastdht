@@ -3,7 +3,7 @@
 COMPILE = $(CC) $(CFLAGS)
 INC_PATH = -I../common -I../server -I/usr/local/include
 LIB_PATH = -L/usr/local/lib $(LIBS)
-TARGET_PATH = $(TARGET_PATH)
+TARGET_PATH = $(TARGET_PREFIX)/bin
 
 COMMON_LIB =
 SHARED_OBJS = ../common/hash.o  ../common/chain.o ../common/pthread_func.o \

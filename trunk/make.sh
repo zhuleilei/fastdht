@@ -29,7 +29,8 @@ EOF
 
 #WITH_LINUX_SERVICE=1
 
-TARGET_PATH=/usr/local/bin
+TARGET_PREFIX=/usr/local
+
 #CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE'
 CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D__DEBUG__'
 
@@ -58,8 +59,8 @@ else
 fi
 
 if [ "$1" = "install" ]; then
-  cp -f restart.sh $TARGET_PATH
-  cp -f stop.sh $TARGET_PATH
+  cp -f restart.sh $TARGET_PREFIX/bin
+  cp -f stop.sh $TARGET_PREFIX/bin
 
   if [ "$uname" = "Linux" ]; then
     if [ "$WITH_LINUX_SERVICE" = "1" ]; then
@@ -76,27 +77,27 @@ cd server
 cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
 perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
-perl -pi -e "s#\\\$\(TARGET_PATH\)#$TARGET_PATH#g" Makefile
+perl -pi -e "s#\\\$\(TARGET_PREFIX\)#$TARGET_PREFIX#g" Makefile
 make $1 $2
 
 cd ../tool 
 cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
 perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
-perl -pi -e "s#\\\$\(TARGET_PATH\)#$TARGET_PATH#g" Makefile
+perl -pi -e "s#\\\$\(TARGET_PREFIX\)#$TARGET_PREFIX#g" Makefile
 make $1 $2
 
 cd ../client
 cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
 perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
-perl -pi -e "s#\\\$\(TARGET_PATH\)#$TARGET_PATH#g" Makefile
+perl -pi -e "s#\\\$\(TARGET_PREFIX\)#$TARGET_PREFIX#g" Makefile
 make $1 $2
 
 #cd test
 #cp Makefile.in Makefile
 #perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
 #perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
-#perl -pi -e "s#\\\$\(TARGET_PATH\)#$TARGET_PATH#g" Makefile
+#perl -pi -e "s#\\\$\(TARGET_PREFIX\)#$TARGET_PREFIX#g" Makefile
 #cd ..
 
