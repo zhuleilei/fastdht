@@ -286,6 +286,20 @@ static int fdht_sync_data(BinLogReader *pReader, \
 	if (result == 0)
 	{
 		pReader->sync_row_count++;
+		
+		if (pReader->sync_row_count - pReader->last_sync_rows >= \
+			g_write_mark_file_freq)
+		{
+			if (fdht_write_to_mark_file(&reader) != 0)
+			{
+				logCrit("file: "__FILE__", line: %d, " \
+						"fdht_write_to_mark_file " \
+						"fail, program exit!", \
+						__LINE__);
+				fdht_terminate();
+				break;
+			}
+		}
 	}
 
 	return result;
@@ -855,7 +869,8 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 		}
 	}
 
-	pReader->last_write_row_count = pReader->scan_row_count;
+	pReader->last_scan_rows = pReader->scan_row_count;
+	pReader->last_sync_rows = pReader->sync_row_count;
 
 	pReader->mark_fd = open(full_filename, O_WRONLY | O_CREAT, 0644);
 	if (pReader->mark_fd < 0)
@@ -935,7 +950,8 @@ static int fdht_write_to_mark_file(BinLogReader *pReader)
 	if ((result=fdht_write_to_fd(pReader->mark_fd, get_mark_filename, \
 		pReader, buff, len)) == 0)
 	{
-		pReader->last_write_row_count = pReader->scan_row_count;
+		pReader->last_scan_rows = pReader->scan_row_count;
+		pReader->last_sync_rows = pReader->sync_row_count;
 	}
 
 	return result;
@@ -1765,6 +1781,18 @@ static void* fdht_sync_thread_entrance(void* arg)
 					last_active_time = time(NULL);
 				}
 
+				if (reader.last_scan_rows!=reader.scan_row_count)
+				{
+				if (fdht_write_to_mark_file(&reader) != 0)
+				{
+					logCrit("file: "__FILE__", line: %d, " \
+						"fdht_write_to_mark_file fail, "\
+						"program exit!", __LINE__);
+					fdht_terminate();
+					break;
+				}
+				}
+
 				usleep(g_sync_wait_usec);
 				continue;
 			}
@@ -1800,21 +1828,9 @@ static void* fdht_sync_thread_entrance(void* arg)
 
 			++reader.scan_row_count;
 			reader.binlog_offset += record_len;
-			if (reader.scan_row_count % 10000 == 0)
-			{
-				if (fdht_write_to_mark_file(&reader) != 0)
-				{
-					logCrit("file: "__FILE__", line: %d, " \
-						"fdht_write_to_mark_file " \
-						"fail, program exit!", \
-						__LINE__);
-					fdht_terminate();
-					break;
-				}
-			}
 		}
 
-		if (reader.last_write_row_count != reader.scan_row_count)
+		if (reader.last_scan_rows != reader.scan_row_count)
 		{
 			if (fdht_write_to_mark_file(&reader) != 0)
 			{

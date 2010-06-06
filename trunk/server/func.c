@@ -44,6 +44,7 @@ int g_db_count = 0;
 static pthread_t dld_tid = 0;
 
 static int fdht_stat_fd = -1;
+static FDHTServerStat fdht_last_stat;
 
 int group_cmp_by_ip_and_port(const void *p1, const void *p2)
 {
@@ -817,6 +818,22 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"compress_binlog_interval", &iniContext, \
 			COMPRESS_BINLOG_DEF_INTERVAL);
 
+		g_sync_stat_file_interval = iniGetIntValue(NULL,  \
+				"sync_stat_file_interval", &iniContext, \
+				DEFAULT_SYNC_STAT_FILE_INTERVAL);
+		if (g_sync_stat_file_interval <= 0)
+		{
+			g_sync_stat_file_interval = DEFAULT_SYNC_STAT_FILE_INTERVAL;
+		}
+
+		g_write_mark_file_freq = iniGetIntValue(NULL,  \
+				"write_mark_file_freq", &iniContext, \
+				DEFAULT_SYNC_MARK_FILE_FREQ);
+		if (g_write_mark_file_freq <= 0)
+		{
+			g_write_mark_file_freq = DEFAULT_SYNC_MARK_FILE_FREQ;
+		}
+
 		pThreadStackSize = iniGetStrValue(NULL,  \
 			"thread_stack_size", &iniContext);
 		if (pThreadStackSize == NULL)
@@ -848,6 +865,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"write_to_binlog=%d, sync_binlog_buff_interval=%ds, " \
 			"compress_binlog_time_base=%s, " \
 			"compress_binlog_interval=%ds, " \
+			"sync_stat_file_interval=%ds, " \
+			"write_mark_file_freq=%d, " \
 			"thread_stack_size=%d KB, if_alias_prefix=%s",  \
 			g_fdht_version.major, g_fdht_version.minor, \
 			g_fdht_base_path, g_group_count, *group_count, \
@@ -862,8 +881,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			sz_clear_expired_time_base, g_clear_expired_interval, \
 			g_write_to_binlog_flag, \
 			g_sync_binlog_buff_interval, \
-			sz_compress_binlog_time_base,\
-			g_compress_binlog_interval, g_thread_stack_size/1024, \
+			sz_compress_binlog_time_base, \
+			g_compress_binlog_interval, g_sync_stat_file_interval, \
+ 			g_write_mark_file_freq, g_thread_stack_size/1024, \
 			g_if_alias_prefix);
 
 	} while (0);
@@ -881,6 +901,7 @@ static int fdht_load_stat_from_file()
 	int result;
 
 	memset(&g_server_stat, 0, sizeof(g_server_stat));
+	memset(&fdht_last_stat, 0, sizeof(fdht_last_stat));
 
 	snprintf(data_path, sizeof(data_path), "%s/data", g_fdht_base_path);
 	if (!fileExists(data_path))
@@ -943,8 +964,13 @@ static int fdht_load_stat_from_file()
 				&iniContext, 0);
 		iniFreeContext(&iniContext);
 	}
+	else
+	{
+		fdht_last_stat.total_set_count = -1;  //for write to stat file
+		fdht_last_stat.success_set_count = -1;
+	}
 
-	fdht_stat_fd = open(full_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	fdht_stat_fd = open(full_filename, O_WRONLY | O_CREAT, 0644);
 	if (fdht_stat_fd < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -1154,6 +1180,12 @@ int fdht_write_to_stat_file()
 	char buff[512];
 	int len;
 
+	if (memcmp(&fdht_last_stat, &g_server_stat, sizeof(FDHTServerStat)) == 0)
+	{
+		return 0;
+	}
+
+	memcpy(&fdht_last_stat, &g_server_stat, sizeof(FDHTServerStat));
 	len = sprintf(buff, 
 		"%s="INT64_PRINTF_FORMAT"\n"  \
 		"%s="INT64_PRINTF_FORMAT"\n"  \
@@ -1204,5 +1236,10 @@ int fdht_terminate()
 	}
 
 	return 0;
+}
+
+int fdht_stat_file_sync_func(void *args)
+{
+	return fdht_write_to_stat_file();
 }
 

@@ -315,7 +315,7 @@ static int fdht_init_schedule()
 	int i;
 	ScheduleEntry *pScheduleEntry;
 
-	entry_count = 1;
+	entry_count = 2;
 	if (g_store_type == FDHT_STORE_TYPE_BDB && g_sync_db_interval > 0)
 	{
 		entry_count++;
@@ -360,14 +360,22 @@ static int fdht_init_schedule()
 
 	pScheduleEntry = scheduleArray.entries;
 	scheduleArray.count = entry_count;
-
 	memset(pScheduleEntry, 0, sizeof(ScheduleEntry) * entry_count);
+
 	pScheduleEntry->id = pScheduleEntry - scheduleArray.entries + 1;
 	pScheduleEntry->time_base.hour = TIME_NONE;
 	pScheduleEntry->time_base.minute = TIME_NONE;
 	pScheduleEntry->interval = g_sync_log_buff_interval;
 	pScheduleEntry->task_func = log_sync_func;
 	pScheduleEntry->func_args = &g_log_context;
+	pScheduleEntry++;
+
+	pScheduleEntry->id = pScheduleEntry - scheduleArray.entries + 1;
+	pScheduleEntry->time_base.hour = TIME_NONE;
+	pScheduleEntry->time_base.minute = TIME_NONE;
+	pScheduleEntry->interval = g_sync_stat_file_interval;
+	pScheduleEntry->task_func = fdht_stat_file_sync_func;
+	pScheduleEntry->func_args = NULL;
 	pScheduleEntry++;
 
 	if (g_store_type == FDHT_STORE_TYPE_BDB && g_sync_db_interval > 0)
