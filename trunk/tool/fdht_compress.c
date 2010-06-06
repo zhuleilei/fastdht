@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	log_destory();
+	log_destroy();
 
 	return result;
 }

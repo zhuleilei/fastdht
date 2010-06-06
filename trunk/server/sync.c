@@ -290,14 +290,14 @@ static int fdht_sync_data(BinLogReader *pReader, \
 		if (pReader->sync_row_count - pReader->last_sync_rows >= \
 			g_write_mark_file_freq)
 		{
-			if (fdht_write_to_mark_file(&reader) != 0)
+			if ((result=fdht_write_to_mark_file(pReader)) != 0)
 			{
 				logCrit("file: "__FILE__", line: %d, " \
 						"fdht_write_to_mark_file " \
 						"fail, program exit!", \
 						__LINE__);
 				fdht_terminate();
-				break;
+				return result;
 			}
 		}
 	}
