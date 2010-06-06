@@ -58,21 +58,6 @@ else
   fi
 fi
 
-if [ "$1" = "install" ]; then
-  cp -f restart.sh $TARGET_PREFIX/bin
-  cp -f stop.sh $TARGET_PREFIX/bin
-
-  if [ "$uname" = "Linux" ]; then
-    if [ "$WITH_LINUX_SERVICE" = "1" ]; then
-      mkdir -p /etc/fdht
-      cp -f conf/fdhtd.conf /etc/fdht/
-      cp -f conf/fdht_servers.conf /etc/fdht/
-      cp -f init.d/fdhtd /etc/rc.d/init.d/
-      /sbin/chkconfig --add fdhtd
-    fi
-  fi
-fi
-
 cd server
 cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
@@ -100,4 +85,20 @@ make $1 $2
 #perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
 #perl -pi -e "s#\\\$\(TARGET_PREFIX\)#$TARGET_PREFIX#g" Makefile
 #cd ..
+
+if [ "$1" = "install" ]; then
+  cd ..
+  cp -f restart.sh $TARGET_PREFIX/bin
+  cp -f stop.sh $TARGET_PREFIX/bin
+
+  if [ "$uname" = "Linux" ]; then
+    if [ "$WITH_LINUX_SERVICE" = "1" ]; then
+      mkdir -p /etc/fdht
+      cp -f conf/fdhtd.conf /etc/fdht/
+      cp -f conf/fdht_servers.conf /etc/fdht/
+      cp -f init.d/fdhtd /etc/rc.d/init.d/
+      /sbin/chkconfig --add fdhtd
+    fi
+  fi
+fi
 
