@@ -443,6 +443,114 @@ int connectserverbyip(int sock, const char *server_ip, const short server_port)
 	return 0;
 }
 
+int connectserverbyip_nb(int sock, const char *server_ip, \
+		const short server_port, const int timeout)
+{
+	int result;
+	int flags;
+	int needRestore;
+	socklen_t len;
+
+#ifdef USE_SELECT
+	fd_set rset;
+	fd_set wset;
+	struct timeval tval;
+#else
+	struct pollfd pollfds;
+#endif
+
+	struct sockaddr_in addr;
+
+	addr.sin_family = PF_INET;
+	addr.sin_port = htons(server_port);
+	result = inet_aton(server_ip, &addr.sin_addr);
+	if (result == 0 )
+	{
+		return EINVAL;
+	}
+
+	
+	flags = fcntl(sock, F_GETFL, 0);
+	if (flags < 0)
+	{
+		return errno != 0 ? errno : EACCES;
+	}
+	
+	if ((flags & O_NONBLOCK) == 0)
+	{
+		if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0)
+		{
+			return errno != 0 ? errno : EACCES;
+		}
+		
+		needRestore = 1;
+	}
+	else
+	{
+		needRestore = 0;
+	}
+
+	do
+	{
+		if (connect(sock, (const struct sockaddr*)&addr, \
+			sizeof(addr)) < 0)
+		{
+			result = errno != 0 ? errno : EINPROGRESS;
+			if (result != EINPROGRESS)
+			{
+				break;
+			}
+		}
+		else
+		{
+			result = 0;
+			break;
+		}
+
+
+#ifdef USE_SELECT
+		FD_ZERO(&rset);
+		FD_ZERO(&wset);
+		FD_SET(sock, &rset);
+		FD_SET(sock, &wset);
+		tval.tv_sec = timeout;
+		tval.tv_usec = 0;
+		
+		result = select(sock+1, &rset, &wset, NULL, \
+				timeout > 0 ? &tval : NULL);
+#else
+		pollfds.fd = sock;
+		pollfds.events = POLLIN | POLLOUT;
+		result = poll(&pollfds, 1, 1000 * timeout);
+#endif
+
+		if (result == 0)
+		{
+			result = ETIMEDOUT;
+			break;
+		}
+		else if (result < 0)
+		{
+			result = errno != 0 ? errno : EINTR;
+			break;
+		}
+
+		len = sizeof(result);
+		if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &result, &len) < 0)
+		{
+			result = errno != 0 ? errno : EACCES;
+			break;
+		}
+	} while (0);
+
+	if (needRestore)
+	{
+		fcntl(sock, F_SETFL, flags);
+	}
+  
+	return result;
+}
+
 in_addr_t getIpaddr(getnamefunc getname, int sock, \
 		char *buff, const int bufferSize)
 {
@@ -668,7 +776,8 @@ int socketServer(const char *bind_ipaddr, const int port, int *err_no)
 }
 
 int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
-		const int fsync_after_written_bytes, const int timeout)
+		const int fsync_after_written_bytes, const int timeout, \
+		int64_t *total_recv_bytes)
 {
 	int fd;
 	char buff[FDFS_WRITE_BUFF_SIZE];
@@ -677,8 +786,10 @@ int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
 	int written_bytes;
 	int result;
 	int flags;
+	int count;
 	tcprecvdata_exfunc recv_func;
 
+	*total_recv_bytes = 0;
 	flags = fcntl(sock, F_GETFL, 0);
 	if (flags < 0)
 	{
@@ -713,8 +824,10 @@ int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
 			recv_bytes = remain_bytes;
 		}
 
-		if ((result=recv_func(sock, buff, recv_bytes, \
-				timeout, NULL)) != 0)
+		result = recv_func(sock, buff, recv_bytes, \
+				timeout, &count);
+		*total_recv_bytes += count;
+		if (result != 0)
 		{
 			close(fd);
 			unlink(filename);
@@ -845,15 +958,18 @@ int tcprecvfile_ex(int sock, const char *filename, const int64_t file_bytes, \
 	return 0;
 }
 
-int tcpdiscard(int sock, const int bytes, const int timeout)
+int tcpdiscard(int sock, const int bytes, const int timeout, \
+		int64_t *total_recv_bytes)
 {
 	char buff[FDFS_WRITE_BUFF_SIZE];
 	int remain_bytes;
 	int recv_bytes;
 	int result;
 	int flags;
+	int count;
 	tcprecvdata_exfunc recv_func;
 
+	*total_recv_bytes = 0;
 	flags = fcntl(sock, F_GETFL, 0);
 	if (flags < 0)
 	{
@@ -881,8 +997,10 @@ int tcpdiscard(int sock, const int bytes, const int timeout)
 			recv_bytes = remain_bytes;
 		}
 
-		if ((result=recv_func(sock, buff, recv_bytes, \
-				timeout, NULL)) != 0)
+		result = recv_func(sock, buff, recv_bytes, \
+				timeout, &count);
+		*total_recv_bytes += count;
+		if (result != 0)
 		{
 			return result;
 		}

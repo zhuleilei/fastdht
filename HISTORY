@@ -1,4 +1,7 @@
 
+Version 1.14  2010-06-27
+ * sockopt.h add non-block connect function connectserverbyip_nb
+
 Version 1.13  2010-06-06
  * logger support context (multi instance)
  * add files: common/pthread_func.h and common/pthread_func.c
