@@ -88,7 +88,7 @@ int tcpsenddata(int sock, void* data, const int size, const int timeout);
 */
 int tcpsenddata_nb(int sock, void* data, const int size, const int timeout);
 
-/** connect to server
+/** connect to server by block mode
  *  parameters:
  *          sock: the socket
  *          server_ip: ip address of the server
@@ -96,6 +96,17 @@ int tcpsenddata_nb(int sock, void* data, const int size, const int timeout);
  *  return: error no, 0 success, != 0 fail
 */
 int connectserverbyip(int sock, const char *server_ip, const short server_port);
+
+/** connect to server by non-block mode
+ *  parameters:
+ *          sock: the socket
+ *          server_ip: ip address of the server
+ *          server_port: port of the server
+ *          timeout: connect timeout in seconds
+ *  return: error no, 0 success, != 0 fail
+*/
+int connectserverbyip_nb(int sock, const char *server_ip, \
+		const short server_port, const int timeout);
 
 /** accept client connect request
  *  parameters:
@@ -220,10 +231,12 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
  *          file_bytes: file size (bytes) 
  *          fsync_after_written_bytes: call fsync every x bytes
  *          timeout: read/recv timeout
+ *          total_recv_bytes: store the total recv bytes
  *  return: error no, 0 success, != 0 fail
 */
 int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
-		const int fsync_after_written_bytes, const int timeout);
+		const int fsync_after_written_bytes, const int timeout, \
+		int64_t *total_recv_bytes);
 
 /** receive data to a file
  *  parameters:
@@ -244,9 +257,11 @@ int tcprecvfile_ex(int sock, const char *filename, const int64_t file_bytes, \
  *          sock: the socket
  *          bytes: data bytes to discard
  *          timeout: read timeout
+ *          total_recv_bytes: store the total recv bytes
  *  return: error no, 0 success, != 0 fail
 */
-int tcpdiscard(int sock, const int bytes, const int timeout);
+int tcpdiscard(int sock, const int bytes, const int timeout, \
+		int64_t *total_recv_bytes);
 
 /** get local host ip address
  *  parameters:
