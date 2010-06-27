@@ -13,5 +13,5 @@
 
 int g_fdht_network_timeout = DEFAULT_NETWORK_TIMEOUT;
 char g_fdht_base_path[MAX_PATH_SIZE] = {'/', 't', 'm', 'p', '\0'};
-Version g_fdht_version = {1, 13};
+Version g_fdht_version = {1, 14};
 
