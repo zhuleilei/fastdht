@@ -32,7 +32,7 @@ EOF
 TARGET_PREFIX=/usr/local
 
 #CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE'
-CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D__DEBUG__'
+CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D__DEBUG__ -I /home/o/o/happyfish100/libevent/include -L /home/o/o/happyfish100/libevent/lib'
 
 LIBS=''
 uname=`uname`
