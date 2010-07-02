@@ -433,6 +433,13 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			break;
 		}
 
+		g_fdht_connect_timeout = iniGetIntValue(NULL, "connect_timeout", \
+				&iniContext, DEFAULT_CONNECT_TIMEOUT);
+		if (g_fdht_connect_timeout <= 0)
+		{
+			g_fdht_connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+		}
+
 		g_fdht_network_timeout = iniGetIntValue(NULL, "network_timeout", \
 				&iniContext, DEFAULT_NETWORK_TIMEOUT);
 		if (g_fdht_network_timeout <= 0)
@@ -850,6 +857,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
+			"connect_timeout=%d, "\
 			"network_timeout=%d, "\
 			"port=%d, bind_addr=%s, " \
 			"max_connections=%d, "    \
@@ -870,7 +878,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"thread_stack_size=%d KB, if_alias_prefix=%s",  \
 			g_fdht_version.major, g_fdht_version.minor, \
 			g_fdht_base_path, g_group_count, *group_count, \
-			g_group_server_count, g_fdht_network_timeout, \
+			g_group_server_count, g_fdht_connect_timeout, \
+			g_fdht_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
 			g_max_threads, g_max_pkg_size / 1024, \
 			g_min_buff_size / 1024, \

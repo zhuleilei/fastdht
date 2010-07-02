@@ -1639,8 +1639,17 @@ static void* fdht_sync_thread_entrance(void* arg)
 				continue;
 			}
 
-			if ((conn_result=connectserverbyip(fdht_server.sock,\
-				fdht_server.ip_addr, fdht_server.port)) == 0)
+			if (tcpsetnonblockopt(fdht_server.sock) != 0)
+			{
+				close(fdht_server.sock);
+				fdht_server.sock = -1;
+				sleep(5);
+				continue;
+			}
+	
+			if ((conn_result=connectserverbyip_nb(fdht_server.sock,\
+				fdht_server.ip_addr, fdht_server.port, \
+				g_fdht_connect_timeout)) == 0)
 			{
 				char szFailPrompt[36];
 				if (nContinuousFail == 0)
@@ -1714,13 +1723,6 @@ static void* fdht_sync_thread_entrance(void* arg)
 			break;
 		}
 
-		if (tcpsetnonblockopt(fdht_server.sock) != 0)
-		{
-			close(fdht_server.sock);
-			fdht_server.sock = -1;
-			continue;
-		}
-	
 		tcpsetnodelay(fdht_server.sock, 3600);
 
 		if (fdht_reader_init(&fdht_server, &reader) != 0)

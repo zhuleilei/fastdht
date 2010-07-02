@@ -1378,11 +1378,13 @@ static int load_config_files()
 	#define ITEM_NAME_CONF_COUNT "fastdht_client.config_count"
 	#define ITEM_NAME_CONF_FILE  "fastdht_client.config_file"
 	#define ITEM_NAME_BASE_PATH  	 "fastdht_client.base_path"
-	#define ITEM_NAME_NETWOK_TIMEOUT "fastdht_client.network_timeout"
+	#define ITEM_NAME_CONNECT_TIMEOUT "fastdht_client.connect_timeout"
+	#define ITEM_NAME_NETWORK_TIMEOUT "fastdht_client.network_timeout"
 	#define ITEM_NAME_LOG_LEVEL      "fastdht_client.log_level"
 	#define ITEM_NAME_LOG_FILENAME   "fastdht_client.log_filename"
 	zval conf_c;
 	zval base_path;
+	zval connect_timeout;
 	zval network_timeout;
 	zval log_level;
 	zval log_filename;
@@ -1435,8 +1437,23 @@ static int load_config_files()
 		return ENOTDIR;
 	}
 
-	if (zend_get_configuration_directive(ITEM_NAME_NETWOK_TIMEOUT, \
-			sizeof(ITEM_NAME_NETWOK_TIMEOUT), \
+	if (zend_get_configuration_directive(ITEM_NAME_CONNECT_TIMEOUT, \
+			sizeof(ITEM_NAME_CONNECT_TIMEOUT), \
+			&connect_timeout) == SUCCESS)
+	{
+		g_fdht_connect_timeout = atoi(connect_timeout.value.str.val);
+		if (g_fdht_connect_timeout <= 0)
+		{
+			g_fdht_connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+		}
+	}
+	else
+	{
+		g_fdht_connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+	}
+
+	if (zend_get_configuration_directive(ITEM_NAME_NETWORK_TIMEOUT, \
+			sizeof(ITEM_NAME_NETWORK_TIMEOUT), \
 			&network_timeout) == SUCCESS)
 	{
 		g_fdht_network_timeout = atoi(network_timeout.value.str.val);
@@ -1551,11 +1568,12 @@ static int load_config_files()
 		*szProxyPrompt = '\0';
 	}
 
-	logInfo("base_path=%s, network_timeout=%d. " \
+	logInfo("base_path=%s, connect_timeout=%ds, network_timeout=%ds. " \
 		"in the first(default) config file: keep_alive=%d, " \
 		"use_proxy=%d, %s" \
 		"group_count=%d, server_count=%d", \
-		g_fdht_base_path, g_fdht_network_timeout, g_keep_alive, \
+		g_fdht_base_path, g_fdht_connect_timeout, \
+		g_fdht_network_timeout, g_keep_alive, \
 		g_group_array.use_proxy, szProxyPrompt, \
 		g_group_array.group_count, g_group_array.server_count);
 
