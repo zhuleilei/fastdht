@@ -6,10 +6,10 @@
 * Please visit the FastDFS Home Page http://www.csource.org/ for more detail.
 **/
 
-//recv_thread.h
+//fdht_io.h
 
-#ifndef _RECV_THREAD_H
-#define _RECV_THREAD_H
+#ifndef _FDHT_IO_H
+#define _FDHT_IO_H
 
 #include <stdio.h>
 #include <stdlib.h>

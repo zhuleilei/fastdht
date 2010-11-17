@@ -131,7 +131,7 @@ int free_queue_push(struct task_info *pTask)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	pTask->next = g_free_queue.head;
@@ -146,7 +146,7 @@ int free_queue_push(struct task_info *pTask)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return result;
@@ -167,7 +167,7 @@ static int _queue_push_task(struct task_queue_info *pQueue, \
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 		return result;
 	}
 
@@ -187,7 +187,7 @@ static int _queue_push_task(struct task_queue_info *pQueue, \
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return 0;
@@ -203,7 +203,7 @@ static struct task_info *_queue_pop_task(struct task_queue_info *pQueue)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 		return NULL;
 	}
 
@@ -222,7 +222,7 @@ static struct task_info *_queue_pop_task(struct task_queue_info *pQueue)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return pTask;
@@ -239,7 +239,7 @@ static int _task_queue_count(struct task_queue_info *pQueue)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 		return 0;
 	}
 
@@ -256,7 +256,7 @@ static int _task_queue_count(struct task_queue_info *pQueue)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return count;

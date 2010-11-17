@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		return errno;
 	}
 
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 		{
 			printf("fdht_connect_all_servers fail, " \
 				"error code: %d, error info: %s\n", \
-				result, strerror(result));
+				result, STRERROR(result));
 			return result;
 		}
 	}

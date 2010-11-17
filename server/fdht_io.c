@@ -24,13 +24,14 @@
 #include <event.h>
 #include "shared_func.h"
 #include "logger.h"
-#include "fdht_global.h"
 #include "global.h"
 #include "ini_file_reader.h"
 #include "sockopt.h"
+#include "fdht_global.h"
 #include "fdht_proto.h"
 #include "task_queue.h"
 #include "work_thread.h"
+#include "fdht_io.h"
 
 static void client_sock_read(int sock, short event, void *arg);
 static void client_sock_write(int sock, short event, void *arg);
@@ -54,7 +55,7 @@ void recv_notify_read(int sock, short event, void *arg)
 				logError("file: "__FILE__", line: %d, " \
 					"call read failed, " \
 					"errno: %d, error info: %s", \
-					__LINE__, errno, strerror(errno));
+					__LINE__, errno, STRERROR(errno));
 			}
 
 			break;
@@ -230,7 +231,7 @@ static void client_sock_read(int sock, short event, void *arg)
 				logError("file: "__FILE__", line: %d, " \
 					"malloc failed, " \
 					"errno: %d, error info: %s", \
-					__LINE__, errno, strerror(errno));
+					__LINE__, errno, STRERROR(errno));
 
 				pTask->data = pTemp;  //restore old data
 
@@ -262,7 +263,7 @@ static void client_sock_read(int sock, short event, void *arg)
 					"client ip: %s, recv failed, " \
 					"errno: %d, error info: %s", \
 					__LINE__, pTask->client_ip, \
-					errno, strerror(errno));
+					errno, STRERROR(errno));
 
 				close(pTask->ev_read.ev_fd);
 				free_queue_push(pTask);
@@ -381,7 +382,7 @@ static void client_sock_write(int sock, short event, void *arg)
 					"client ip: %s, recv failed, " \
 					"errno: %d, error info: %s", \
 					__LINE__, pTask->client_ip, \
-					errno, strerror(errno));
+					errno, STRERROR(errno));
 
 				close(pTask->ev_write.ev_fd);
 				free_queue_push(pTask);
