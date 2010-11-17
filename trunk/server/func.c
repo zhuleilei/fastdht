@@ -1234,7 +1234,7 @@ int fdht_terminate()
 	if (g_thread_data != NULL)
 	{
 		pDataEnd = g_thread_data + g_max_threads;
-		quit_sock = -1;
+		quit_sock = 0;
 		for (pThreadData=g_thread_data; pThreadData<pDataEnd; \
 			pThreadData++)
 		{
