@@ -77,6 +77,7 @@ extern int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int kind);
 #define DEFAULT_CONNECT_TIMEOUT			30
 #define DEFAULT_NETWORK_TIMEOUT			30
 #define DEFAULT_MAX_CONNECTONS			256
+#define DEFAULT_WORK_THREADS			4
 #define SYNC_LOG_BUFF_DEF_INTERVAL              10
 #define TIME_NONE                               -1
 
@@ -107,6 +108,7 @@ typedef char  bool;
 #endif
 
 #define IS_UPPER_HEX(ch) ((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F'))
+#define STRERROR(no) (strerror(no) != NULL ? strerror(no) : "Unkown error")
 
 #ifdef __cplusplus
 extern "C" {

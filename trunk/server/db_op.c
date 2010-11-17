@@ -46,7 +46,7 @@ static int db_env_init(DB_ENV **ppDBEnv, const u_int64_t nCacheSize, \
 					"mkdir %s fail, " \
 					"errno: %d, error info: %s", \
 					__LINE__, full_path, \
-					errno, strerror(errno));
+					errno, STRERROR(errno));
 				return errno != 0 ? errno : EPERM;
 			}
 		}
@@ -570,7 +570,7 @@ int db_clear_expired_keys(void *arg)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call gettimeofday fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		return -1;
 	}
 

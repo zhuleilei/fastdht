@@ -1,9 +1,10 @@
 
-Version 1.14  2010-07-02
+Version 1.14  2010-11-17
  * sockopt.h add non-block connect function connectserverbyip_nb
  * log_init set log to cache to false (no cache)
  * connect server support timeout, adding connect_timeout parameter in
    config file
+ * local ip functions move to common/local_ip_func.c
 
 Version 1.13  2010-06-06
  * logger support context (multi instance)

@@ -29,7 +29,7 @@ int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(HashArray), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 
@@ -45,7 +45,7 @@ int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"pthread_rwlock_init fail, errno: %d, error info: %s",\
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 		return result;
 	}
 
@@ -77,7 +77,7 @@ int mp_memp_trickle(int *nwrotep)
 		logError("file: "__FILE__", line: %d, " \
 			"pthread_rwlock_rdlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result)); \
+			__LINE__, result, STRERROR(result)); \
 		return result; \
 	}
 
@@ -88,7 +88,7 @@ int mp_memp_trickle(int *nwrotep)
 		logError("file: "__FILE__", line: %d, " \
 			"pthread_rwlock_rdlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result)); \
+			__LINE__, result, STRERROR(result)); \
 		return result; \
 	}
 
@@ -99,7 +99,7 @@ int mp_memp_trickle(int *nwrotep)
 		logError("file: "__FILE__", line: %d, " \
 			"pthread_rwlock_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result)); \
+			__LINE__, result, STRERROR(result)); \
 	}
 
 int mp_get(StoreHandle *pHandle, const char *pKey, const int key_len, \
@@ -146,7 +146,7 @@ int mp_get(StoreHandle *pHandle, const char *pKey, const int key_len, \
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, hash_data->value_len, \
-				errno, strerror(errno));
+				errno, STRERROR(errno));
 			result = errno != 0 ? errno : ENOMEM;
 			break;
 		}
@@ -265,7 +265,7 @@ int mp_partial_set(StoreHandle *pHandle, const char *pKey, const int key_len, \
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, offset + value_len, \
-				errno, strerror(errno));
+				errno, STRERROR(errno));
 			result = errno != 0 ? errno : ENOMEM;
 			break;
 		}
@@ -435,7 +435,7 @@ int mp_clear_expired_keys(void *arg)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call gettimeofday fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		return -1;
 	}
 

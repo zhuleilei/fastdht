@@ -98,7 +98,7 @@ static int fdht_report_sync_done(FDHTServerInfo *pDestServer)
 			"send data to server %s:%d fail, " \
 			"errno: %d, error info: %s", __LINE__, \
 			pDestServer->ip_addr, pDestServer->port, \
-			result, strerror(result));
+			result, STRERROR(result));
 		return result;
 	}
 
@@ -110,7 +110,7 @@ static int fdht_report_sync_done(FDHTServerInfo *pDestServer)
 			"recv data from server %s:%d fail, " \
 			"errno: %d, error info: %s", __LINE__, \
 			pDestServer->ip_addr, pDestServer->port, \
-			result, strerror(result));
+			result, STRERROR(result));
 		return result;
 	}
 
@@ -160,7 +160,7 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 			"send data to server %s:%d fail, " \
 			"errno: %d, error info: %s", __LINE__, \
 			pDestServer->ip_addr, pDestServer->port, \
-			result, strerror(result));
+			result, STRERROR(result));
 		return result;
 	}
 
@@ -186,7 +186,7 @@ static int fdht_sync_req(FDHTServerInfo *pDestServer, BinLogReader *pReader)
 			"recv data from server %s:%d fail, " \
 			"errno: %d, error info: %s", __LINE__, \
 			pDestServer->ip_addr, pDestServer->port, \
-			result, strerror(result));
+			result, STRERROR(result));
 		return result;
 	}
 
@@ -321,7 +321,7 @@ static int write_to_binlog_index()
 			"open file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -332,7 +332,7 @@ static int write_to_binlog_index()
 			"write to file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		close(fd);
 		return errno != 0 ? errno : EIO;
 	}
@@ -376,7 +376,7 @@ static int open_next_writable_binlog()
 				"unlink file \"%s\" fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, full_filename, \
-				errno, strerror(errno));
+				errno, STRERROR(errno));
 			return errno != 0 ? errno : ENOENT;
 		}
 
@@ -392,7 +392,7 @@ static int open_next_writable_binlog()
 			"open file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -527,7 +527,7 @@ int fdht_sync_init()
 				"mkdir \"%s\" fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, data_path, \
-				errno, strerror(errno));
+				errno, STRERROR(errno));
 			return errno != 0 ? errno : ENOENT;
 		}
 	}
@@ -542,7 +542,7 @@ int fdht_sync_init()
 				"mkdir \"%s\" fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, sync_path, \
-				errno, strerror(errno));
+				errno, STRERROR(errno));
 			return errno != 0 ? errno : ENOENT;
 		}
 	}
@@ -588,7 +588,7 @@ int fdht_sync_init()
 			"open file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -599,7 +599,7 @@ int fdht_sync_init()
 			"ftell file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		fdht_sync_destroy();
 		return errno != 0 ? errno : EIO;
 	}
@@ -648,7 +648,7 @@ int fdht_sync_destroy()
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_destroy fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 		return result;
 	}
 
@@ -710,7 +710,7 @@ int fdht_open_readable_binlog(BinLogReader *pReader)
 			"open binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -721,7 +721,7 @@ int fdht_open_readable_binlog(BinLogReader *pReader)
 			"seek binlog file \"%s\" fail, file offset="INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, pReader->binlog_offset, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 
 		close(pReader->binlog_fd);
 		pReader->binlog_fd = -1;
@@ -879,7 +879,7 @@ static int fdht_reader_init(FDHTServerInfo *pDestServer, \
 			"open mark file \"%s\" fail, " \
 			"error no: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -969,7 +969,7 @@ static int rewind_to_prev_rec_end(BinLogReader *pReader, \
 			"errno: %d, error info: %s", \
 			__LINE__, get_binlog_readable_filename(pReader, NULL), \
 			pReader->binlog_offset, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -999,7 +999,7 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	write_len = pbinlog_write_cache_current - binlog_write_cache_buff;
@@ -1014,7 +1014,7 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 			"write to binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, get_writable_binlog_filename(NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		write_ret = errno != 0 ? errno : EIO;
 	}
 	else if (fsync(g_binlog_fd) != 0)
@@ -1023,7 +1023,7 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 			"sync to binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, get_writable_binlog_filename(NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		write_ret = errno != 0 ? errno : EIO;
 	}
 	else
@@ -1062,7 +1062,7 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return write_ret;
@@ -1106,7 +1106,7 @@ static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
 			"write to binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, get_writable_binlog_filename(NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -1117,7 +1117,7 @@ static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
 			"write to binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, get_writable_binlog_filename(NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 	if (write(g_binlog_fd, "\n", 1) != 1)
@@ -1126,7 +1126,7 @@ static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
 			"write to binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, get_writable_binlog_filename(NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -1136,7 +1136,7 @@ static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
 			"sync to binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, get_writable_binlog_filename(NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -1180,7 +1180,7 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	record_len = CALC_RECORD_LENGTH(pKeyInfo, value_len);
@@ -1198,7 +1198,7 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 			logError("file: "__FILE__", line: %d, " \
 				"call pthread_mutex_unlock fail, " \
 				"errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
+				__LINE__, result, STRERROR(result));
 		}
 
 		return write_ret;
@@ -1234,7 +1234,7 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return write_ret;
@@ -1317,7 +1317,7 @@ int fdht_binlog_read(BinLogReader *pReader, \
 				"file offset: "INT64_PRINTF_FORMAT", " \
 				"errno: %d, error info: %s", __LINE__, \
 				get_binlog_readable_filename(pReader, NULL), \
-				pReader->binlog_offset, errno, strerror(errno));
+				pReader->binlog_offset, errno, STRERROR(errno));
 			return errno != 0 ? errno : EIO;
 		}
 
@@ -1434,7 +1434,7 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			get_binlog_readable_filename(pReader, NULL), \
-			pReader->binlog_offset, errno, strerror(errno));
+			pReader->binlog_offset, errno, STRERROR(errno));
 		result = errno != 0 ? errno : EIO;
 		break;
 	}
@@ -1482,7 +1482,7 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			logError("file: "__FILE__", line: %d, " \
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", __LINE__, \
-				pRecord->value.size, errno, strerror(errno));
+				pRecord->value.size, errno, STRERROR(errno));
 
 			
 			pRecord->value.data = p;
@@ -1502,7 +1502,7 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			get_binlog_readable_filename(pReader, NULL), \
-			pReader->binlog_offset, errno, strerror(errno));
+			pReader->binlog_offset, errno, STRERROR(errno));
 		result = errno != 0 ? errno : EIO;
 		break;
 	}
@@ -1634,7 +1634,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 				logError("file: "__FILE__", line: %d, " \
 					"socket create fail, " \
 					"errno: %d, error info: %s", __LINE__, \
-					errno, strerror(errno));
+					errno, STRERROR(errno));
 				sleep(5);
 				continue;
 			}
@@ -1678,7 +1678,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 					", errno: %d, error info: %s", \
 					__LINE__, \
 					fdht_server.ip_addr, fdht_server.port, \
-					conn_result, strerror(conn_result));
+					conn_result, STRERROR(conn_result));
 				previousCode = conn_result;
 			}
 
@@ -1695,7 +1695,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 				"try count: %d, errno: %d, error info: %s", \
 				__LINE__, fdht_server.ip_addr, \
 				fdht_server.port, nContinuousFail, \
-				conn_result, strerror(conn_result));
+				conn_result, STRERROR(conn_result));
 		}
 
 		if (!g_continue_flag)
@@ -1870,7 +1870,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 	g_fdht_sync_thread_count--;
 	if ((result=pthread_mutex_unlock(&sync_thread_lock)) != 0)
@@ -1878,7 +1878,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return NULL;
@@ -1911,7 +1911,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 		logError("file: "__FILE__", line: %d, " \
 			"create thread failed, errno: %d, " \
 			"error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 
 		pthread_attr_destroy(&pattr);
 		return result;
@@ -1922,7 +1922,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	g_fdht_sync_thread_count++;
@@ -1935,7 +1935,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 			"errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(pthread_t) * \
 			g_fdht_sync_thread_count, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 	}
 	else
 	{
@@ -1947,7 +1947,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	pthread_attr_destroy(&pattr);
@@ -1970,7 +1970,7 @@ int write_to_sync_ini_file()
 			"open file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -1993,7 +1993,7 @@ int write_to_sync_ini_file()
 			"write to file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		close(fd);
 		return errno != 0 ? errno : EIO;
 	}

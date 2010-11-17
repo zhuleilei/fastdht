@@ -1428,7 +1428,7 @@ static int load_config_files()
 	if (!fileExists(g_fdht_base_path))
 	{
 		logError("\"%s\" can't be accessed, error info: %s", \
-			g_fdht_base_path, strerror(errno));
+			g_fdht_base_path, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 	if (!isDir(g_fdht_base_path))

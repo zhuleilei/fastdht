@@ -68,6 +68,7 @@ int main(int argc, char *argv[])
 	if ((result=fdht_func_init(conf_filename, bind_addr, \
 		sizeof(bind_addr))) != 0)
 	{
+		log_destroy();
 		return result;
 	}
 
@@ -79,8 +80,9 @@ int main(int argc, char *argv[])
 	{
 		logCrit("file: "__FILE__", line: %d, " \
 			"call dup2 fail, errno: %d, error info: %s, " \
-			"program exit!", __LINE__, errno, strerror(errno));
+			"program exit!", __LINE__, errno, STRERROR(errno));
 		g_continue_flag = false;
+		log_destroy();
 		return errno;
 	}
 
@@ -88,12 +90,14 @@ int main(int argc, char *argv[])
 	if (sock < 0)
 	{
 		fdht_func_destroy();
+		log_destroy();
 		return result;
 	}
 
 	if ((result=tcpsetserveropt(sock, g_fdht_network_timeout)) != 0)
 	{
 		fdht_func_destroy();
+		log_destroy();
 		return result;
 	}
 
@@ -106,8 +110,9 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		fdht_func_destroy();
+		log_destroy();
 		return errno;
 	}
 
@@ -116,8 +121,9 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		fdht_func_destroy();
+		log_destroy();
 		return errno;
 	}
 	
@@ -126,8 +132,9 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		fdht_func_destroy();
+		log_destroy();
 		return errno;
 	}
 
@@ -139,8 +146,9 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		fdht_func_destroy();
+		log_destroy();
 		return errno;
 	}
 
@@ -149,14 +157,16 @@ int main(int argc, char *argv[])
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"call sigaction fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		fdht_func_destroy();
+		log_destroy();
 		return errno;
 	}
 
 	if ((result=fdht_sync_init()) != 0)
 	{
 		fdht_func_destroy();
+		log_destroy();
 		return result;
 	}
 
@@ -165,6 +175,7 @@ int main(int argc, char *argv[])
 		if ((result=fdht_db_recovery_init()) != 0)
 		{
 			fdht_func_destroy();
+			log_destroy();
 			return result;
 		}
 
@@ -172,6 +183,7 @@ int main(int argc, char *argv[])
 		{
 			g_continue_flag = false;
 			fdht_func_destroy();
+			log_destroy();
 			return result;
 		}
 	}
@@ -180,6 +192,7 @@ int main(int argc, char *argv[])
 	{
 		g_continue_flag = false;
 		fdht_func_destroy();
+		log_destroy();
 		return result;
 	}
 
@@ -187,6 +200,7 @@ int main(int argc, char *argv[])
 	{
 		g_continue_flag = false;
 		fdht_func_destroy();
+		log_destroy();
 		return result;
 	}
 
@@ -195,6 +209,7 @@ int main(int argc, char *argv[])
 		g_continue_flag = false;
 		work_thread_destroy();
 		fdht_func_destroy();
+		log_destroy();
 		return result;
 	}
 
@@ -283,7 +298,7 @@ static int fdht_compress_binlog_func(void *arg)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"fork fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		return errno;
 	}
 
@@ -302,7 +317,7 @@ static int fdht_compress_binlog_func(void *arg)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"execl fdht_compress fail, errno: %d, error info: %s", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 	}
 
 	exit(errno);  //exit child proccess
@@ -354,7 +369,7 @@ static int fdht_init_schedule()
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(ScheduleEntry) * entry_count, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 

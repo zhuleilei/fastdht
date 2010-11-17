@@ -361,6 +361,17 @@ void chopPath(char *filePath);
 */
 int getFileContent(const char *filename, char **buff, int64_t *file_size);
 
+/** get file content
+ *  parameters:
+ *  	filename: the filename
+ *  	buff: the buff to store file content
+ *      offset: the start offset
+ *  	size: specify the size to fetch and return the fetched size
+ *  return: error no , 0 success, != 0 fail
+*/
+int getFileContentEx(const char *filename, char *buff, \
+		int64_t offset, int64_t *size);
+
 /** write to file
  *  parameters:
  *  	filename: the filename
@@ -424,6 +435,16 @@ int parse_bytes(char *pStr, const int default_unit_bytes, int64_t *bytes);
  *  return: error no , 0 success, != 0 fail
 */
 int set_rand_seed();
+
+/** parse bytes
+ *  parameters:
+ *  	seconds: remain time for first time, in seconds
+ *  	interval: 
+ *  	sighandler: handler function
+ *  return: error no , 0 success, != 0 fail
+*/
+int set_timer(const int first_remain_seconds, const int interval, \
+		void (*sighandler)(int));
 
 #ifdef __cplusplus
 }

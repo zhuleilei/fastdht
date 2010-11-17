@@ -65,7 +65,7 @@ int fdht_db_recovery_init()
 				"load from file \"%s\" fail, " \
 				"error code: %d, error info: %s", \
 				__LINE__, full_filename, \
-				result, strerror(result));
+				result, STRERROR(result));
 			return result;
 		}
 
@@ -110,7 +110,7 @@ int fdht_db_recovery_init()
 			"open local db sync mark file \"%s\" fail, " \
 			"error no: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -263,7 +263,7 @@ static int recover_cmd_set(BinLogRecord *pRecord, BinField *pFullValue)
 			logError("file: "__FILE__", line: %d, " \
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", __LINE__, \
-				pFullValue->size, errno, strerror(errno));
+				pFullValue->size, errno, STRERROR(errno));
 
 			
 			pFullValue->data = p;
@@ -338,7 +338,7 @@ static int fdht_recover_data(const int start_binlog_index, \
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", __LINE__, \
-			full_value.size, errno, strerror(errno));
+			full_value.size, errno, STRERROR(errno));
 
 		return errno != 0 ? errno : ENOMEM;
 	}

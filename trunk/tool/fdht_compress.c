@@ -256,7 +256,7 @@ static int write_to_binlog_compressed_index(const int compressed_index)
 			"open file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -267,7 +267,7 @@ static int write_to_binlog_compressed_index(const int compressed_index)
 			"write to file \"%s\" fail, " \
 			"errno: %d, error info: %s",  \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		close(fd);
 		return errno != 0 ? errno : EIO;
 	}
@@ -290,7 +290,7 @@ static int get_current_binlog_index()
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"open file %s fail, errno: %d, error info: %s", \
-			__LINE__, full_filename, errno, strerror(errno));
+			__LINE__, full_filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -351,7 +351,7 @@ static int compress_open_readable_binlog(CompressReader *pReader)
 			"open binlog file \"%s\" fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, full_filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 	pReader->binlog_offset = 0;
@@ -408,7 +408,7 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pReader, NULL), \
-			pReader->binlog_offset, errno, strerror(errno));
+			pReader->binlog_offset, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -477,7 +477,7 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pReader, NULL), \
-			pReader->binlog_offset, errno, strerror(errno));
+			pReader->binlog_offset, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 	if (read_bytes != full_key_len)
@@ -518,7 +518,7 @@ static int compress_binlog_read(CompressReader *pReader, CompressRecord *pRecord
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pReader, NULL), \
-			pReader->binlog_offset, errno, strerror(errno));
+			pReader->binlog_offset, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -563,7 +563,7 @@ static int compress_write_to_binlog(CompressWalkArg *pWalkArg, CompressRawRow *p
 			logError("file: "__FILE__", line: %d, " \
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", __LINE__, \
-				new_size, errno, strerror(errno));
+				new_size, errno, STRERROR(errno));
 			return errno != 0 ? errno : ENOMEM;
 		}
 
@@ -581,7 +581,7 @@ static int compress_write_to_binlog(CompressWalkArg *pWalkArg, CompressRawRow *p
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pWalkArg->pReader, NULL), \
-			pRow->offset, errno, strerror(errno));
+			pRow->offset, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 	}
@@ -594,7 +594,7 @@ static int compress_write_to_binlog(CompressWalkArg *pWalkArg, CompressRawRow *p
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pWalkArg->pReader, NULL), \
-			pRow->offset, errno, strerror(errno));
+			pRow->offset, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -606,7 +606,7 @@ static int compress_write_to_binlog(CompressWalkArg *pWalkArg, CompressRawRow *p
 			"file offset: "INT64_PRINTF_FORMAT", " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pWalkArg->pReader, NULL), \
-			pRow->offset, errno, strerror(errno));
+			pRow->offset, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -658,7 +658,7 @@ static int compress_binlog_file(CompressReader *pReader)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"open file %s fail, errno: %d, error info: %s", \
-			__LINE__, tmp_filename, errno, strerror(errno));
+			__LINE__, tmp_filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -684,7 +684,7 @@ static int compress_binlog_file(CompressReader *pReader)
 			logError("file: "__FILE__", line: %d, " \
 				"write to file %s fail, " \
 				"errno: %d, error info: %s",\
-				__LINE__, tmp_filename, errno, strerror(errno));
+				__LINE__, tmp_filename, errno, STRERROR(errno));
 			return errno != 0 ? errno : EACCES;
 		}
 
@@ -728,7 +728,7 @@ static int compress_binlog_file(CompressReader *pReader)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"open file %s fail, errno: %d, error info: %s", \
-			__LINE__, sorted_filename, errno, strerror(errno));
+			__LINE__, sorted_filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -739,7 +739,7 @@ static int compress_binlog_file(CompressReader *pReader)
 			"file offset: 0, " \
 			"errno: %d, error info: %s", __LINE__, \
 			compress_get_binlog_filename(pReader, NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -751,7 +751,7 @@ static int compress_binlog_file(CompressReader *pReader)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"open file %s fail, errno: %d, error info: %s", \
-			__LINE__, new_filename, errno, strerror(errno));
+			__LINE__, new_filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -765,7 +765,7 @@ static int compress_binlog_file(CompressReader *pReader)
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", __LINE__, \
-			walk_arg.buff_size, errno, strerror(errno));
+			walk_arg.buff_size, errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 	walk_arg.pReader->binlog_offset = 0;
@@ -839,7 +839,7 @@ static int compress_binlog_file(CompressReader *pReader)
 			"rename file from %s to %s fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, new_filename, full_filename, 
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 

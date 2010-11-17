@@ -131,7 +131,7 @@ char *getAbsolutePath(const char *filename, char *szAbsPath, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"call getcwd fail, errno: %d, error info: %s", \
-				__LINE__, errno, strerror(errno));
+				__LINE__, errno, STRERROR(errno));
 			return NULL;
 		}
 		
@@ -227,7 +227,7 @@ char *getExeAbsoluteFilename(const char *exeFilename, char *szAbsFilename, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"call getcwd fail, errno: %d, error info: %s", \
-				__LINE__, errno, strerror(errno));
+				__LINE__, errno, STRERROR(errno));
 			return NULL;
 		}
 		
@@ -415,9 +415,21 @@ void daemon_init(bool bCloseFiles)
 	{
 		exit(0);
 	}
-	
+
+#ifdef DEBUG_FLAG
+	#define MAX_CORE_FILE_SIZE  (256 * 1024 * 1024)
+	if (set_rlimit(RLIMIT_CORE, MAX_CORE_FILE_SIZE) != 0)
+	{
+		logWarning("file: "__FILE__", line: %d, " \
+			"set max core dump file size to %d MB fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, MAX_CORE_FILE_SIZE / (1024 * 1024), \
+			errno, STRERROR(errno));
+	}
+#else
 	chdir("/");
-	
+#endif
+
 	if (bCloseFiles)
 	{
 		for(i=0; i<=2; i++)
@@ -901,7 +913,7 @@ int getFileContent(const char *filename, char **buff, int64_t *file_size)
 		logError("file: "__FILE__", line: %d, " \
 			"open file %s fail, " \
 			"errno: %d, error info: %s", __LINE__, \
-			filename, errno, strerror(errno));
+			filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -913,7 +925,7 @@ int getFileContent(const char *filename, char **buff, int64_t *file_size)
 		logError("file: "__FILE__", line: %d, " \
 			"lseek file %s fail, " \
 			"errno: %d, error info: %s", __LINE__, \
-			filename, errno, strerror(errno));
+			filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
@@ -937,7 +949,7 @@ int getFileContent(const char *filename, char **buff, int64_t *file_size)
 		logError("file: "__FILE__", line: %d, " \
 			"lseek file %s fail, " \
 			"errno: %d, error info: %s", __LINE__, \
-			filename, errno, strerror(errno));
+			filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 	if (read(fd, *buff, *file_size) != *file_size)
@@ -949,11 +961,65 @@ int getFileContent(const char *filename, char **buff, int64_t *file_size)
 		logError("file: "__FILE__", line: %d, " \
 			"read from file %s fail, " \
 			"errno: %d, error info: %s", __LINE__, \
-			filename, errno, strerror(errno));
+			filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : EIO;
 	}
 
 	(*buff)[*file_size] = '\0';
+	close(fd);
+
+	return 0;
+}
+
+int getFileContentEx(const char *filename, char *buff, \
+		int64_t offset, int64_t *size)
+{
+	int fd;
+	int read_bytes;
+
+	if (*size <= 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"invalid size: "INT64_PRINTF_FORMAT, \
+			__LINE__, *size);
+		return EINVAL;
+	}
+	
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+	{
+		*size = 0;
+		logError("file: "__FILE__", line: %d, " \
+			"open file %s fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			filename, errno, STRERROR(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	if (offset > 0 && lseek(fd, offset, SEEK_SET) < 0)
+	{
+		*size = 0;
+		close(fd);
+		logError("file: "__FILE__", line: %d, " \
+			"lseek file %s fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			filename, errno, STRERROR(errno));
+		return errno != 0 ? errno : EIO;
+	}
+
+	if ((read_bytes=read(fd, buff, *size)) < 0)
+	{
+		*size = 0;
+		close(fd);
+		logError("file: "__FILE__", line: %d, " \
+			"read from file %s fail, " \
+			"errno: %d, error info: %s", __LINE__, \
+			filename, errno, STRERROR(errno));
+		return errno != 0 ? errno : EIO;
+	}
+
+	*size = read_bytes;
+	*(buff + (*size)) = '\0';
 	close(fd);
 
 	return 0;
@@ -969,7 +1035,7 @@ int writeToFile(const char *filename, const char *buff, const int file_size)
 			"open file %s fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -979,7 +1045,7 @@ int writeToFile(const char *filename, const char *buff, const int file_size)
 			"write file %s fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, filename, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		close(fd);
 		return errno != 0 ? errno : EIO;
 	}
@@ -1105,7 +1171,7 @@ int set_rlimit(int resource, const rlim_t value)
 		logError("file: "__FILE__", line: %d, " \
 			"call getrlimit fail, resource=%d, " \
 			"errno: %d, error info: %s", \
-			__LINE__, resource, errno, strerror(errno));
+			__LINE__, resource, errno, STRERROR(errno));
 		return errno != 0 ? errno : EPERM;
 	}
 
@@ -1122,7 +1188,7 @@ int set_rlimit(int resource, const rlim_t value)
 			"call setrlimit fail, resource=%d, value=%d, " \
 			"errno: %d, error info: %s", \
 			__LINE__, resource, (int)value, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : EPERM;
 	}
 
@@ -1206,7 +1272,7 @@ int set_nonblock(int fd)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"fcntl fail, errno: %d, error info: %s.", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -1214,7 +1280,7 @@ int set_nonblock(int fd)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"fcntl fail, errno: %d, error info: %s.", \
-			__LINE__, errno, strerror(errno));
+			__LINE__, errno, STRERROR(errno));
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -1234,7 +1300,7 @@ int set_run_by(const char *group_name, const char *username)
 			nErrNo = errno != 0 ? errno : ENOENT;
 			logError("file: "__FILE__", line: %d, " \
 				"getgrnam fail, errno: %d, error info: %s.", \
-				__LINE__, nErrNo, strerror(nErrNo));
+				__LINE__, nErrNo, STRERROR(nErrNo));
 			return nErrNo;
 		}
 
@@ -1243,7 +1309,7 @@ int set_run_by(const char *group_name, const char *username)
 			nErrNo = errno != 0 ? errno : EPERM;
 			logError("file: "__FILE__", line: %d, " \
 				"setegid fail, errno: %d, error info: %s.", \
-				__LINE__, nErrNo, strerror(nErrNo));
+				__LINE__, nErrNo, STRERROR(nErrNo));
 			return nErrNo;
 		}
 	}
@@ -1256,7 +1322,7 @@ int set_run_by(const char *group_name, const char *username)
 			nErrNo = errno != 0 ? errno : ENOENT;
 			logError("file: "__FILE__", line: %d, " \
 				"getpwnam fail, errno: %d, error info: %s.", \
-				__LINE__, nErrNo, strerror(nErrNo));
+				__LINE__, nErrNo, STRERROR(nErrNo));
 			return nErrNo;
 		}
 
@@ -1265,7 +1331,7 @@ int set_run_by(const char *group_name, const char *username)
 			nErrNo = errno != 0 ? errno : EPERM;
 			logError("file: "__FILE__", line: %d, " \
 				"seteuid fail, errno: %d, error info: %s.", \
-				__LINE__, nErrNo, strerror(nErrNo));
+				__LINE__, nErrNo, STRERROR(nErrNo));
 			return nErrNo;
 		}
 	}
@@ -1318,7 +1384,7 @@ int load_allow_hosts(IniContext *pIniContext, \
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s.", \
 			__LINE__, (int)sizeof(in_addr_t) * alloc_count, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 
@@ -1355,7 +1421,7 @@ int load_allow_hosts(IniContext *pIniContext, \
 						"errno: %d, error info: %s", \
 						__LINE__, (int)sizeof(in_addr_t)
 							* alloc_count, \
-						errno, strerror(errno));
+						errno, STRERROR(errno));
 
 					return errno != 0 ? errno : ENOMEM;
 					}
@@ -1384,7 +1450,7 @@ int load_allow_hosts(IniContext *pIniContext, \
 			logWarning("file: "__FILE__", line: %d, " \
 				"strdup fail, " \
 				"errno: %d, error info: %s.", \
-				__LINE__, errno, strerror(errno));
+				__LINE__, errno, STRERROR(errno));
 			continue;
 		}
 
@@ -1511,7 +1577,7 @@ int load_allow_hosts(IniContext *pIniContext, \
 						__LINE__, \
 						(int)sizeof(in_addr_t) * \
 						alloc_count,\
-						errno, strerror(errno));
+						errno, STRERROR(errno));
 
 					free(pItemValue);
 					return errno != 0 ? errno : ENOMEM;
@@ -1618,7 +1684,7 @@ int set_rand_seed()
 		logError("file: "__FILE__", line: %d, " \
 			 "call gettimeofday fail, " \
 			 "errno=%d, error info: %s", \
-			 __LINE__, errno, strerror(errno));
+			 __LINE__, errno, STRERROR(errno));
 		return errno != 0 ? errno : EPERM;
 	}
 
@@ -1788,7 +1854,7 @@ int buffer_strcpy(BufferInfo *pBuff, const char *str)
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, pBuff->alloc_size, \
-				errno, strerror(errno));
+				errno, STRERROR(errno));
 			pBuff->alloc_size = 0;
 			return errno != 0 ? errno : ENOMEM;
 		}
@@ -1816,7 +1882,7 @@ int buffer_memcpy(BufferInfo *pBuff, const char *buff, const int len)
 				"malloc %d bytes fail, " \
 				"errno: %d, error info: %s", \
 				__LINE__, pBuff->alloc_size, \
-				errno, strerror(errno));
+				errno, STRERROR(errno));
 			pBuff->alloc_size = 0;
 			return errno != 0 ? errno : ENOMEM;
 		}
@@ -1855,6 +1921,37 @@ int getExecResult(const char *command, char *output, const int buff_size)
 	}
 
 	*pCurrent = '\0';
+	return 0;
+}
+
+int set_timer(const int first_remain_seconds, const int interval, \
+		void (*sighandler)(int))
+{
+	struct itimerval value;
+	struct sigaction act;
+
+	memset(&act, 0, sizeof(act));
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = sighandler;
+	if(sigaction(SIGALRM, &act, NULL) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call sigaction fail, errno: %d, error info: %s", \
+			__LINE__, errno, STRERROR(errno));
+		return errno != 0 ? errno : EINVAL;
+	}
+
+	memset(&value, 0, sizeof(value));
+	value.it_interval.tv_sec = interval;
+	value.it_value.tv_sec = first_remain_seconds;
+	if (setitimer(ITIMER_REAL, &value, NULL) < 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"call setitimer fail, errno: %d, error info: %s", \
+			__LINE__, errno, STRERROR(errno));
+		return errno != 0 ? errno : EINVAL;
+	}
+
 	return 0;
 }
 

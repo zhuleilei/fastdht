@@ -90,7 +90,7 @@ static int load_group_servers(GroupArray *pGroupArray, \
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(FDHTGroupServer) * \
-			pServerArray->count, errno, strerror(errno));
+			pServerArray->count, errno, STRERROR(errno));
 
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -139,7 +139,7 @@ static int load_group_servers(GroupArray *pGroupArray, \
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(int) * (*server_count), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -278,7 +278,7 @@ static int load_group_ids(GroupArray *pGroupArray, \
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(int) * pGroupArray->group_count, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -414,7 +414,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"\"%s\" can't be accessed, error info: %s", \
-				__LINE__, strerror(errno), g_fdht_base_path);
+				__LINE__, STRERROR(errno), g_fdht_base_path);
 			result = errno != 0 ? errno : ENOENT;
 			break;
 		}
@@ -920,7 +920,7 @@ static int fdht_load_stat_from_file()
 			logError("file: "__FILE__", line: %d, " \
 				"mkdir \"%s\" fail, " \
 				"errno: %d, error info: %s", \
-				__LINE__, data_path, errno, strerror(errno));
+				__LINE__, data_path, errno, STRERROR(errno));
 			return errno != 0 ? errno : ENOENT;
 		}
 	}
@@ -985,7 +985,7 @@ static int fdht_load_stat_from_file()
 		logError("file: "__FILE__", line: %d, " \
 			"open stat file \"%s\" fail, " \
 			"error no: %d, error info: %s", \
-			__LINE__, full_filename, errno, strerror(errno));
+			__LINE__, full_filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -1013,7 +1013,7 @@ int start_dl_detect_thread()
 		logError("file: "__FILE__", line: %d, " \
 				"create bdb_dl_detect_thread fail, " \
 				"error no: %d, error info: %s", \
-				__LINE__, result, strerror(result));
+				__LINE__, result, STRERROR(result));
 		return result;
 	}
 
@@ -1067,7 +1067,7 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 			"malloc %d bytes fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(StoreHandle *) * g_db_count, \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		free(group_ids);
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -1147,7 +1147,7 @@ int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 			"truncate file \"%s\" to empty fail, " \
 			"error no: %d, error info: %s", \
 			__LINE__, filename_func(pArg, NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -1157,7 +1157,7 @@ int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 			"rewind file \"%s\" to start fail, " \
 			"error no: %d, error info: %s", \
 			__LINE__, filename_func(pArg, NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -1167,7 +1167,7 @@ int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 			"write to file \"%s\" fail, " \
 			"error no: %d, error info: %s", \
 			__LINE__, filename_func(pArg, NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -1177,7 +1177,7 @@ int fdht_write_to_fd(int fd, get_filename_func filename_func, \
 			"sync file \"%s\" to disk fail, " \
 			"error no: %d, error info: %s", \
 			__LINE__, filename_func(pArg, NULL), \
-			errno, strerror(errno));
+			errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
 
@@ -1234,7 +1234,7 @@ int fdht_terminate()
 	if (g_thread_data != NULL)
 	{
 		pDataEnd = g_thread_data + g_max_threads;
-		quit_sock = 0;
+		quit_sock = -1;
 		for (pThreadData=g_thread_data; pThreadData<pDataEnd; \
 			pThreadData++)
 		{

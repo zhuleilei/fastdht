@@ -47,7 +47,6 @@ static time_t first_sync_req_time = 0;
 
 static void *work_thread_entrance(void* arg);
 static void wait_for_work_threads_exit();
-int work_deal_task(struct task_info *pTask);
 
 static int deal_cmd_get(struct task_info *pTask);
 static int deal_cmd_set(struct task_info *pTask, byte op_type);
@@ -96,7 +95,7 @@ int work_thread_init()
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
 			__LINE__, (int)sizeof(struct thread_data) * \
-			g_max_threads, errno, strerror(errno));
+			g_max_threads, errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
 
@@ -119,7 +118,7 @@ int work_thread_init()
 			logError("file: "__FILE__", line: %d, " \
 				"call pipe fail, " \
 				"errno: %d, error info: %s", \
-				__LINE__, result, strerror(result));
+				__LINE__, result, STRERROR(result));
 			break;
 		}
 
@@ -135,7 +134,7 @@ int work_thread_init()
 				"create thread failed, startup threads: %d, " \
 				"errno: %d, error info: %s", \
 				__LINE__, g_thread_count, \
-				result, strerror(result));
+				result, STRERROR(result));
 			break;
 		}
 		else
@@ -145,7 +144,7 @@ int work_thread_init()
 				logError("file: "__FILE__", line: %d, " \
 					"call pthread_mutex_lock fail, " \
 					"errno: %d, error info: %s", \
-					__LINE__, result, strerror(result));
+					__LINE__, result, STRERROR(result));
 			}
 			g_thread_count++;
 			if ((result=pthread_mutex_unlock(&work_thread_mutex)) != 0)
@@ -153,7 +152,7 @@ int work_thread_init()
 				logError("file: "__FILE__", line: %d, " \
 					"call pthread_mutex_lock fail, " \
 					"errno: %d, error info: %s", \
-					__LINE__, result, strerror(result));
+					__LINE__, result, STRERROR(result));
 			}
 		}
 	}
@@ -181,7 +180,7 @@ void fdht_accept_loop(int server_sock)
 				logError("file: "__FILE__", line: %d, " \
 					"accept failed, " \
 					"errno: %d, error info: %s", \
-					__LINE__, errno, strerror(errno));
+					__LINE__, errno, STRERROR(errno));
 			}
 
 			continue;
@@ -195,7 +194,7 @@ void fdht_accept_loop(int server_sock)
 			logError("file: "__FILE__", line: %d, " \
 				"call write failed, " \
 				"errno: %d, error info: %s", \
-				__LINE__, errno, strerror(errno));
+				__LINE__, errno, STRERROR(errno));
 		}
 	}
 }
@@ -237,7 +236,7 @@ static void *work_thread_entrance(void* arg)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 	g_thread_count--;
 	if ((result=pthread_mutex_unlock(&work_thread_mutex)) != 0)
@@ -245,7 +244,7 @@ static void *work_thread_entrance(void* arg)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, result, strerror(result));
+			__LINE__, result, STRERROR(result));
 	}
 
 	return NULL;
@@ -535,7 +534,7 @@ static int deal_cmd_get(struct task_info *pTask)
 					"malloc %d bytes failed, " \
 					"errno: %d, error info: %s", \
 					__LINE__, pTask->size, \
-					errno, strerror(errno));
+					errno, STRERROR(errno));
 
 				pTask->data = pTemp;  //restore old data
 				pTask->length = sizeof(FDHTProtoHeader);
@@ -594,7 +593,7 @@ static int deal_cmd_get(struct task_info *pTask)
 					"realloc %d bytes failed, " \
 					"errno: %d, error info: %s", \
 					__LINE__, new_size, \
-					errno, strerror(errno)); \
+					errno, STRERROR(errno)); \
  \
 				pTask->data = pTemp;  /* restore old data */ \
 				pTask->length = sizeof(FDHTProtoHeader); \
@@ -1624,7 +1623,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, lock_res, strerror(lock_res));
+			__LINE__, lock_res, STRERROR(lock_res));
 	}
 
 	value_len = sizeof(value) - 1;
@@ -1637,7 +1636,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 		logError("file: "__FILE__", line: %d, " \
 			"call pthread_mutex_unlock fail, " \
 			"errno: %d, error info: %s", \
-			__LINE__, lock_res, strerror(lock_res));
+			__LINE__, lock_res, STRERROR(lock_res));
 	}
 
 	if (result == 0)
@@ -1727,7 +1726,7 @@ static int deal_cmd_stat(struct task_info *pTask)
 			logError("file: "__FILE__", line: %d, " \
 				"client ip: %s, call hash_stat fail, " \
 				"errno: %d, error info: %s", __LINE__, \
-				pTask->client_ip, result, strerror(result));
+				pTask->client_ip, result, STRERROR(result));
 			pTask->length = sizeof(FDHTProtoHeader);
 			return result;
 		}
