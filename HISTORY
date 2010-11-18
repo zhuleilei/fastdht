@@ -1,11 +1,14 @@
 
-Version 1.14  2010-11-17
+Version 1.14  2010-11-18
  * sockopt.h add non-block connect function connectserverbyip_nb
  * log_init set log to cache to false (no cache)
  * connect server support timeout, adding connect_timeout parameter in
    config file
  * local ip functions move to common/local_ip_func.c
-
+ * do not catch signal SIGABRT
+ * bug fixed: when fdhtd quit, maybe write to binlog file fail,
+   the error info is "Bad file descriptor"
+ 
 Version 1.13  2010-06-06
  * logger support context (multi instance)
  * add files: common/pthread_func.h and common/pthread_func.c
