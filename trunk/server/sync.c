@@ -1616,6 +1616,8 @@ static void* fdht_sync_thread_entrance(void* arg)
 	memset(local_ip_addr, 0, sizeof(local_ip_addr));
 	memset(&reader, 0, sizeof(reader));
 	memset(&record, 0, sizeof(record));
+	reader.mark_fd = -1;
+	reader.binlog_fd = -1;
 
 	strcpy(fdht_server.ip_addr, pDestServer->ip_addr);
 	fdht_server.port = pDestServer->port;
