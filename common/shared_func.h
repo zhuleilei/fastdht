@@ -83,6 +83,8 @@ char *getAbsolutePath(const char *fileame, char *szAbsPath, \
 char *getExeAbsoluteFilename(const char *exeFilename, char *szAbsFilename, \
 		const int maxSize);
 
+#ifndef WIN32
+
 /** get running process count by program name such as fdfs_trackerd
  *  parameters:
  *  	progName: the program name
@@ -110,6 +112,8 @@ int getUserProcIds(const char *progName, const bool bAllOwners, \
  *  return: error no, 0 success, != 0 fail
 */
 int getExecResult(const char *command, char *output, const int buff_size);
+
+#endif
 
 /** daemon init
  *  parameters:
@@ -374,12 +378,22 @@ int getFileContentEx(const char *filename, char *buff, \
 
 /** write to file
  *  parameters:
- *  	filename: the filename
+ *  	filename: the filename to write
  *  	buff: the buffer to write
  *  	file_size: the file size
  *  return: error no , 0 success, != 0 fail
 */
 int writeToFile(const char *filename, const char *buff, const int file_size);
+
+/** safe write to file, first write to tmp file, then rename to true filename
+ *  parameters:
+ *  	filename: the filename to write
+ *  	buff: the buffer to write
+ *  	file_size: the file size
+ *  return: error no , 0 success, != 0 fail
+*/
+int safeWriteToFile(const char *filename, const char *buff, \
+		const int file_size);
 
 /** get a line from file
  *  parameters:

@@ -26,6 +26,7 @@
 #include <net/if.h>
 #include <sys/poll.h>
 #include <sys/select.h>
+#include "shared_func.h"
 
 #ifdef OS_SUNOS
 #include <sys/sockio.h>
@@ -785,9 +786,9 @@ int socketServer(const char *bind_ipaddr, const int port, int *err_no)
 
 int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
 		const int fsync_after_written_bytes, const int timeout, \
-		int64_t *total_recv_bytes)
+		int64_t *true_file_bytes)
 {
-	int fd;
+	int write_fd;
 	char buff[FDFS_WRITE_BUFF_SIZE];
 	int64_t remain_bytes;
 	int recv_bytes;
@@ -797,7 +798,7 @@ int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
 	int count;
 	tcprecvdata_exfunc recv_func;
 
-	*total_recv_bytes = 0;
+	*true_file_bytes = 0;
 	flags = fcntl(sock, F_GETFL, 0);
 	if (flags < 0)
 	{
@@ -813,8 +814,8 @@ int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
 		recv_func = tcprecvdata_ex;
 	}
 
-	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (fd < 0)
+	write_fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (write_fd < 0)
 	{
 		return errno != 0 ? errno : EACCES;
 	}
@@ -834,42 +835,105 @@ int tcprecvfile(int sock, const char *filename, const int64_t file_bytes, \
 
 		result = recv_func(sock, buff, recv_bytes, \
 				timeout, &count);
-		*total_recv_bytes += count;
 		if (result != 0)
 		{
-			close(fd);
-			unlink(filename);
-			return result;
+			if (file_bytes != INFINITE_FILE_SIZE)
+			{
+				close(write_fd);
+				unlink(filename);
+				return result;
+			}
 		}
 
-		if (write(fd, buff, recv_bytes) != recv_bytes)
+		if (count > 0 && write(write_fd, buff, count) != count)
 		{
 			result = errno != 0 ? errno: EIO;
-			close(fd);
+			close(write_fd);
 			unlink(filename);
 			return result;
 		}
 
+		*true_file_bytes += count;
 		if (fsync_after_written_bytes > 0)
 		{
-			written_bytes += recv_bytes;
+			written_bytes += count;
 			if (written_bytes >= fsync_after_written_bytes)
 			{
 				written_bytes = 0;
-				if (fsync(fd) != 0)
+				if (fsync(write_fd) != 0)
 				{
 					result = errno != 0 ? errno: EIO;
-					close(fd);
+					close(write_fd);
 					unlink(filename);
 					return result;
 				}
 			}
 		}
 
-		remain_bytes -= recv_bytes;
+		if (result != 0)  //recv infinite file, does not delete the file
+		{
+			int read_fd;
+			read_fd = -1;
+
+			do
+			{
+				if (*true_file_bytes < 8)
+				{
+					break;
+				}
+
+				read_fd = open(filename, O_RDONLY);
+				if (read_fd < 0)
+				{
+					return errno != 0 ? errno : EACCES;
+				}
+
+				if (lseek(read_fd, -8, SEEK_END) < 0)
+				{
+					result = errno != 0 ? errno : EIO;
+					break;
+				}
+
+				if (read(read_fd, buff, 8) != 8)
+				{
+					result = errno != 0 ? errno : EIO;
+					break;
+				}
+
+				*true_file_bytes -= 8;
+				if (buff2long(buff) != *true_file_bytes)
+				{
+					result = EINVAL;
+					break;
+				}
+
+				if (ftruncate(write_fd, *true_file_bytes) != 0)
+				{
+					result = errno != 0 ? errno : EIO;
+					break;
+				}
+
+				result = 0;
+			} while (0);
+		
+			close(write_fd);
+			if (read_fd >= 0)
+			{
+				close(read_fd);
+			}
+
+			if (result != 0)
+			{
+				unlink(filename);
+			}
+
+			return result;
+		}
+
+		remain_bytes -= count;
 	}
 
-	close(fd);
+	close(write_fd);
 	return 0;
 }
 
@@ -1020,7 +1084,7 @@ int tcpdiscard(int sock, const int bytes, const int timeout, \
 }
 
 int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
-		const int64_t file_bytes, const int timeout)
+	const int64_t file_bytes, const int timeout, int64_t *total_send_bytes)
 {
 	int fd;
 	int64_t send_bytes;
@@ -1040,12 +1104,14 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 	fd = open(filename, O_RDONLY);
 	if (fd < 0)
 	{
+		*total_send_bytes = 0;
 		return errno != 0 ? errno : EACCES;
 	}
 
 	flags = fcntl(sock, F_GETFL, 0);
 	if (flags < 0)
 	{
+		*total_send_bytes = 0;
 		return errno != 0 ? errno : EACCES;
 	}
 
@@ -1055,6 +1121,7 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 	{
 		if (fcntl(sock, F_SETFL, flags & ~O_NONBLOCK) == -1)
 		{
+			*total_send_bytes = 0;
 			return errno != 0 ? errno : EACCES;
 		}
 	}
@@ -1068,6 +1135,7 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 			"setsockopt failed, errno: %d, error info: %s.", \
 			__LINE__, errno, STRERROR(errno));
 		close(fd);
+		*total_send_bytes = 0;
 		return errno != 0 ? errno : EIO;
 	}
 	*/
@@ -1096,15 +1164,19 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 
 		remain_bytes -= send_bytes;
 	}
+
+	*total_send_bytes = file_bytes - remain_bytes;
 #else
 #ifdef OS_FREEBSD
 	offset = file_offset;
 	if (sendfile(fd, sock, offset, file_bytes, NULL, NULL, 0) != 0)
 	{
+		*total_send_bytes = 0;
 		result = errno != 0 ? errno : EIO;
 	}
 	else
 	{
+		*total_send_bytes = file_bytes;
 		result = 0;
 	}
 #endif
@@ -1139,6 +1211,7 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 	{
 		result = errno != 0 ? errno : EIO;
 		close(fd);
+		*total_send_bytes = 0;
 		return result;
 	}
 
@@ -1178,6 +1251,8 @@ int tcpsendfile_ex(int sock, const char *filename, const int64_t file_offset, \
 
 		remain_bytes -= send_bytes;
 	}
+
+	*total_send_bytes = file_bytes - remain_bytes;
 	}
 
 	close(fd);

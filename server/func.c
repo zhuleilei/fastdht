@@ -102,10 +102,12 @@ static int load_group_servers(GroupArray *pGroupArray, \
 	for (ppServerInfo=pServerArray->servers; \
 		ppServerInfo<ppServerEnd; ppServerInfo++)
 	{
+		strcpy(targetServer.ip_addr, (*ppServerInfo)->ip_addr);
+		targetServer.port = (*ppServerInfo)->port;
 		compare = 1;
 		for (k=0; k<*server_count; k++)
 		{
-			compare = group_cmp_by_ip_and_port(*ppServerInfo, \
+			compare = group_cmp_by_ip_and_port(&targetServer, \
 						(*ppGroupServers) + k);
 			if (compare <= 0)
 			{
@@ -118,7 +120,7 @@ static int load_group_servers(GroupArray *pGroupArray, \
 			continue;
 		}
 
-		for (i=*server_count-1; i>=k; i++)
+		for (i=*server_count-1; i>=k; i--)
 		{
 			memcpy((*ppGroupServers) + (i+1), \
 				(*ppGroupServers) + i, sizeof(FDHTGroupServer));
