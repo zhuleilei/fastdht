@@ -36,7 +36,7 @@ int g_db_dead_lock_detect_interval = DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL;
 TimeInfo g_compress_binlog_time_base = {TIME_NONE, TIME_NONE};
 int g_compress_binlog_interval = COMPRESS_BINLOG_DEF_INTERVAL;
 int g_sync_stat_file_interval = DEFAULT_SYNC_STAT_FILE_INTERVAL;
-int g_write_mark_file_freq = DEFAULT_SYNC_MARK_FILE_FREQ;
+int g_write_mark_file_freq = FDHT_DEFAULT_SYNC_MARK_FILE_FREQ;
 
 struct timeval g_network_tv = {DEFAULT_NETWORK_TIMEOUT, 0};
 

@@ -837,10 +837,10 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 
 		g_write_mark_file_freq = iniGetIntValue(NULL,  \
 				"write_mark_file_freq", &iniContext, \
-				DEFAULT_SYNC_MARK_FILE_FREQ);
+				FDHT_DEFAULT_SYNC_MARK_FILE_FREQ);
 		if (g_write_mark_file_freq <= 0)
 		{
-			g_write_mark_file_freq = DEFAULT_SYNC_MARK_FILE_FREQ;
+			g_write_mark_file_freq = FDHT_DEFAULT_SYNC_MARK_FILE_FREQ;
 		}
 
 		pThreadStackSize = iniGetStrValue(NULL,  \
