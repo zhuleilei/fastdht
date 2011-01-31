@@ -1,7 +1,7 @@
 
 Version 1.15  2011-01-31
  * strerror change to STRERROR macro
- * bug fixed: server/func.c: load_group_ids type mismatched
+ * bug fixed: server/func.c: load_group_servers type mismatched
  * update common files from FastDFS V2.08
  * macro DEFAULT_SYNC_MARK_FILE_FREQ change to FDHT_DEFAULT_SYNC_MARK_FILE_FREQ
 
