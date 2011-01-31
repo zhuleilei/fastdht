@@ -42,7 +42,10 @@ typedef void * (*ThreadEntranceFunc)(LPVOID lpThreadParameter);
 
 #endif
 
+#ifndef WIN32
 extern int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int kind);
+#endif
+
 #ifdef OS_LINUX
 #define PTHREAD_MUTEX_ERRORCHECK PTHREAD_MUTEX_ERRORCHECK_NP
 #endif
@@ -82,6 +85,7 @@ extern int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int kind);
 #define TIME_NONE                               -1
 
 #define IP_ADDRESS_SIZE	16
+#define INFINITE_FILE_SIZE (256 * 1024LL * 1024 * 1024 * 1024 * 1024LL)
 
 #ifndef __cplusplus
 #ifndef true
@@ -99,8 +103,10 @@ typedef char  bool;
 #define ubyte unsigned char
 #endif
 
+#ifndef WIN32
 #ifndef INADDR_NONE
 #define  INADDR_NONE  ((in_addr_t) 0xffffffff)
+#endif
 #endif
 
 #ifndef ECANCELED

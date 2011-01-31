@@ -1,4 +1,9 @@
 
+Version 1.15  2011-01-31
+ * strerror change to STRERROR macro
+ * bug fixed: server/func.c: load_group_ids type mismatched
+ * update common files from FastDFS V2.08
+
 Version 1.14  2010-11-18
  * sockopt.h add non-block connect function connectserverbyip_nb
  * log_init set log to cache to false (no cache)

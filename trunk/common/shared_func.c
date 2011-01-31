@@ -252,6 +252,7 @@ char *getExeAbsoluteFilename(const char *exeFilename, char *szAbsFilename, \
 	return szAbsFilename;
 }
 
+#ifndef WIN32
 int getProccessCount(const char *progName, const bool bAllOwners)
 {
 	int *pids = NULL;
@@ -365,6 +366,40 @@ int getUserProcIds(const char *progName, const bool bAllOwners, \
 	return cnt;
 }
 
+int getExecResult(const char *command, char *output, const int buff_size)
+{
+	FILE *fp;
+	char *pCurrent;
+	int bytes_read;
+	int remain_bytes;
+
+	if((fp=popen(command, "r")) == NULL)
+	{
+		return errno != 0 ? errno : EMFILE;
+	}
+
+	pCurrent = output;
+	remain_bytes = buff_size;
+	while (remain_bytes > 0 && \
+		(bytes_read=fread(pCurrent, 1, remain_bytes, fp)) > 0)
+	{
+		pCurrent += bytes_read;
+		remain_bytes -= bytes_read;
+	}
+
+	pclose(fp);
+
+	if (remain_bytes <= 0)
+	{
+		return ENOSPC;
+	}
+
+	*pCurrent = '\0';
+	return 0;
+}
+
+#endif
+
 char *toLowercase(char *src)
 {
 	char *p;
@@ -401,6 +436,7 @@ char *toUppercase(char *src)
 
 void daemon_init(bool bCloseFiles)
 {
+#ifndef WIN32
 	pid_t pid;
 	int i;
 	
@@ -437,6 +473,7 @@ void daemon_init(bool bCloseFiles)
 			close(i);
 		}
 	}
+#endif
 
 	return;
 }
@@ -1028,29 +1065,71 @@ int getFileContentEx(const char *filename, char *buff, \
 int writeToFile(const char *filename, const char *buff, const int file_size)
 {
 	int fd;
+	int result;
+
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0)
 	{
+		result = errno != 0 ? errno : EIO;
 		logError("file: "__FILE__", line: %d, " \
 			"open file %s fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, filename, \
-			errno, STRERROR(errno));
-		return errno != 0 ? errno : EACCES;
+			result, STRERROR(result));
+		return result;
 	}
 
 	if (write(fd, buff, file_size) != file_size)
 	{
+		result = errno != 0 ? errno : EIO;
 		logError("file: "__FILE__", line: %d, " \
 			"write file %s fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, filename, \
-			errno, STRERROR(errno));
+			result, STRERROR(result));
 		close(fd);
-		return errno != 0 ? errno : EIO;
+		return result;
+	}
+
+	if (fsync(fd) != 0)
+	{
+		result = errno != 0 ? errno : EIO;
+		logError("file: "__FILE__", line: %d, " \
+			"fsync file \"%s\" fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, filename, \
+			result, STRERROR(result));
+		close(fd);
+		return result;
 	}
 
 	close(fd);
+	return 0;
+}
+
+int safeWriteToFile(const char *filename, const char *buff, \
+		const int file_size)
+{
+	char tmpFilename[MAX_PATH_SIZE];
+	int result;
+
+	snprintf(tmpFilename, sizeof(tmpFilename), "%s.tmp", filename);
+	if ((result=writeToFile(tmpFilename, buff, file_size)) != 0)
+	{
+		return result;
+	}
+
+	if (rename(tmpFilename, filename) != 0)
+	{
+		result = errno != 0 ? errno : EIO;
+		logError("file: "__FILE__", line: %d, " \
+			"rename file \"%s\" to \"%s\" fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, tmpFilename, filename, \
+			result, STRERROR(result));
+		return result;
+	}
+
 	return 0;
 }
 
@@ -1289,6 +1368,7 @@ int set_nonblock(int fd)
 
 int set_run_by(const char *group_name, const char *username)
 {
+#ifndef WIN32
 	struct group *pGroup;
 	struct passwd *pUser;
 	int nErrNo;
@@ -1335,6 +1415,7 @@ int set_run_by(const char *group_name, const char *username)
 			return nErrNo;
 		}
 	}
+#endif
 
 	return 0;
 }
@@ -1889,38 +1970,6 @@ int buffer_memcpy(BufferInfo *pBuff, const char *buff, const int len)
 	}
 
 	memcpy(pBuff->buff, buff, pBuff->length);
-	return 0;
-}
-
-int getExecResult(const char *command, char *output, const int buff_size)
-{
-	FILE *fp;
-	char *pCurrent;
-	int bytes_read;
-	int remain_bytes;
-
-	if((fp=popen(command, "r")) == NULL)
-	{
-		return errno != 0 ? errno : EMFILE;
-	}
-
-	pCurrent = output;
-	remain_bytes = buff_size;
-	while (remain_bytes > 0 && \
-		(bytes_read=fread(pCurrent, 1, remain_bytes, fp)) > 0)
-	{
-		pCurrent += bytes_read;
-		remain_bytes -= bytes_read;
-	}
-
-	pclose(fp);
-
-	if (remain_bytes <= 0)
-	{
-		return ENOSPC;
-	}
-
-	*pCurrent = '\0';
 	return 0;
 }
 
