@@ -1,4 +1,7 @@
 
+Version 1.16  2011-02-10
+ * 
+
 Version 1.15  2011-01-31
  * strerror change to STRERROR macro
  * bug fixed: server/func.c: load_group_servers type mismatched
