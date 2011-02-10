@@ -1666,7 +1666,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 				}
 				logInfo("file: "__FILE__", line: %d, " \
 					"successfully connect to " \
-					"storage server %s:%d%s", __LINE__, \
+					"DHT server %s:%d%s", __LINE__, \
 					fdht_server.ip_addr, \
 					fdht_server.port, szFailPrompt);
 				nContinuousFail = 0;
@@ -1676,7 +1676,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 			if (previousCode != conn_result)
 			{
 				logError("file: "__FILE__", line: %d, " \
-					"connect to storage server %s:%d fail" \
+					"connect to DHT server %s:%d fail" \
 					", errno: %d, error info: %s", \
 					__LINE__, \
 					fdht_server.ip_addr, fdht_server.port, \
@@ -1693,7 +1693,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 		if (nContinuousFail > 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
-				"connect to storage server %s:%d fail, " \
+				"connect to DHT server %s:%d fail, " \
 				"try count: %d, errno: %d, error info: %s", \
 				__LINE__, fdht_server.ip_addr, \
 				fdht_server.port, nContinuousFail, \
@@ -1903,7 +1903,7 @@ static int fdht_sync_thread_start(const FDHTGroupServer *pDestServer)
 	}
 
 	/*
-	//printf("start storage ip_addr: %s:%d, g_fdht_sync_thread_count=%d\n", 
+	//printf("start DHT ip_addr: %s:%d, g_fdht_sync_thread_count=%d\n", 
 			pDestServer->ip_addr, pDestServer->port, g_fdht_sync_thread_count);
 	*/
 
