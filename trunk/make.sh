@@ -96,6 +96,7 @@ if [ "$1" = "install" ]; then
       mkdir -p /etc/fdht
       cp -f conf/fdhtd.conf /etc/fdht/
       cp -f conf/fdht_servers.conf /etc/fdht/
+      cp -f conf/fdht_client.conf /etc/fdht/
       cp -f init.d/fdhtd /etc/rc.d/init.d/
       /sbin/chkconfig --add fdhtd
     fi

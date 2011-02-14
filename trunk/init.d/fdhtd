@@ -13,7 +13,7 @@
 . /etc/init.d/functions
 
 PRG=/usr/local/bin/fdhtd
-CONF=/etc/fdht/dhtd.conf
+CONF=/etc/fdht/fdhtd.conf
 
 if [ ! -f $PRG ]; then
   echo "file $PRG does not exist!"
