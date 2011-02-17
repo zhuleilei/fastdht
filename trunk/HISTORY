@@ -1,7 +1,8 @@
 
-Version 1.16  2011-02-14
+Version 1.16  2011-02-17
  * cp fdht_client.conf to /etc/fdht/
  * init.d/fdhtd correct config file name
+ * bug fixed: write_to_binlog_index then increase g_binlog_index
 
 Version 1.15  2011-01-31
  * strerror change to STRERROR macro

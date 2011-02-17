@@ -305,7 +305,7 @@ static int fdht_sync_data(BinLogReader *pReader, \
 	return result;
 }
 
-static int write_to_binlog_index()
+static int write_to_binlog_index(const int binlog_index)
 {
 	char full_filename[MAX_PATH_SIZE];
 	char buff[16];
@@ -325,7 +325,7 @@ static int write_to_binlog_index()
 		return errno != 0 ? errno : ENOENT;
 	}
 
-	len = sprintf(buff, "%d", g_binlog_index);
+	len = sprintf(buff, "%d", binlog_index);
 	if (write(fd, buff, len) != len)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -338,6 +338,8 @@ static int write_to_binlog_index()
 	}
 
 	close(fd);
+
+	g_binlog_index = binlog_index;
 	return 0;
 }
 
@@ -573,8 +575,7 @@ int fdht_sync_init()
 	}
 	else
 	{
-		g_binlog_index = 0;
-		if ((result=write_to_binlog_index()) != 0)
+		if ((result=write_to_binlog_index(0)) != 0)
 		{
 			return result;
 		}
@@ -1031,8 +1032,8 @@ static int fdht_binlog_fsync(const bool bNeedLock)
 		g_binlog_file_size += write_len;
 		if (g_binlog_file_size >= SYNC_BINLOG_FILE_MAX_SIZE)
 		{
-			g_binlog_index++;
-			if ((write_ret=write_to_binlog_index()) == 0)
+			if ((write_ret=write_to_binlog_index( \
+					g_binlog_index + 1)) == 0)
 			{
 				write_ret = open_next_writable_binlog();
 			}
@@ -1144,8 +1145,8 @@ static int fdht_binlog_direct_write(const time_t timestamp, const char op_type,\
 
 	if (g_binlog_file_size >= SYNC_BINLOG_FILE_MAX_SIZE)
 	{
-		g_binlog_index++;
-		if ((result=write_to_binlog_index()) == 0)
+		if ((result=write_to_binlog_index( \
+				g_binlog_index + 1)) == 0)
 		{
 			result = open_next_writable_binlog();
 		}
