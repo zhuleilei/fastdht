@@ -646,3 +646,110 @@ int db_clear_expired_keys(void *arg)
 	return success_count;
 }
 
+int db_get_keys(StoreHandle *pHandle, const char *full_key, \
+		const int full_key_len, char *key_list, int *value_len, \
+		char **key_array, int *key_count)
+{
+	int result;
+
+	*value_len = FDHT_KEY_LIST_MAX_SIZE - 1;
+	result = db_get(pHandle, full_key, full_key_len, &key_list, value_len);
+	if (result == ENOENT)
+	{
+		*value_len = 0;
+	}
+	else if (result != 0)
+	{
+		return result;
+	}
+
+	if (*value_len == 0)
+	{
+		*key_count = 0;
+		return 0;
+	}
+
+	*(key_list + *value_len) = '\0';
+
+	*key_count = splitEx(key_list, FDHT_KEY_LIST_SEPERATOR, \
+				key_array, *key_count);
+	return 0;
+}
+
+static int db_compare_key(const void *p1, const void *p2)
+{
+	return strcmp(*((const char **)p1), *((const char **)p2));
+}
+
+int db_add_key(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
+{
+	char *p;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	char old_key_list[FDHT_KEY_LIST_MAX_SIZE];
+	char new_key_list[FDHT_KEY_LIST_MAX_SIZE];
+	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
+	char **pFound;
+	char key_name[FDHT_MAX_SUB_KEY_LEN + 1];
+	int full_key_len;
+	int key_len;
+	int value_len;
+	int key_count;
+	int result;
+	int i, k;
+
+	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
+
+	key_count = FDHT_KEY_LIST_MAX_COUNT;
+	if ((result=db_get_keys(pHandle, full_key, \
+		full_key_len, old_key_list, &value_len, \
+		key_array, &key_count)) != 0)
+	{
+		return result;
+	}
+
+	memcpy(key_name, pKeyInfo->szKey, pKeyInfo->key_len);
+	*(key_name + pKeyInfo->key_len) = '\0';
+
+	pFound = bsearch(key_name, key_array, key_count, sizeof(char *), \
+              		db_compare_key);
+	if (pFound != NULL)
+	{
+		return 0;
+	}
+
+	if (value_len + 1 + pKeyInfo->key_len >= FDHT_KEY_LIST_MAX_SIZE)
+	{
+		return ENOSPC;
+	}
+
+	p = new_key_list;
+	for (i=0; i<key_count; i++)
+	{
+		if (strcmp(key_name, key_array[i]) < 0)
+		{
+			break;
+		}
+
+		*p++ = FDHT_KEY_LIST_SEPERATOR;
+		key_len = strlen(key_array[i]);
+		memcpy(p, key_array[i], key_len);
+		p += key_len;
+	}
+
+	*p++ = FDHT_KEY_LIST_SEPERATOR;
+	memcpy(p, pKeyInfo->szKey, pKeyInfo->key_len);
+	p += pKeyInfo->key_len;
+
+	for (k=i; k<key_count; k++)
+	{
+		*p++ = FDHT_KEY_LIST_SEPERATOR;
+		key_len = strlen(key_array[k]);
+		memcpy(p, key_array[k], key_len);
+		p += key_len;
+	}
+
+	value_len = (p - new_key_list) - 1;
+	return db_set(pHandle, full_key, full_key_len, \
+			new_key_list + 1, value_len);
+}
+

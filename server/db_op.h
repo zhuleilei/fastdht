@@ -17,6 +17,7 @@
 #include <db.h>
 #include "store.h"
 #include "fdht_define.h"
+#include "fdht_types.h"
 
 typedef DBTYPE DBType;
 
@@ -50,6 +51,9 @@ int db_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 void *bdb_dl_detect_entrance(void *arg);
 
 int db_clear_expired_keys(void *arg);
+
+int db_add_key(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo);
+int db_del_key(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo);
 
 #ifdef __cplusplus
 }
