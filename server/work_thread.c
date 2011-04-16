@@ -496,6 +496,7 @@ static int deal_cmd_get(struct task_info *pTask)
 	int value_len;
 	int result;
 
+	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(12, pTask, nInBodyLen, key_info, \
@@ -644,6 +645,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 	int value_len;
 	int result;
 
+	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(20, pTask, nInBodyLen, key_info, \
@@ -809,7 +811,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 	int old_len;
 	int new_size;
 
-
+	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
@@ -1036,6 +1038,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 	int full_key_len;
 	int result;
 
+	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
@@ -1438,7 +1441,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	int value_len;
 	int result;
 
-
+	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
@@ -1522,6 +1525,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 	int result;
 	char *p;
 
+	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(12, pTask, nInBodyLen, key_info, \
@@ -1594,6 +1598,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 	int result;
 	int lock_res;
 
+	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
 	PARSE_COMMON_BODY_BEFORE_KEY(16, pTask, nInBodyLen, key_info, \
