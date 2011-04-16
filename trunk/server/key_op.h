@@ -23,18 +23,22 @@
 extern "C" {
 #endif
 
+extern bool g_store_key_list;
+
 int key_get(StoreHandle *pHandle, const char *full_key, \
 		const int full_key_len, char *key_list, int *value_len, \
 		char **key_array, int *key_count);
 
-int key_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo);
-int key_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo);
+int key_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
+		const int key_hash_code);
+int key_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
+		const int key_hash_code);
 
 int key_batch_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
-	FDHTSubKey *subKeys, const int sub_key_count);
+	const int key_hash_code, FDHTSubKey *subKeys, const int sub_key_count);
 
 int key_batch_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
-	FDHTSubKey *subKeys, const int sub_key_count);
+	const int key_hash_code, FDHTSubKey *subKeys, const int sub_key_count);
 
 #ifdef __cplusplus
 }
