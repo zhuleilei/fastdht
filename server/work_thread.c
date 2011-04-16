@@ -35,7 +35,8 @@
 #include "task_queue.h"
 #include "fdht_io.h"
 #include "func.h"
-#include "db_op.h"
+#include "store.h"
+#include "key_op.h"
 #include "sync.h"
 #include "mpool_op.h"
 
@@ -644,6 +645,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 	int full_key_len;
 	int value_len;
 	int result;
+	FDHTSubKey subKeys[FDHT_MAX_KEY_COUNT_PER_REQ];
 
 	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
@@ -732,6 +734,16 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 					pSrc + 4, value_len - 4);
 			}
 
+			if (g_store_key_list)
+			{
+				subKeys[success_count].key_len = \
+						key_info.key_len;
+				memcpy(subKeys[success_count].szKey, \
+					key_info.szKey, key_info.key_len);
+				*(subKeys[success_count].szKey + \
+					key_info.key_len) = '\0';
+			}
+
 			success_count++;
 		}
 
@@ -750,6 +762,12 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 
 	if (success_count > 0)
 	{
+		if (g_store_key_list)
+		{
+			key_batch_add(g_db_list[group_id], &key_info, \
+				key_hash_code, subKeys, success_count);
+		}
+
 		int2buff(success_count, pTask->data + sizeof(FDHTProtoHeader) + 4);
 		pTask->length = pDest - pTask->data;
 		int2buff(new_expires, ((FDHTProtoHeader *)pTask->data)->expires);
@@ -1037,6 +1055,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 	char *p;  //tmp var
 	int full_key_len;
 	int result;
+	FDHTSubKey subKeys[FDHT_MAX_KEY_COUNT_PER_REQ];
 
 	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
@@ -1124,6 +1143,16 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 					&key_info, NULL, 0);
 			}
 
+			if (g_store_key_list)
+			{
+				subKeys[success_count].key_len = \
+						key_info.key_len;
+				memcpy(subKeys[success_count].szKey, \
+					key_info.szKey, key_info.key_len);
+				*(subKeys[success_count].szKey + \
+					key_info.key_len) = '\0';
+			}
+
 			success_count++;
 		}
 	}
@@ -1140,6 +1169,12 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 
 	if (success_count > 0)
 	{
+		if (g_store_key_list)
+		{
+			key_batch_del(g_db_list[group_id], &key_info, \
+				key_hash_code, subKeys, success_count);
+		}
+
 		int2buff(success_count, pTask->data + sizeof(FDHTProtoHeader) + 4);
 		pTask->length = pDest - pTask->data;
 		return 0;
@@ -1493,6 +1528,11 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 			fdht_binlog_write(timestamp, op_type, key_hash_code, \
 				new_expires, &key_info, pValue+4, value_len-4);
 		}
+
+		if (g_store_key_list)
+		{
+			key_add(g_db_list[group_id], &key_info, key_hash_code);
+		}
 	}
 
 	return result;
@@ -1559,6 +1599,11 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 			}
 			fdht_binlog_write(timestamp, op_type, key_hash_code, \
 				FDHT_EXPIRES_NEVER, &key_info, NULL, 0);
+		}
+
+		if (g_store_key_list)
+		{
+			key_del(g_db_list[group_id], &key_info, key_hash_code);
 		}
 	}
 
@@ -1659,6 +1704,11 @@ static int deal_cmd_inc(struct task_info *pTask)
 		int2buff(value_len, pTask->data + sizeof(FDHTProtoHeader));
 		memcpy(((FDHTProtoHeader *)pTask->data)->expires, value, 4);
 		memcpy(pTask->data+sizeof(FDHTProtoHeader)+4, value+4, value_len);
+
+		if (g_store_key_list)
+		{
+			key_add(g_db_list[group_id], &key_info, key_hash_code);
+		}
 	}
 	else
 	{
