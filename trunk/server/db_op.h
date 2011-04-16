@@ -52,9 +52,6 @@ void *bdb_dl_detect_entrance(void *arg);
 
 int db_clear_expired_keys(void *arg);
 
-int db_add_key(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo);
-int db_del_key(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo);
-
 #ifdef __cplusplus
 }
 #endif
