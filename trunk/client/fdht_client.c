@@ -377,6 +377,7 @@ int fdht_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	//printf("get group_id=%d\n", group_id);
 
 	pGroup = pGroupArray->groups + group_id;
+	result = ENOENT;
 	for (i=0; i<=pGroup->count; i++)
 	{
 	pServer = get_readable_connection(pGroup, bKeepAlive, \
@@ -544,6 +545,8 @@ int fdht_batch_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	CALC_OBJECT_HASH_CODE(pObjectInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
 	pGroup = pGroupArray->groups + group_id;
+
+	result = ENOENT;
 	for (i=0; i<=pGroup->count; i++)
 	{
 	pServer = get_writable_connection(pGroup, bKeepAlive, \
@@ -727,6 +730,8 @@ int fdht_batch_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	CALC_OBJECT_HASH_CODE(pObjectInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
 	pGroup = pGroupArray->groups + group_id;
+
+	result = ENOENT;
 	for (i=0; i<=pGroup->count; i++)
 	{
 	pServer = get_readable_connection(pGroup, bKeepAlive, \
@@ -879,6 +884,8 @@ int fdht_batch_get_ex1(GroupArray *pGroupArray, const bool bKeepAlive, \
 	CALC_OBJECT_HASH_CODE(pObjectInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
 	pGroup = pGroupArray->groups + group_id;
+
+	result = ENOENT;
 	for (i=0; i<=pGroup->count; i++)
 	{
 	pServer = get_readable_connection(pGroup, bKeepAlive, \
@@ -1088,8 +1095,9 @@ int fdht_set_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
-
 	pGroup = pGroupArray->groups + group_id;
+
+	result = ENOENT;
 	for (i=0; i<=pGroup->count; i++)
 	{
 	pServer = get_writable_connection(pGroup, bKeepAlive, \
@@ -1162,6 +1170,8 @@ int fdht_inc_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
 	pGroup = pGroupArray->groups + group_id;
+
+	result = ENOENT;
 	for (i=0; i<=pGroup->count; i++)
 	{
 	pServer = get_writable_connection(pGroup, bKeepAlive, \
@@ -1269,6 +1279,8 @@ int fdht_delete_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 	CALC_KEY_HASH_CODE(pKeyInfo, hash_key, hash_key_len, key_hash_code)
 	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
 	pGroup = pGroupArray->groups + group_id;
+
+	result = ENOENT;
 	for (i=0; i<=pGroup->count; i++)
 	{
 	pServer = get_writable_connection(pGroup, bKeepAlive, \
@@ -1447,6 +1459,91 @@ int fdht_stat_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 				result, STRERROR(result));
 			break;
 		}
+	} while (0);
+
+	if (bKeepAlive)
+	{
+		if (result >= ENETDOWN) //network error
+		{
+			fdht_disconnect_server(pServer);
+			if (result == ENOTCONN)
+			{
+				continue;  //retry
+			}
+		}
+	}
+	else
+	{
+		fdht_disconnect_server(pServer);
+	}
+
+	break;
+	}
+
+	return result;
+}
+
+int fdht_get_sub_keys_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
+		FDHTObjectInfo *pObjectInfo, char *key_list, \
+		const int key_size)
+{
+	int result;
+	FDHTProtoHeader *pHeader;
+	char hash_key[FDHT_MAX_FULL_KEY_LEN + 1];
+	char buff[sizeof(FDHTProtoHeader) + FDHT_MAX_FULL_KEY_LEN];
+	int in_bytes;
+	int group_id;
+	int hash_key_len;
+	int key_hash_code;
+	int i;
+	char *p;
+	ServerArray *pGroup;
+	FDHTServerInfo *pServer;
+
+	CALC_OBJECT_HASH_CODE(pObjectInfo, hash_key, hash_key_len, key_hash_code)
+	group_id = ((unsigned int)key_hash_code) % pGroupArray->group_count;
+	pGroup = pGroupArray->groups + group_id;
+
+	result = ENOENT;
+	for (i=0; i<=pGroup->count; i++)
+	{
+	pServer = get_readable_connection(pGroup, bKeepAlive, \
+			key_hash_code, &result);
+	if (pServer == NULL)
+	{
+		return result;
+	}
+
+	memset(buff, 0, sizeof(buff));
+	pHeader = (FDHTProtoHeader *)buff;
+
+	pHeader->cmd = FDHT_PROTO_CMD_GET_SUB_KEYS;
+	pHeader->keep_alive = bKeepAlive;
+	int2buff(key_hash_code, pHeader->key_hash_code);
+
+	p = buff + sizeof(FDHTProtoHeader);
+	PACK_BODY_OBJECT(pObjectInfo, p)
+
+	do
+	{
+		int2buff((p - buff) - sizeof(FDHTProtoHeader), pHeader->pkg_len);
+		if ((result=tcpsenddata_nb(pServer->sock, buff, p - buff, \
+			g_fdht_network_timeout)) != 0)
+		{
+			logError("send data to server %s:%d fail, " \
+				"errno: %d, error info: %s", \
+				pServer->ip_addr, pServer->port, \
+				result, STRERROR(result));
+			break;
+		}
+
+		if ((result=fdht_recv_response(pServer, &key_list, \
+					key_size - 1, &in_bytes)) != 0)
+		{
+			break;
+		}
+
+		*(key_list + in_bytes) = '\0';
 	} while (0);
 
 	if (bKeepAlive)

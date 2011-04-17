@@ -224,6 +224,20 @@ return: 0 for success, != 0 for fail (errno)
 int fdht_stat_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
 		const int server_index, char *buff, const int size);
 
+/*
+get sub keys of an object
+param:
+	pGroupArray: group info, can use &g_group_array
+	bKeepAlive: persistent connection flag, true for persistent connection
+	pObjectInfo:  the object to fetch, namespace and object id can't be empty
+	key_list: store the sub keys
+	key_size: the key buff size
+return: 0 for success, != 0 for fail (errno)
+*/
+int fdht_get_sub_keys_ex(GroupArray *pGroupArray, const bool bKeepAlive, \
+		FDHTObjectInfo *pObjectInfo, char *key_list, \
+		const int key_size);
+
 #ifdef __cplusplus
 }
 #endif
