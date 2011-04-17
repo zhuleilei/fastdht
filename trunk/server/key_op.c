@@ -13,7 +13,7 @@
 #include "global.h"
 #include "func.h"
 
-bool g_store_key_list = false;
+bool g_store_sub_keys = false;
 static pthread_mutex_t *locks;
 static int lock_count = 0;
 
@@ -23,7 +23,7 @@ int key_init()
 	pthread_mutex_t *lock_end;
 	int result;
 
-	if (!g_store_key_list)
+	if (!g_store_sub_keys)
 	{
 		return 0;
 	}
@@ -57,18 +57,18 @@ int key_init()
 	return 0;
 }
 
-int key_destroy()
+void key_destroy()
 {
 	pthread_mutex_t *pLock;
 	pthread_mutex_t *lock_end;
-	if (!g_store_key_list)
+	if (!g_store_sub_keys)
 	{
-		return 0;
+		return;
 	}
 
 	if (locks == NULL)
 	{
-		return 0;
+		return;
 	}
 
 	lock_end = locks + lock_count;
@@ -79,10 +79,10 @@ int key_destroy()
 
 	free(locks);
 	locks = NULL;
-	return 0;
+	return;
 }
 
-int key_get(StoreHandle *pHandle, const char *full_key, \
+static int key_do_get(StoreHandle *pHandle, const char *full_key, \
 		const int full_key_len, char *key_list, int *value_len, \
 		char **key_array, int *key_count)
 {
@@ -136,7 +136,7 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
-	if ((result=key_get(pHandle, full_key, \
+	if ((result=key_do_get(pHandle, full_key, \
 		full_key_len, old_key_list, &value_len, \
 		key_array, &key_count)) != 0)
 	{
@@ -205,7 +205,7 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
-	if ((result=key_get(pHandle, full_key, \
+	if ((result=key_do_get(pHandle, full_key, \
 		full_key_len, old_key_list, &value_len, \
 		key_array, &key_count)) != 0)
 	{
@@ -282,7 +282,7 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
-	if ((result=key_get(pHandle, full_key, \
+	if ((result=key_do_get(pHandle, full_key, \
 		full_key_len, old_key_list, &value_len, \
 		key_array, &key_count)) != 0)
 	{
@@ -412,7 +412,7 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
-	if ((result=key_get(pHandle, full_key, \
+	if ((result=key_do_get(pHandle, full_key, \
 		full_key_len, old_key_list, &value_len, \
 		key_array, &key_count)) != 0)
 	{
@@ -556,5 +556,27 @@ int key_batch_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	pthread_mutex_unlock(locks + index);
 
 	return result;
+}
+
+int key_get(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
+		char *key_list, int *keys_len)
+{
+	char *p;
+	char full_key[FDHT_MAX_FULL_KEY_LEN];
+	int full_key_len;
+
+	if (!g_store_sub_keys)
+	{
+		return EOPNOTSUPP;
+	}
+
+	if (pKeyInfo->namespace_len <= 0 || pKeyInfo->obj_id_len <= 0)
+	{
+		return EINVAL;
+	}
+
+	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
+	return g_func_get(pHandle, full_key, full_key_len, \
+				&key_list, keys_len);
 }
 

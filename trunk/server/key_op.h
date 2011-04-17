@@ -23,11 +23,13 @@
 extern "C" {
 #endif
 
-extern bool g_store_key_list;
+extern bool g_store_sub_keys;
 
-int key_get(StoreHandle *pHandle, const char *full_key, \
-		const int full_key_len, char *key_list, int *value_len, \
-		char **key_array, int *key_count);
+int key_init();
+void key_destroy();
+
+int key_get(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
+		char *key_list, int *keys_len);
 
 int key_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		const int key_hash_code);
