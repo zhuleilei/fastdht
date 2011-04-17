@@ -77,6 +77,7 @@ const zend_fcall_info empty_fcall_info = { 0, NULL, NULL, NULL, NULL, 0, NULL, N
 		ZEND_FE(fastdht_batch_delete, NULL)
 		ZEND_FE(fastdht_stat, NULL)
 		ZEND_FE(fastdht_stat_all, NULL)
+		ZEND_FE(fastdht_get_sub_keys, NULL)
 		{NULL, NULL, NULL}  /* Must be the last line */
 	};
 
@@ -494,6 +495,84 @@ return 0 for success, != 0 for error
 ZEND_FUNCTION(fastdht_batch_get)
 {
 	php_fdht_batch_get_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+		&g_group_array, g_keep_alive);
+}
+
+static void php_fdht_get_sub_keys_impl(INTERNAL_FUNCTION_PARAMETERS, \
+		GroupArray *pGroupArray, bool bKeepAlive)
+{
+	int argc;
+	char *szNamespace;
+	char *szObjectId;
+	bool return_errno;
+	char sub_keys[FDHT_KEY_LIST_MAX_SIZE];
+	char **ppKey;
+	char **ppEnd;
+	int result;
+	int key_count;
+	FDHTObjectInfo obj_info;
+	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
+
+	argc = ZEND_NUM_ARGS();
+	if (argc != 2 && argc != 3)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_get_sub_keys parameters count: %d != 2 or 3", \
+			__LINE__, argc);
+		RETURN_LONG(EINVAL);
+	}
+
+	return_errno = false;
+	if (zend_parse_parameters(argc TSRMLS_CC, "ss|b", &szNamespace, 
+		&obj_info.namespace_len, &szObjectId, &obj_info.obj_id_len, 
+		&return_errno) == FAILURE)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"fastdht_batch_get parameter parse error!", __LINE__);
+		RETURN_LONG(EINVAL);
+	}
+
+	FASTDHT_FILL_OBJECT(obj_info, szNamespace, szObjectId)
+
+	/*
+	logInfo("szNamespace=%s(%d), szObjectId=%s(%d), "
+		"expires=%ld", szNamespace, obj_info.namespace_len, 
+		szObjectId, obj_info.obj_id_len, expires);
+	*/
+
+	result = fdht_get_sub_keys_ex(pGroupArray, bKeepAlive, \
+			&obj_info, sub_keys, sizeof(sub_keys));
+	if (result != 0)
+	{
+		if (return_errno)
+		{
+			RETURN_LONG(result);
+		}
+		else
+		{
+			RETURN_BOOL(false);
+		}
+	}
+
+	array_init(return_value);
+
+	key_count = splitEx(sub_keys, FDHT_KEY_LIST_SEPERATOR, \
+			key_array, FDHT_KEY_LIST_MAX_COUNT);
+	ppEnd = key_array + key_count;
+	for (ppKey=key_array; ppKey<ppEnd; ppKey++)
+	{
+		add_next_index_string(return_value, *ppKey, 1);
+	}
+}
+
+/*
+array/int/boolean fastdht_get_sub_keys(string namespace, string object_id, \
+		[, bool return_errno])
+return 0 for success, != 0 for error
+*/
+ZEND_FUNCTION(fastdht_get_sub_keys)
+{
+	php_fdht_get_sub_keys_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
 		&g_group_array, g_keep_alive);
 }
 
@@ -1183,6 +1262,21 @@ PHP_METHOD(FastDHT, batch_delete)
 }
 
 /*
+array/int/boolean FastDHT::get_sub_keys(string namespace, string object_id, \
+		[, bool return_errno])
+return 0 for success, != 0 for error
+*/
+PHP_METHOD(FastDHT, get_sub_keys)
+{
+	zval *object = getThis();
+	php_fdht_t *i_obj;
+
+	i_obj = (php_fdht_t *) zend_object_store_get_object(object TSRMLS_CC);
+	php_fdht_get_sub_keys_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, \
+		i_obj->pGroupArray, true);
+}
+
+/*
 void FastDHT::close()
 */
 PHP_METHOD(FastDHT, close)
@@ -1274,6 +1368,12 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_batch_delete, 0, 0, 3)
 	ZEND_ARG_INFO(0, key_list)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_get_sub_keys, 0, 0, 2)
+	ZEND_ARG_INFO(0, szNamespace)
+	ZEND_ARG_INFO(0, szObjectId)
+	ZEND_ARG_INFO(0, return_errno)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_close, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
@@ -1298,6 +1398,7 @@ static zend_function_entry fdht_class_methods[] = {
     FDHT_ME(batch_get,          arginfo_batch_get)
     FDHT_ME(batch_set,          arginfo_batch_set)
     FDHT_ME(batch_delete,       arginfo_batch_delete)
+    FDHT_ME(get_sub_keys,       arginfo_get_sub_keys)
     FDHT_ME(stat,               arginfo_stat)
     FDHT_ME(stat_all,           arginfo_stat_all)
     { NULL, NULL, NULL }

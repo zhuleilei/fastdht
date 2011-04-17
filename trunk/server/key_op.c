@@ -144,10 +144,12 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 		return result;
 	}
 
+	/*
 	for (i=0; i<key_count; i++)
 	{
 		logInfo("file: "__FILE__", line: %d: %s", __LINE__, key_array[i]);
 	}
+	*/
 
 	p = pKeyInfo->szKey;
 	ppTargetKey = &p;
