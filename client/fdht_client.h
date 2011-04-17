@@ -100,6 +100,10 @@ void fdht_client_destroy();
 #define fdht_stat(server_index, buff, size) \
 	fdht_stat_ex((&g_group_array), g_keep_alive, server_index, buff, size)
 
+#define fdht_get_sub_keys(pObjectInfo, key_list, key_size) \
+	fdht_get_sub_keys_ex((&g_group_array), g_keep_alive, \
+				pObjectInfo, key_list, key_size)
+
 /*
 get value of the key
 param:
