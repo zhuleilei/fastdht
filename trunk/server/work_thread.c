@@ -1057,7 +1057,7 @@ static int deal_cmd_get_sub_keys(struct task_info *pTask)
 	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
 
-	PARSE_COMMON_BODY_BEFORE_KEY(10, pTask, nInBodyLen, key_info, \
+	PARSE_COMMON_BODY_BEFORE_KEY(7, pTask, nInBodyLen, key_info, \
 			pNameSpace, pObjectId)
 	if (nInBodyLen != 8 + key_info.namespace_len + key_info.obj_id_len)
 	{

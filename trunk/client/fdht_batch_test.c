@@ -78,8 +78,7 @@ int main(int argc, char *argv[])
 	//expires = time(NULL) + 3600;
 	memset(&object_info, 0, sizeof(object_info));
 	object_info.namespace_len = sprintf(object_info.szNameSpace, "user");
-	object_info.obj_id_len = sprintf(object_info.szObjectId, "happyfish");
-
+	object_info.obj_id_len = sprintf(object_info.szObjectId, "happy_fish");
 
 	memset(key_list, 0, sizeof(key_list));
 	key_count = 4;
