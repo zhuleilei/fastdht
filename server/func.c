@@ -26,6 +26,7 @@
 #include "store.h"
 #include "db_op.h"
 #include "mpool_op.h"
+#include "key_op.h"
 
 #define DB_FILE_PREFIX_MAX_SIZE  32
 #define FDHT_STAT_FILENAME		"stat.dat"
@@ -856,6 +857,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 		g_thread_stack_size = (int)thread_stack_size;
 
+		g_store_sub_keys = iniGetBoolValue(NULL, "store_sub_keys", \
+						&iniContext, false);
+
 		logInfo("FastDHT v%d.%02d, base_path=%s, " \
 			"total group count=%d, my group count=%d, " \
 			"group server count=%d, " \
@@ -877,7 +881,8 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"compress_binlog_interval=%ds, " \
 			"sync_stat_file_interval=%ds, " \
 			"write_mark_file_freq=%d, " \
-			"thread_stack_size=%d KB, if_alias_prefix=%s",  \
+			"thread_stack_size=%d KB, if_alias_prefix=%s, " \
+			"store_sub_keys=%d",  \
 			g_fdht_version.major, g_fdht_version.minor, \
 			g_fdht_base_path, g_group_count, *group_count, \
 			g_group_server_count, g_fdht_connect_timeout, \
@@ -895,8 +900,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			sz_compress_binlog_time_base, \
 			g_compress_binlog_interval, g_sync_stat_file_interval, \
  			g_write_mark_file_freq, g_thread_stack_size/1024, \
-			g_if_alias_prefix);
-
+			g_if_alias_prefix, g_store_sub_keys);
 	} while (0);
 
 	iniFreeContext(&iniContext);
@@ -1110,6 +1114,11 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 		result = fdht_load_stat_from_file();
 	}
 
+	if ((result=key_init()) != 0)
+	{
+		return result;
+	}
+
 	return result;
 }
 
@@ -1138,6 +1147,8 @@ void fdht_func_destroy()
 		free(g_group_servers);
 		g_group_servers = NULL;
 	}
+
+	key_destroy();
 }
 
 int fdht_write_to_fd(int fd, get_filename_func filename_func, \

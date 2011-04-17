@@ -59,6 +59,7 @@ static int deal_cmd_batch_get(struct task_info *pTask);
 static int deal_cmd_batch_set(struct task_info *pTask);
 static int deal_cmd_batch_del(struct task_info *pTask);
 static int deal_cmd_stat(struct task_info *pTask);
+static int deal_cmd_get_sub_keys(struct task_info *pTask);
 
 int work_thread_init()
 {
@@ -321,6 +322,9 @@ int work_deal_task(struct task_info *pTask)
 			break;
 		case FDHT_PROTO_CMD_STAT:
 			result = deal_cmd_stat(pTask);
+			break;
+		case FDHT_PROTO_CMD_GET_SUB_KEYS:
+			result = deal_cmd_get_sub_keys(pTask);
 			break;
 		default:
 			logError("file: "__FILE__", line: %d, " \
@@ -738,7 +742,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 					pSrc + 4, value_len - 4);
 			}
 
-			if (g_store_key_list)
+			if (g_store_sub_keys)
 			{
 				subKeys[success_count].key_len = \
 						key_info.key_len;
@@ -766,7 +770,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 
 	if (success_count > 0)
 	{
-		if (g_store_key_list)
+		if (g_store_sub_keys)
 		{
 			if (success_count > 1)
 			{
@@ -1033,6 +1037,60 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 *       namespace: can be emtpy
 *       obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
+* response body format:
+*       sub key list: FDHT_KEY_LIST_SEPERATOR split sub keys
+*/
+static int deal_cmd_get_sub_keys(struct task_info *pTask)
+{
+	int nInBodyLen;
+	FDHTKeyInfo key_info;
+	int key_hash_code;
+	int group_id;
+	int timestamp;
+	int new_expires;
+	char *pNameSpace;
+	char *pObjectId;
+	char *key_list;
+	int result;
+	int keys_len;
+
+	memset(&key_info, 0, sizeof(key_info));
+	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
+
+	PARSE_COMMON_BODY_BEFORE_KEY(10, pTask, nInBodyLen, key_info, \
+			pNameSpace, pObjectId)
+	if (nInBodyLen != 8 + key_info.namespace_len + key_info.obj_id_len)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, body length: %d != %d", \
+			__LINE__, pTask->client_ip, nInBodyLen, \
+			8 + key_info.namespace_len + key_info.obj_id_len);
+		pTask->length = sizeof(FDHTProtoHeader);
+		return EINVAL;
+	}
+
+	keys_len = pTask->size - sizeof(FDHTProtoHeader);
+	key_list = pTask->data + sizeof(FDHTProtoHeader);
+	result = key_get(g_db_list[group_id], &key_info, \
+                	key_list, &keys_len);
+	if (result == 0)
+	{
+		pTask->length = sizeof(FDHTProtoHeader) + keys_len;
+		return 0;
+	}
+	else
+	{
+		pTask->length = sizeof(FDHTProtoHeader);
+		return result;
+	}
+}
+
+/**
+* request body format:
+*       namespace_len:  4 bytes big endian integer
+*       namespace: can be emtpy
+*       obj_id_len:  4 bytes big endian integer
+*       object_id: the object id (can be empty)
 *       key_count: 4 bytes key count (big endian integer), must > 0
 *       key_len*:  4 bytes big endian integer
 *       key*:      key name
@@ -1152,7 +1210,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 					&key_info, NULL, 0);
 			}
 
-			if (g_store_key_list)
+			if (g_store_sub_keys)
 			{
 				subKeys[success_count].key_len = \
 						key_info.key_len;
@@ -1178,7 +1236,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 
 	if (success_count > 0)
 	{
-		if (g_store_key_list)
+		if (g_store_sub_keys)
 		{
 			if (success_count > 1)
 			{
@@ -1544,7 +1602,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 				new_expires, &key_info, pValue+4, value_len-4);
 		}
 
-		if (g_store_key_list)
+		if (g_store_sub_keys)
 		{
 			key_add(g_db_list[group_id], &key_info, key_hash_code);
 		}
@@ -1616,7 +1674,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 				FDHT_EXPIRES_NEVER, &key_info, NULL, 0);
 		}
 
-		if (g_store_key_list)
+		if (g_store_sub_keys)
 		{
 			key_del(g_db_list[group_id], &key_info, key_hash_code);
 		}
@@ -1720,7 +1778,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 		memcpy(((FDHTProtoHeader *)pTask->data)->expires, value, 4);
 		memcpy(pTask->data+sizeof(FDHTProtoHeader)+4, value+4, value_len);
 
-		if (g_store_key_list)
+		if (g_store_sub_keys)
 		{
 			key_add(g_db_list[group_id], &key_info, key_hash_code);
 		}
