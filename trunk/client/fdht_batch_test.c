@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
 	int expires;
 	FDHTObjectInfo object_info;
 	FDHTKeyValuePair key_list[32];
+	char sub_keys[16 * 1024];
 	int key_count;
 	int success_count;
 	int i;
@@ -141,14 +142,37 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		if ((result=fdht_get_sub_keys(&object_info, sub_keys, \
+			sizeof(sub_keys))) != 0)
+		{
+			printf("fdht_get_sub_keys fail, " \
+				"errno: %d, error info: %s\n", \
+				result, STRERROR(result));
+		}
+		else
+		{
+			printf("sub keys after batch set: %s\n", sub_keys);
+		}
+
 		if ((result=fdht_batch_delete(&object_info, key_list, \
 				key_count, &success_count)) != 0)
 		{
 			printf("fdht_batch_delete result=%d\n", result);
 			break;
 		}
-
 		printf("fdht_batch_delete success count: %d\n", success_count);
+
+		if ((result=fdht_get_sub_keys(&object_info, sub_keys, \
+			sizeof(sub_keys))) != 0)
+		{
+			printf("fdht_get_sub_keys fail, " \
+				"errno: %d, error info: %s\n", \
+				result, STRERROR(result));
+		}
+		else
+		{
+			printf("sub keys after batch delete: %s\n", sub_keys);
+		}
 	} while(0);
 
 	if (g_keep_alive)
