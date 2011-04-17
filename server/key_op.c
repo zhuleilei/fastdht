@@ -27,8 +27,8 @@ int key_init()
 	{
 		return 0;
 	}
-
-	lock_count = g_thread_count;
+	
+	lock_count = g_max_threads;
 	if (lock_count % 2 == 0)
 	{
 		lock_count += 1;
