@@ -604,6 +604,10 @@ static int deal_cmd_get(struct task_info *pTask)
  \
 			pTask->size = new_size; \
 
+static int compare_sub_key(const void *p1, const void *p2)
+{
+	return strcmp(((FDHTSubKey *)p1)->szKey, ((FDHTSubKey *)p2)->szKey);
+}
 
 /**
 * request body format:
@@ -764,6 +768,11 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 	{
 		if (g_store_key_list)
 		{
+			if (success_count > 1)
+			{
+				qsort(subKeys, success_count, \
+					sizeof(FDHTSubKey), compare_sub_key);
+			}
 			key_batch_add(g_db_list[group_id], &key_info, \
 				key_hash_code, subKeys, success_count);
 		}
@@ -1171,6 +1180,12 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 	{
 		if (g_store_key_list)
 		{
+			if (success_count > 1)
+			{
+				qsort(subKeys, success_count, \
+					sizeof(FDHTSubKey), compare_sub_key);
+			}
+
 			key_batch_del(g_db_list[group_id], &key_info, \
 				key_hash_code, subKeys, success_count);
 		}
