@@ -258,6 +258,7 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	char **ppKeyEnd;
 	FDHTSubKey *pSubKey;
 	FDHTSubKey *pSubEnd;
+	char *pPreviousKey;
 	int full_key_len;
 	int key_len;
 	int value_len;
@@ -312,15 +313,12 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		{
 			memcpy(p, pSubKey->szKey, pSubKey->key_len);
 			p += pSubKey->key_len;
-
-			pSubKey++;
 		}
 		else if (compare == 0)
 		{
 			memcpy(p, pSubKey->szKey, pSubKey->key_len);
 			p += pSubKey->key_len;
 
-			pSubKey++;
 			ppKey++;
 		}
 		else
@@ -330,6 +328,19 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 			p += key_len;
 
 			ppKey++;
+			continue;
+		}
+
+		pPreviousKey = pSubKey->szKey;
+		pSubKey++;
+		while (pSubKey < pSubEnd)
+		{
+			if (strcmp(pSubKey->szKey, pPreviousKey) != 0)
+			{
+				break;
+			}
+
+			pSubKey++;
 		}
 	}
 
@@ -339,7 +350,17 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		memcpy(p, pSubKey->szKey, pSubKey->key_len);
 		p += pSubKey->key_len;
 
+		pPreviousKey = pSubKey->szKey;
 		pSubKey++;
+		while (pSubKey < pSubEnd)
+		{
+			if (strcmp(pSubKey->szKey, pPreviousKey) != 0)
+			{
+				break;
+			}
+
+			pSubKey++;
+		}
 	}
 
 	while (ppKey < ppKeyEnd)
