@@ -125,7 +125,8 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 	char old_key_list[FDHT_KEY_LIST_MAX_SIZE];
 	char new_key_list[FDHT_KEY_LIST_MAX_SIZE];
 	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
-	char **pFound;
+	char **ppTargetKey;
+	char **ppFound;
 	int full_key_len;
 	int key_len;
 	int value_len;
@@ -143,9 +144,16 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 		return result;
 	}
 
-	pFound = bsearch(pKeyInfo->szKey, key_array, key_count, \
+	for (i=0; i<key_count; i++)
+	{
+		logInfo("file: "__FILE__", line: %d: %s", __LINE__, key_array[i]);
+	}
+
+	p = pKeyInfo->szKey;
+	ppTargetKey = &p;
+	ppFound = (char **)bsearch(ppTargetKey, key_array, key_count, \
 			sizeof(char *), key_compare);
-	if (pFound != NULL)
+	if (ppFound != NULL)
 	{
 		return 0;
 	}
@@ -193,7 +201,8 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 	char old_key_list[FDHT_KEY_LIST_MAX_SIZE];
 	char new_key_list[FDHT_KEY_LIST_MAX_SIZE];
 	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
-	char **pFound;
+	char **ppTargetKey;
+	char **ppFound;
 	int full_key_len;
 	int key_len;
 	int value_len;
@@ -212,9 +221,11 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 		return result;
 	}
 
-	pFound = bsearch(pKeyInfo->szKey, key_array, key_count, \
+	p = pKeyInfo->szKey;
+	ppTargetKey = &p;
+	ppFound = (char **)bsearch(ppTargetKey, key_array, key_count, \
 			sizeof(char *), key_compare);
-	if (pFound == NULL)
+	if (ppFound == NULL)
 	{
 		logWarning("file: "__FILE__", line: %d, " \
 			"namespace: %s, object id: %s, key: %s not exist!", \
@@ -223,7 +234,7 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo)
 		return 0;
 	}
 
-	index = pFound - key_array;
+	index = ppFound - key_array;
 	p = new_key_list;
 	for (i=0; i<index; i++)
 	{
@@ -426,7 +437,6 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	ppKeyEnd = key_array + key_count;
 	while (pSubKey < pSubEnd && ppKey < ppKeyEnd)
 	{
-		*p++ = FDHT_KEY_LIST_SEPERATOR;
 		compare = strcmp(pSubKey->szKey, *ppKey);
 		if (compare < 0)
 		{
@@ -444,6 +454,7 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		}
 		else
 		{
+			*p++ = FDHT_KEY_LIST_SEPERATOR;
 			key_len = strlen(*ppKey);
 			memcpy(p, *ppKey, key_len);
 			p += key_len;
