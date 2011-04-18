@@ -137,7 +137,10 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	int result;
 	int i, k;
 
-	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
+	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
+	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
+	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
+	FDHT_PACK_FULL_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
 	if ((result=key_do_get(pHandle, full_key, \
@@ -202,9 +205,6 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
-	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
-	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
 	return fdht_binlog_write(time(NULL), \
 		FDHT_OP_TYPE_SOURCE_SET, \
 		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
@@ -230,7 +230,10 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	int result;
 	int i;
 
-	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
+	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
+	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
+	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
+	FDHT_PACK_FULL_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
 	if ((result=key_do_get(pHandle, full_key, \
@@ -279,9 +282,6 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
-	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
-	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
 	return fdht_binlog_write(time(NULL), \
 		FDHT_OP_TYPE_SOURCE_SET, \
 		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
@@ -323,7 +323,10 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return key_do_add(pHandle, pKeyInfo, key_hash_code);
 	}
 
-	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
+	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
+	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
+	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
+	FDHT_PACK_FULL_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
 	if ((result=key_do_get(pHandle, full_key, \
@@ -433,9 +436,6 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
-	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
-	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
 	return fdht_binlog_write(time(NULL), \
 		FDHT_OP_TYPE_SOURCE_SET, \
 		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
@@ -474,7 +474,10 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return key_do_del(pHandle, pKeyInfo, key_hash_code);
 	}
 
-	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
+	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
+	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
+	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
+	FDHT_PACK_FULL_KEY((*pKeyInfo), full_key, full_key_len, p)
 
 	key_count = FDHT_KEY_LIST_MAX_COUNT;
 	if ((result=key_do_get(pHandle, full_key, \
@@ -546,9 +549,6 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
-	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
-	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
 	return fdht_binlog_write(time(NULL), \
 		FDHT_OP_TYPE_SOURCE_SET, \
 		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
@@ -643,6 +643,7 @@ int key_get(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	char *p;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	int full_key_len;
+	FDHTKeyInfo keyInfo2log;
 
 	if (!g_store_sub_keys)
 	{
@@ -654,7 +655,10 @@ int key_get(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return EINVAL;
 	}
 
-	FDHT_PACK_LIST_KEY((*pKeyInfo), full_key, full_key_len, p)
+	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
+	keyInfo2log.key_len = FDHT_LIST_KEY_NAME_LEN;
+	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
+	FDHT_PACK_FULL_KEY((*pKeyInfo), full_key, full_key_len, p)
 	return g_func_get(pHandle, full_key, full_key_len, \
 				&key_list, keys_len);
 }

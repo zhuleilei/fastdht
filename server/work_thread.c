@@ -469,6 +469,17 @@ int work_deal_task(struct task_info *pTask)
 	pKey = pObjectId + key_info.obj_id_len + 4; \
 	memcpy(key_info.szKey, pKey, key_info.key_len); \
 
+#define CHECK_SUB_KEY_NAME(key_info) \
+	if (key_info.key_len == FDHT_LIST_KEY_NAME_LEN && memcmp( \
+		key_info.szKey, FDHT_LIST_KEY_NAME_STR, \
+		FDHT_LIST_KEY_NAME_LEN) == 0) \
+	{ \
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, invalid sub key name: %s", \
+			__LINE__, pTask->client_ip, FDHT_LIST_KEY_NAME_STR); \
+		pTask->length = sizeof(FDHTProtoHeader); \
+		return EINVAL; \
+	}
 
 /**
 * request body format:
@@ -521,6 +532,7 @@ static int deal_cmd_get(struct task_info *pTask)
 		return EINVAL;
 	}
 
+	CHECK_SUB_KEY_NAME(key_info)
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	pValue = pTask->data + sizeof(FDHTProtoHeader);
@@ -707,6 +719,8 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 		}
 		memcpy(key_info.szKey, pSrc + 4, key_info.key_len);
 		pSrc += 4 + key_info.key_len;
+
+		CHECK_SUB_KEY_NAME(key_info)
 
 		value_len = buff2int(pSrc);
 		if (nInBodyLen < common_fileds_len + (pSrc - pSrcStart) + \
@@ -917,6 +931,8 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 		}
 		memcpy(key_info.szKey, pSrc + 4, key_info.key_len);
 		pSrc += 4 + key_info.key_len;
+
+		CHECK_SUB_KEY_NAME(key_info)
 
 		old_len = pDest - pTask->data;
 		value_len = 9 + key_info.key_len;
@@ -1190,6 +1206,8 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 		}
 		memcpy(key_info.szKey, pSrc + 4, key_info.key_len);
 		pSrc += 4 + key_info.key_len;
+
+		CHECK_SUB_KEY_NAME(key_info)
 
 		int2buff(key_info.key_len, pDest);
 		pDest += 4;
@@ -1577,6 +1595,12 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 		pTask->length = sizeof(FDHTProtoHeader);
 		return  EINVAL;
 	}
+
+	if (op_type == FDHT_OP_TYPE_SOURCE_SET)
+	{
+		CHECK_SUB_KEY_NAME(key_info)
+	}
+
 	pValue = pKey + key_info.key_len;
 
 	int2buff(new_expires, pValue);
@@ -1602,7 +1626,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 				new_expires, &key_info, pValue+4, value_len-4);
 		}
 
-		if (g_store_sub_keys)
+		if (g_store_sub_keys && op_type == FDHT_OP_TYPE_SOURCE_SET)
 		{
 			key_add(g_db_list[group_id], &key_info, key_hash_code);
 		}
@@ -1658,6 +1682,11 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 		return  EINVAL;
 	}
 
+	if (op_type == FDHT_OP_TYPE_SOURCE_DEL)
+	{
+		CHECK_SUB_KEY_NAME(key_info)
+	}
+
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
 
 	pTask->length = sizeof(FDHTProtoHeader);
@@ -1674,7 +1703,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 				FDHT_EXPIRES_NEVER, &key_info, NULL, 0);
 		}
 
-		if (g_store_sub_keys)
+		if (g_store_sub_keys && op_type == FDHT_OP_TYPE_SOURCE_DEL)
 		{
 			key_del(g_db_list[group_id], &key_info, key_hash_code);
 		}
@@ -1735,6 +1764,8 @@ static int deal_cmd_inc(struct task_info *pTask)
 		pTask->length = sizeof(FDHTProtoHeader);
 		return  EINVAL;
 	}
+
+	CHECK_SUB_KEY_NAME(key_info)
 
 	inc = buff2int(pKey + key_info.key_len);
 
