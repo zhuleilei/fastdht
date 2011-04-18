@@ -1038,7 +1038,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 *       obj_id_len:  4 bytes big endian integer
 *       object_id: the object id (can be empty)
 * response body format:
-*       sub key list: FDHT_KEY_LIST_SEPERATOR split sub keys
+*       sub key list: FDHT_FULL_KEY_SEPERATOR split sub keys
 */
 static int deal_cmd_get_sub_keys(struct task_info *pTask)
 {
