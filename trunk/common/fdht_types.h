@@ -24,7 +24,6 @@ extern "C" {
 #define FDHT_MAX_OBJECT_ID_LEN	128
 #define FDHT_MAX_SUB_KEY_LEN	128
 #define FDHT_FULL_KEY_SEPERATOR	'\x1'
-#define FDHT_KEY_LIST_SEPERATOR	'\x2'
 
 #define FDHT_KEY_LIST_MAX_COUNT 4096
 #define FDHT_KEY_LIST_MAX_SIZE  (64 * 1024)
@@ -59,10 +58,10 @@ extern "C" {
 	p = full_key; \
 	memcpy(p, key_info.szNameSpace, key_info.namespace_len); \
 	p += key_info.namespace_len; \
-	*p++ = FDHT_KEY_LIST_SEPERATOR; /*field seperator*/  \
+	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
 	memcpy(p, key_info.szObjectId, key_info.obj_id_len); \
 	p += key_info.obj_id_len; \
-	*p++ = FDHT_KEY_LIST_SEPERATOR; /*field seperator*/  \
+	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
 	memcpy(p, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN); \
 	p += FDHT_LIST_KEY_NAME_LEN; \
 	full_key_len = p - full_key;
