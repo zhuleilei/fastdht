@@ -54,18 +54,6 @@ extern "C" {
 	p += key_info.key_len; \
 	full_key_len = p - full_key;
 
-#define FDHT_PACK_LIST_KEY(key_info, full_key, full_key_len, p) \
-	p = full_key; \
-	memcpy(p, key_info.szNameSpace, key_info.namespace_len); \
-	p += key_info.namespace_len; \
-	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
-	memcpy(p, key_info.szObjectId, key_info.obj_id_len); \
-	p += key_info.obj_id_len; \
-	*p++ = FDHT_FULL_KEY_SEPERATOR; /*field seperator*/  \
-	memcpy(p, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN); \
-	p += FDHT_LIST_KEY_NAME_LEN; \
-	full_key_len = p - full_key;
-	
 typedef struct
 {
 	int namespace_len;

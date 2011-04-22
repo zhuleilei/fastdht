@@ -1085,6 +1085,9 @@ static int deal_cmd_get_sub_keys(struct task_info *pTask)
 		return EINVAL;
 	}
 
+	key_info.key_len = FDHT_LIST_KEY_NAME_LEN;
+	memcpy(key_info.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
+
 	keys_len = pTask->size - sizeof(FDHTProtoHeader);
 	key_list = pTask->data + sizeof(FDHTProtoHeader);
 	result = key_get(g_db_list[group_id], &key_info, \
@@ -1609,6 +1612,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 	pTask->length = sizeof(FDHTProtoHeader);
 
 	FDHT_PACK_FULL_KEY(key_info, full_key, full_key_len, p)
+
 	result = g_func_set(g_db_list[group_id], full_key, full_key_len, \
 			pValue, value_len);
 	if (result == 0)
