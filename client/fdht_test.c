@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 		value_len = sizeof(szValue);
 		if ((result=fdht_get_ex(&key_info, expires, &value, &value_len)) != 0)
 		{
-			printf("result=%d\n", result);
+			printf("fdht_get_ex result=%d\n", result);
 			break;
 		}
 
