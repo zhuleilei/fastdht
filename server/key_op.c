@@ -151,6 +151,7 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
+	/*
 	logInfo("file: "__FILE__", line: %d: value len=%d, key_count=%d", \
 		__LINE__, value_len, key_count);
 	for (i=0; i<key_count; i++)
@@ -158,6 +159,7 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		logInfo("file: "__FILE__", line: %d: %d. key=%s", __LINE__, \
 			i+1, key_array[i]);
 	}
+	*/
 
 	p = pKeyInfo->szKey;
 	ppTargetKey = &p;
@@ -167,9 +169,6 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	{
 		return 0;
 	}
-
-	logInfo("file: "__FILE__", line: %d: ppFound=%p, key to add=%s(%d)", 
-		__LINE__, ppFound, pKeyInfo->szKey, strlen(pKeyInfo->szKey));
 
 	if (value_len + 1 + pKeyInfo->key_len >= FDHT_KEY_LIST_MAX_SIZE)
 	{
@@ -202,11 +201,7 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		p += key_len;
 	}
 
-	*p = '\0';
 	value_len = (p - new_key_list) - 1;
-
-	logInfo("file: "__FILE__", line: %d: keylist=%s(%d)", __LINE__, new_key_list + 1, value_len);
-	
 	result = g_func_set(pHandle, full_key, full_key_len, \
 			new_key_list + 1, value_len);
 	if (result != 0)
@@ -214,10 +209,17 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	return fdht_binlog_write(time(NULL), \
-		FDHT_OP_TYPE_SOURCE_SET, \
-		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-		new_key_list + 1, value_len);
+	if (g_write_to_binlog_flag)
+	{
+		return fdht_binlog_write(time(NULL), \
+			FDHT_OP_TYPE_SOURCE_SET, \
+			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
+			new_key_list + 1, value_len);
+	}
+	else
+	{
+		return result;
+	}
 }
 
 static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
@@ -285,6 +287,10 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	}
 
 	value_len = (p - new_key_list) - 1;
+	if (value_len < 0)
+	{
+		value_len = 0;
+	}
 	result = g_func_set(pHandle, full_key, full_key_len, \
 			new_key_list + 1, value_len);
 	if (result != 0)
@@ -292,10 +298,17 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	return fdht_binlog_write(time(NULL), \
-		FDHT_OP_TYPE_SOURCE_SET, \
-		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-		new_key_list + 1, value_len);
+	if (g_write_to_binlog_flag)
+	{
+		return fdht_binlog_write(time(NULL), \
+			FDHT_OP_TYPE_SOURCE_SET, \
+			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
+			new_key_list + 1, value_len);
+	}
+	else
+	{
+		return result;
+	}
 }
 
 static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
@@ -346,6 +359,19 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	{
 		return result;
 	}
+
+	/*
+	{
+	int i;
+	logInfo("file: "__FILE__", line: %d: value len=%d, key_count=%d", \
+		__LINE__, value_len, key_count);
+	for (i=0; i<key_count; i++)
+	{
+		logInfo("file: "__FILE__", line: %d: %d. key=%s", __LINE__, \
+			i+1, key_array[i]);
+	}
+	}
+	*/
 
 	total_len = 0;
 	pSubEnd = subKeys + sub_key_count;
@@ -447,10 +473,17 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	return fdht_binlog_write(time(NULL), \
-		FDHT_OP_TYPE_SOURCE_SET, \
-		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-		new_key_list + 1, value_len);
+	if (g_write_to_binlog_flag)
+	{
+		return fdht_binlog_write(time(NULL), \
+			FDHT_OP_TYPE_SOURCE_SET, \
+			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
+			new_key_list + 1, value_len);
+	}
+	else
+	{
+		return result;
+	}
 }
 
 static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
@@ -554,6 +587,10 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	}
 
 	value_len = (p - new_key_list) - 1;
+	if (value_len < 0)
+	{
+		value_len = 0;
+	}
 	result = g_func_set(pHandle, full_key, full_key_len, \
 			new_key_list + 1, value_len);
 	if (result != 0)
@@ -561,10 +598,18 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	return fdht_binlog_write(time(NULL), \
-		FDHT_OP_TYPE_SOURCE_SET, \
-		key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-		new_key_list + 1, value_len);
+	
+	if (g_write_to_binlog_flag)
+	{
+		return fdht_binlog_write(time(NULL), \
+			FDHT_OP_TYPE_SOURCE_SET, \
+			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
+			new_key_list + 1, value_len);
+	}
+	else
+	{
+		return result;
+	}
 }
 
 int key_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
