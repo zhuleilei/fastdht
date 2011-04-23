@@ -1088,13 +1088,13 @@ static int deal_cmd_get_sub_keys(struct task_info *pTask)
 	key_info.key_len = FDHT_LIST_KEY_NAME_LEN;
 	memcpy(key_info.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
 
-	keys_len = pTask->size - sizeof(FDHTProtoHeader);
-	key_list = pTask->data + sizeof(FDHTProtoHeader);
+	keys_len = pTask->size - sizeof(FDHTProtoHeader) + 4;
+	key_list = pTask->data + sizeof(FDHTProtoHeader) - 4;
 	result = key_get(g_db_list[group_id], &key_info, \
                 	key_list, &keys_len);
 	if (result == 0)
 	{
-		pTask->length = sizeof(FDHTProtoHeader) + keys_len;
+		pTask->length = sizeof(FDHTProtoHeader) + (keys_len - 4);
 		return 0;
 	}
 	else

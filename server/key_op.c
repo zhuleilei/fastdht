@@ -89,7 +89,7 @@ static int key_do_get(StoreHandle *pHandle, const char *full_key, \
 {
 	int result;
 
-	*value_len = FDHT_KEY_LIST_MAX_SIZE - 1;
+	*value_len = 4 + FDHT_KEY_LIST_MAX_SIZE - 1;
 	result = g_func_get(pHandle, full_key, full_key_len, \
 				&key_list, value_len);
 	if (result == ENOENT)
@@ -101,15 +101,16 @@ static int key_do_get(StoreHandle *pHandle, const char *full_key, \
 		return result;
 	}
 
-	if (*value_len == 0)
+	if (*value_len <= 4)
 	{
+		*value_len = 0;
 		*(key_list + *value_len) = '\0';
 		*key_count = 0;
 		return 0;
 	}
 
 	*(key_list + *value_len) = '\0';
-	*key_count = splitEx(key_list, FDHT_FULL_KEY_SEPERATOR, \
+	*key_count = splitEx(key_list + 4, FDHT_FULL_KEY_SEPERATOR, \
 				key_array, *key_count);
 	return 0;
 }
@@ -119,13 +120,53 @@ static int key_compare(const void *p1, const void *p2)
 	return strcmp(*((const char **)p1), *((const char **)p2));
 }
 
+static int key_do_set(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
+		const int key_hash_code, const char *full_key, \
+		const int full_key_len, char *value, int value_len)
+{
+	int result;
+	int op_type;
+	int expire;
+
+	expire = FDHT_EXPIRES_NEVER;
+	if (value_len > 4)
+	{
+		op_type = FDHT_OP_TYPE_SOURCE_SET;
+		int2buff(expire, value);
+		result = g_func_set(pHandle, full_key, full_key_len, \
+					value, value_len);
+	}
+	else
+	{
+		value_len = 4;
+		op_type = FDHT_OP_TYPE_SOURCE_DEL;
+		result = g_func_delete(pHandle, full_key, full_key_len);
+	}
+
+	if (result != 0)
+	{
+		return result;
+	}
+
+	if (g_write_to_binlog_flag)
+	{
+		return fdht_binlog_write(time(NULL), \
+			op_type, key_hash_code, expire, \
+			pKeyInfo, value + 4, value_len - 4);
+	}
+	else
+	{
+		return result;
+	}
+}
+
 static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 			const int key_hash_code)
 {
 	char *p;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
-	char old_key_list[FDHT_KEY_LIST_MAX_SIZE];
-	char new_key_list[FDHT_KEY_LIST_MAX_SIZE];
+	char old_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
+	char new_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
 	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
 	char **ppTargetKey;
 	char **ppFound;
@@ -135,6 +176,7 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	int value_len;
 	int key_count;
 	int result;
+	int expire;
 	int i, k;
 
 	memcpy(&keyInfo2log, pKeyInfo, sizeof(FDHTKeyInfo));
@@ -175,7 +217,7 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return ENOSPC;
 	}
 
-	p = new_key_list;
+	p = new_key_list + 3;
 	for (i=0; i<key_count; i++)
 	{
 		if (strcmp(pKeyInfo->szKey, key_array[i]) < 0)
@@ -201,9 +243,11 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		p += key_len;
 	}
 
-	value_len = (p - new_key_list) - 1;
+	expire = FDHT_EXPIRES_NEVER;
+	int2buff(expire, new_key_list);
+	value_len = p - new_key_list;
 	result = g_func_set(pHandle, full_key, full_key_len, \
-			new_key_list + 1, value_len);
+			new_key_list, value_len);
 	if (result != 0)
 	{
 		return result;
@@ -213,8 +257,8 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	{
 		return fdht_binlog_write(time(NULL), \
 			FDHT_OP_TYPE_SOURCE_SET, \
-			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-			new_key_list + 1, value_len);
+			key_hash_code, expire, &keyInfo2log, \
+			new_key_list + 4, value_len - 4);
 	}
 	else
 	{
@@ -227,8 +271,8 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 {
 	char *p;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
-	char old_key_list[FDHT_KEY_LIST_MAX_SIZE];
-	char new_key_list[FDHT_KEY_LIST_MAX_SIZE];
+	char old_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
+	char new_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
 	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
 	char **ppTargetKey;
 	char **ppFound;
@@ -269,7 +313,7 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	}
 
 	index = ppFound - key_array;
-	p = new_key_list;
+	p = new_key_list + 3;
 	for (i=0; i<index; i++)
 	{
 		*p++ = FDHT_FULL_KEY_SEPERATOR;
@@ -286,29 +330,10 @@ static int key_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		p += key_len;
 	}
 
-	value_len = (p - new_key_list) - 1;
-	if (value_len < 0)
-	{
-		value_len = 0;
-	}
-	result = g_func_set(pHandle, full_key, full_key_len, \
-			new_key_list + 1, value_len);
-	if (result != 0)
-	{
-		return result;
-	}
-
-	if (g_write_to_binlog_flag)
-	{
-		return fdht_binlog_write(time(NULL), \
-			FDHT_OP_TYPE_SOURCE_SET, \
-			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-			new_key_list + 1, value_len);
-	}
-	else
-	{
-		return result;
-	}
+	value_len = p - new_key_list;
+	return key_do_set(pHandle, &keyInfo2log, \
+		key_hash_code, full_key, \
+		full_key_len, new_key_list, value_len);
 }
 
 static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
@@ -316,8 +341,8 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 {
 	char *p;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
-	char old_key_list[FDHT_KEY_LIST_MAX_SIZE];
-	char new_key_list[FDHT_KEY_LIST_MAX_SIZE];
+	char old_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
+	char new_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
 	int add_key_count;
 	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
 	char **ppKey;
@@ -333,6 +358,7 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	int key_count;
 	int result;
 	int compare;
+	int expire;
 
 	if (sub_key_count == 0)
 	{
@@ -386,7 +412,7 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	}
 
 	add_key_count = 0;
-	p = new_key_list;
+	p = new_key_list + 3;
 	pSubKey = subKeys;
 	ppKey = key_array;
 	ppKeyEnd = key_array + key_count;
@@ -465,9 +491,11 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		ppKey++;
 	}
 
-	value_len = (p - new_key_list) - 1;
+	expire = FDHT_EXPIRES_NEVER;
+	int2buff(expire, new_key_list);
+	value_len = p - new_key_list;
 	result = g_func_set(pHandle, full_key, full_key_len, \
-			new_key_list + 1, value_len);
+			new_key_list, value_len);
 	if (result != 0)
 	{
 		return result;
@@ -477,8 +505,8 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	{
 		return fdht_binlog_write(time(NULL), \
 			FDHT_OP_TYPE_SOURCE_SET, \
-			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-			new_key_list + 1, value_len);
+			key_hash_code, expire, &keyInfo2log, \
+			new_key_list + 4, value_len - 4);
 	}
 	else
 	{
@@ -491,8 +519,8 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 {
 	char *p;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
-	char old_key_list[FDHT_KEY_LIST_MAX_SIZE];
-	char new_key_list[FDHT_KEY_LIST_MAX_SIZE];
+	char old_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
+	char new_key_list[4 + FDHT_KEY_LIST_MAX_SIZE];
 	char *key_array[FDHT_KEY_LIST_MAX_COUNT];
 	char **ppKey;
 	char **ppKeyEnd;
@@ -532,7 +560,7 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		return result;
 	}
 
-	p = new_key_list;
+	p = new_key_list + 3;
 	pSubKey = subKeys;
 	ppKey = key_array;
 	pSubEnd = subKeys + sub_key_count;
@@ -586,30 +614,10 @@ static int key_batch_do_del(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 		ppKey++;
 	}
 
-	value_len = (p - new_key_list) - 1;
-	if (value_len < 0)
-	{
-		value_len = 0;
-	}
-	result = g_func_set(pHandle, full_key, full_key_len, \
-			new_key_list + 1, value_len);
-	if (result != 0)
-	{
-		return result;
-	}
-
-	
-	if (g_write_to_binlog_flag)
-	{
-		return fdht_binlog_write(time(NULL), \
-			FDHT_OP_TYPE_SOURCE_SET, \
-			key_hash_code, FDHT_EXPIRES_NEVER, &keyInfo2log, \
-			new_key_list + 1, value_len);
-	}
-	else
-	{
-		return result;
-	}
+	value_len = p - new_key_list;
+	return key_do_set(pHandle, &keyInfo2log, \
+		key_hash_code, full_key, \
+		full_key_len, new_key_list, value_len);
 }
 
 int key_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
@@ -700,6 +708,7 @@ int key_get(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	char *p;
 	char full_key[FDHT_MAX_FULL_KEY_LEN];
 	int full_key_len;
+	int result;
 	FDHTKeyInfo keyInfo2log;
 
 	if (!g_store_sub_keys)
@@ -717,7 +726,13 @@ int key_get(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 	memcpy(keyInfo2log.szKey, FDHT_LIST_KEY_NAME_STR, \
 		FDHT_LIST_KEY_NAME_LEN + 1);
 	FDHT_PACK_FULL_KEY(keyInfo2log, full_key, full_key_len, p)
-	return g_func_get(pHandle, full_key, full_key_len, \
+	result = g_func_get(pHandle, full_key, full_key_len, \
 				&key_list, keys_len);
+	if (result != 0)
+	{
+		return result;
+	}
+
+	return *keys_len > 4 ? 0 : ENOENT;
 }
 

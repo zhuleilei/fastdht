@@ -67,6 +67,26 @@ int main(int argc, char *argv[])
 	key_info.obj_id_len = sprintf(key_info.szObjectId, "happy_fish");
 	key_info.key_len = sprintf(key_info.szKey, "reg");
 
+	memset(&object_info, 0, sizeof(object_info));
+	object_info.namespace_len = key_info.namespace_len;
+	object_info.obj_id_len = key_info.obj_id_len;
+
+	memcpy(object_info.szNameSpace, key_info.szNameSpace, \
+		key_info.namespace_len);
+	memcpy(object_info.szObjectId, key_info.szObjectId, \
+		key_info.obj_id_len);
+
+	if ((result=fdht_get_sub_keys(&object_info, sub_keys, \
+		sizeof(sub_keys))) != 0)
+	{
+		printf("fdht_get_sub_keys fail, errno: %d, error info: %s\n", \
+			result, STRERROR(result));
+	}
+	else
+	{
+		printf("sub keys: %s\n", sub_keys);
+	}
+
 	//key_info.obj_id_len = sprintf(key_info.szObjectId, "o%d", 1234567);
 	//key_info.key_len = sprintf(key_info.szKey, "k%d", 97865432);
 
@@ -129,15 +149,6 @@ int main(int argc, char *argv[])
 			printf("%s\n", stat_buff);
 		}
 	}
-
-	memset(&object_info, 0, sizeof(object_info));
-	object_info.namespace_len = key_info.namespace_len;
-	object_info.obj_id_len = key_info.obj_id_len;
-
-	memcpy(object_info.szNameSpace, key_info.szNameSpace, \
-		key_info.namespace_len);
-	memcpy(object_info.szObjectId, key_info.szObjectId, \
-		key_info.obj_id_len);
 
 	if ((result=fdht_get_sub_keys(&object_info, sub_keys, \
 		sizeof(sub_keys))) != 0)

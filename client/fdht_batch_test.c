@@ -83,9 +83,9 @@ int main(int argc, char *argv[])
 	memset(key_list, 0, sizeof(key_list));
 	key_count = 4;
 	key_list[0].key_len = sprintf(key_list[0].szKey, "login");
-	key_list[1].key_len = sprintf(key_list[1].szKey, "reg");
+	key_list[1].key_len = sprintf(key_list[1].szKey, "reg_time");
 	key_list[2].key_len = sprintf(key_list[2].szKey, "intl");
-	key_list[3].key_len = sprintf(key_list[3].szKey, "co");
+	key_list[3].key_len = sprintf(key_list[3].szKey, "coutry");
 	do
 	{
 		key_list[0].pValue = "happyfish";
