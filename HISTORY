@@ -1,6 +1,7 @@
 
-Version 1.17  2011-04-23
+Version 1.17  2011-04-24
  * maintain object's key list
+ * add tools: client/fdht_set and client/fdht_get
 
 Version 1.16  2011-02-17
  * cp fdht_client.conf to /etc/fdht/

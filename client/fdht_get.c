@@ -31,30 +31,30 @@
 void usage(const char *program)
 {
 	printf("Usage: %s <config_file> [namespace:][object id] " \
-		"<key value pairs, split by comma>\n" \
+		"<key list split by comma>\n" \
+		"\tkey is * means get all keys of the object\n"
 		"\tsuch as: %s /etc/fdht/fdht_client.conf " \
-		"bbs:happyfish name=yq,sex=M,mail=xxx@domain.com\n", \
+		"bbs:happyfish name,sex,mail\n", \
 		program, program);
 }
 
 int main(int argc, char *argv[])
 {
 	char *conf_filename;
-	char *kv_arg;
-	char *kv_buff;
+	char *keys_arg;
+	char *keys_buff;
 	char *parts2[2];
-	char **kv_pairs;
-	char **key_value;
+	char **keys;
 	FDHTKeyValuePair *key_list;
 	FDHTKeyValuePair *pKeyValuePair;
+	char sub_keys[FDHT_KEY_LIST_MAX_SIZE];
 	char object_buff[FDHT_MAX_NAMESPACE_LEN + FDHT_MAX_OBJECT_ID_LEN + 2];
+	char key_seperator;
 	int result;
 	int expires;
-	int kv_len;
 	int key_count;
 	int success_count;
 	int fail_count;
-	int count;
 	int i;
 	FDHTObjectInfo object_info;
 	FDHTKeyInfo key_info;
@@ -77,11 +77,11 @@ int main(int argc, char *argv[])
 	memset(&object_info, 0, sizeof(FDHTObjectInfo));
 	if (argc == 3)
 	{
-		kv_arg = argv[2];
+		keys_arg = argv[2];
 	}
 	else
 	{
-		kv_arg = argv[3];
+		keys_arg = argv[3];
 		snprintf(object_buff, sizeof(object_buff), "%s", argv[2]);
 		if (splitEx(object_buff, ':', parts2, 2) != 2)
 		{
@@ -121,20 +121,12 @@ int main(int argc, char *argv[])
 			object_info.obj_id_len);
 	}
 
-	kv_len = strlen(kv_arg);
-	if (kv_len == 0)
+	if (*keys_arg == '\0')
 	{
-		printf("invalid empty key value pair!\n");
+		printf("invalid empty keys!\n");
 		return EINVAL;
 	}
 
-	kv_buff = strdup(kv_arg);
-	if (kv_buff == NULL)
-	{
-		printf("strdup %d bytes fail!\n", (int)strlen(kv_arg));
-		return ENOMEM;
-	}
-	
 	log_init();
 
 	g_log_context.log_level = LOG_DEBUG;
@@ -145,58 +137,70 @@ int main(int argc, char *argv[])
 
 	log_set_cache(false);
 
-	expires = FDHT_EXPIRES_NEVER;
-	memset(&key_info, 0, sizeof(key_info));
-	kv_pairs = split(kv_buff, ',', 0, &key_count);
-
-	if (object_info.namespace_len > 0)
+	if (strcmp(keys_arg, "*") == 0)
 	{
-		key_list = (FDHTKeyValuePair *)malloc(sizeof(FDHTKeyValuePair) \
-				* key_count);
-		if (key_list == NULL)
+		if (object_info.namespace_len == 0)
 		{
-			printf("malloc %d bytes fail!\n", \
-				(int)sizeof(FDHTKeyValuePair) * key_count);
-			return ENOMEM;
+			printf("use must specify namespace and object Id!\n");
+			return EINVAL;
 		}
-		memset(key_list, 0, sizeof(FDHTKeyValuePair) * key_count);
+
+		result = fdht_get_sub_keys(&object_info, sub_keys, \
+				sizeof(sub_keys));
+		if (result != 0)
+		{
+			printf("get sub key of %s:%s fail, " \
+				"errno: %d, error info: %s\n", \
+				object_info.szNameSpace, \
+				object_info.szObjectId, \
+				result, STRERROR(result));
+			return result;
+		}
+
+		keys_arg = sub_keys;
+		key_seperator = FDHT_FULL_KEY_SEPERATOR;
 	}
 	else
 	{
-		key_list = NULL;
+		key_seperator = ',';
 	}
+
+	keys_buff = strdup(keys_arg);
+	if (keys_buff == NULL)
+	{
+		printf("strdup %d bytes fail!\n", (int)strlen(keys_arg));
+		return ENOMEM;
+	}
+	
+	expires = FDHT_EXPIRES_NEVER;
+	memset(&key_info, 0, sizeof(key_info));
+	keys = split(keys_buff, key_seperator, 0, &key_count);
+
+	key_list = (FDHTKeyValuePair *)malloc(sizeof(FDHTKeyValuePair) \
+				* key_count);
+	if (key_list == NULL)
+	{
+		printf("malloc %d bytes fail!\n", \
+			(int)sizeof(FDHTKeyValuePair) * key_count);
+		return ENOMEM;
+	}
+	memset(key_list, 0, sizeof(FDHTKeyValuePair) * key_count);
 
 	success_count = 0;
 	fail_count = 0;
 	pKeyValuePair = key_list;
 	for (i=0; i<key_count; i++)
 	{
-		key_value = split(kv_pairs[i], '=', 0, &count);
-		if (count != 2)
-		{
-			fail_count++;
-			printf("invalid key value pair: %s\n", kv_pairs[i]);
-			continue;
-		}
-
-		if (object_info.namespace_len > 0)
-		{
-			pKeyValuePair->key_len = snprintf(pKeyValuePair->szKey, \
-				sizeof(pKeyValuePair->szKey), "%s", key_value[0]);
-			pKeyValuePair->value_len = strlen(key_value[1]);
-			pKeyValuePair->pValue = key_value[1];
-			pKeyValuePair++;
-		}
-		else
+		pKeyValuePair->key_len = snprintf(pKeyValuePair->szKey, \
+				sizeof(pKeyValuePair->szKey), "%s", keys[i]);
+		if (object_info.namespace_len == 0)
 		{
 			key_info.key_len = snprintf(key_info.szKey, \
-				sizeof(key_info.szKey), "%s", key_value[0]);
-			if ((result=fdht_set(&key_info, expires, key_value[1], \
-					strlen(key_value[1]))) != 0)
+				sizeof(key_info.szKey), "%s", keys[i]);
+			if ((pKeyValuePair->status=fdht_get(&key_info, \
+				&pKeyValuePair->pValue, \
+				&pKeyValuePair->value_len)) != 0)
 			{
-				printf("set key value pair: %s=%s fail, " \
-					"error code: %d\n", key_value[0], \
-					key_value[1], result);
 				fail_count++;
 			}
 			else
@@ -204,16 +208,22 @@ int main(int argc, char *argv[])
 				success_count++;
 			}
 		}
+
+		pKeyValuePair++;
 	}
 
 	if (object_info.namespace_len > 0)
 	{
-		result = fdht_batch_set(&object_info, key_list, \
-			pKeyValuePair - key_list, expires, &success_count);
+		result = fdht_batch_get(&object_info, key_list, \
+				pKeyValuePair - key_list, &success_count);
 		if (result != 0)
 		{
 			fail_count = pKeyValuePair - key_list;
-			printf("set keys fail, error code: %d\n", result);
+			printf("get all keys fail, " \
+				"error code: %d, error info: %s\n", \
+				result, STRERROR(result));
+			fdht_client_destroy();
+			return result;
 		}
 		else
 		{
@@ -221,7 +231,45 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	printf("success set key count: %d, fail count: %d\n", \
+	if (fail_count > 0)
+	{
+		pKeyValuePair = key_list;
+		for (i=0; i<key_count; i++)
+		{
+			if (pKeyValuePair->status == 0)
+			{
+				pKeyValuePair++;
+				continue;
+			}
+
+			printf("get key: %s fail, " \
+				"error code: %d, error info: %s\n", \
+				pKeyValuePair->szKey, pKeyValuePair->status, \
+				STRERROR(pKeyValuePair->status));
+			pKeyValuePair++;
+		}
+		printf("\n");
+	}
+
+	if (success_count > 0)
+	{
+		pKeyValuePair = key_list;
+		for (i=0; i<key_count; i++)
+		{
+			if (pKeyValuePair->status != 0)
+			{
+				pKeyValuePair++;
+				continue;
+			}
+
+			printf("%s=%s\n", pKeyValuePair->szKey, \
+				pKeyValuePair->pValue);
+			pKeyValuePair++;
+		}
+	}
+
+	printf("\n");
+	printf("success get key count: %d, fail count: %d\n", \
 		success_count, fail_count);
 
 	fdht_client_destroy();
