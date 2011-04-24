@@ -30,11 +30,13 @@ int main(int argc, char *argv[])
 	FDHTObjectInfo object_info;
 	FDHTKeyValuePair key_list[32];
 	char sub_keys[16 * 1024];
+	char *keys[FDHT_KEY_LIST_MAX_COUNT];
 	int key_count;
 	int success_count;
 	int i;
 	int conn_success_count;
 	int conn_fail_count;
+	int sub_key_count;
 
 	printf("This is FastDHT client test program v%d.%d\n" \
 "\nCopyright (C) 2008, Happy Fish / YuQing\n" \
@@ -83,9 +85,9 @@ int main(int argc, char *argv[])
 	memset(key_list, 0, sizeof(key_list));
 	key_count = 4;
 	key_list[0].key_len = sprintf(key_list[0].szKey, "login");
-	key_list[1].key_len = sprintf(key_list[1].szKey, "reg_time");
+	key_list[1].key_len = sprintf(key_list[1].szKey, "reg");
 	key_list[2].key_len = sprintf(key_list[2].szKey, "intl");
-	key_list[3].key_len = sprintf(key_list[3].szKey, "coutry");
+	key_list[3].key_len = sprintf(key_list[3].szKey, "co");
 	do
 	{
 		key_list[0].pValue = "happyfish";
@@ -150,9 +152,24 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			printf("sub keys after batch set: %s\n", sub_keys);
+			sub_key_count = splitEx(sub_keys, \
+				FDHT_FULL_KEY_SEPERATOR, keys, \
+				FDHT_KEY_LIST_MAX_COUNT);
+			printf("sub keys after batch set: ");
+			for (i=0; i<sub_key_count; i++)
+			{
+				if (i > 0)
+				{
+					printf(", ");
+				}
+
+				printf("%s", keys[i]);
+			}
+
+			printf("\n");
 		}
 
+		/*
 		if ((result=fdht_batch_delete(&object_info, key_list, \
 				key_count, &success_count)) != 0)
 		{
@@ -160,6 +177,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 		printf("fdht_batch_delete success count: %d\n", success_count);
+		*/
 
 		if ((result=fdht_get_sub_keys(&object_info, sub_keys, \
 			sizeof(sub_keys))) != 0)
