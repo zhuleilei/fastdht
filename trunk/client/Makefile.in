@@ -39,7 +39,8 @@ FDHT_HEADER_FILES = ../common/fdht_define.h  ../common/fdht_func.h  \
 
 ALL_OBJS = $(STATIC_OBJS) $(FAST_SHARED_OBJS) $(FDHT_SHARED_OBJS)
 
-ALL_PRGS = fdht_test fdht_batch_test fdht_test_thread fdht_test_set fdht_test_get
+ALL_PRGS = fdht_test fdht_batch_test fdht_test_thread fdht_test_set \
+           fdht_test_get fdht_set
 ALL_LIBS = libfastcommon.so.1 libfdhtclient.so.1
 
 all: $(ALL_OBJS) $(ALL_PRGS) $(ALL_LIBS)
