@@ -272,6 +272,21 @@ int main(int argc, char *argv[])
 	printf("success get key count: %d, fail count: %d\n", \
 		success_count, fail_count);
 
+	free(keys_buff);
+	free(key_list);
+	freeSplit(keys);
+
+	pKeyValuePair = key_list;
+	for (i=0; i<key_count; i++)
+	{
+		if (pKeyValuePair->pValue != NULL)
+		{
+			free(pKeyValuePair->pValue);
+		}
+
+		pKeyValuePair++;
+	}
+
 	fdht_client_destroy();
 	return result;
 }
