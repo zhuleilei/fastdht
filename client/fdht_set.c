@@ -174,6 +174,7 @@ int main(int argc, char *argv[])
 		key_value = split(kv_pairs[i], '=', 0, &count);
 		if (count != 2)
 		{
+			freeSplit(key_value);
 			fail_count++;
 			printf("invalid key value pair: %s\n", kv_pairs[i]);
 			continue;
@@ -204,6 +205,8 @@ int main(int argc, char *argv[])
 				success_count++;
 			}
 		}
+
+		freeSplit(key_value);
 	}
 
 	if (object_info.namespace_len > 0)
@@ -220,6 +223,13 @@ int main(int argc, char *argv[])
 			fail_count = (pKeyValuePair - key_list) - success_count;
 		}
 	}
+
+	free(kv_buff);
+	if (key_list != NULL)
+	{
+		free(key_list);
+	}
+	freeSplit(kv_pairs);
 
 	printf("success set key count: %d, fail count: %d\n", \
 		success_count, fail_count);
