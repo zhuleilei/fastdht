@@ -1069,6 +1069,7 @@ static int deal_cmd_get_sub_keys(struct task_info *pTask)
 	char *key_list;
 	int result;
 	int keys_len;
+	char saved_keep_alive;
 
 	memset(&key_info, 0, sizeof(key_info));
 	CHECK_GROUP_ID(pTask, key_hash_code, group_id, timestamp, new_expires)
@@ -1088,10 +1089,12 @@ static int deal_cmd_get_sub_keys(struct task_info *pTask)
 	key_info.key_len = FDHT_LIST_KEY_NAME_LEN;
 	memcpy(key_info.szKey, FDHT_LIST_KEY_NAME_STR, FDHT_LIST_KEY_NAME_LEN);
 
+	saved_keep_alive = ((FDHTProtoHeader *)(pTask->data))->keep_alive;
 	keys_len = pTask->size - sizeof(FDHTProtoHeader) + 4;
 	key_list = pTask->data + sizeof(FDHTProtoHeader) - 4;
 	result = key_get(g_db_list[group_id], &key_info, \
                 	key_list, &keys_len);
+	((FDHTProtoHeader *)(pTask->data))->keep_alive = saved_keep_alive;
 	if (result == 0)
 	{
 		pTask->length = sizeof(FDHTProtoHeader) + (keys_len - 4);
