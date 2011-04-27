@@ -556,7 +556,7 @@ static void php_fdht_get_sub_keys_impl(INTERNAL_FUNCTION_PARAMETERS, \
 
 	array_init(return_value);
 
-	key_count = splitEx(sub_keys, FDHT_KEY_LIST_SEPERATOR, \
+	key_count = splitEx(sub_keys, FDHT_FULL_KEY_SEPERATOR, \
 			key_array, FDHT_KEY_LIST_MAX_COUNT);
 	ppEnd = key_array + key_count;
 	for (ppKey=key_array; ppKey<ppEnd; ppKey++)
