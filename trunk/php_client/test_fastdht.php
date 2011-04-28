@@ -15,7 +15,8 @@ var_dump($fdht->get($namespace, $object_id, $key, false, time() + 30));
 
 var_dump($fdht->inc($namespace, $object_id, $key, 100));
 
-var_dump(fastdht_get_sub_keys($namespace, $object_id));
+echo "sub_keys: \n";
+var_dump($fdht->get_sub_keys($namespace, $object_id, true));
 
 echo 'delete: ' . $fdht->delete($namespace, $object_id, $key) . "\n";
 echo "\n";
@@ -40,4 +41,8 @@ else
 echo "\n";
 $stats = fastdht_stat(0);
 var_dump($stats);
+
+echo "sub_keys: \n";
+var_dump(fastdht_get_sub_keys($namespace, $object_id, true));
 ?>
+

@@ -32,6 +32,7 @@ php test_fastdht_batch.php
 
 
 ####parameters in fastdfs_client.ini####
+fastdht_client.connect_timeout: connect timeout in seconds
 fastdht_client.network_timeout: network timeout, 
                                 default value is 60 seconds
 
@@ -177,6 +178,16 @@ return array if success. key is ip_addr:port such as 10.62.164.84:11411 and
                 the value is false when return_errno set to false
 
 
+array/int/boolean fastdht_get_sub_keys(string namespace, string object_id, 
+                [, bool return_errno])
+get sub key list of the object (FDHT server must support storing sub keys)
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+return sub key array for success, else error
+
+
+
 FastDHT Class Info:
 
 class FastDHT([int config_index = 0, boolean bMultiThread = false]);
@@ -302,4 +313,12 @@ return array if success. key is ip_addr:port such as 10.62.164.84:11411 and
        the value is assoc array. 
        if fail, the value is errno (int number) when return_errno set to true,
                 the value is false when return_errno set to false
+
+array/int/boolean FastDHT::get_sub_keys(string namespace, string object_id, 
+                [, bool return_errno])
+get sub key list of the object (FDHT server must support storing sub keys)
+params:
+	namespace: the namespace of the key, can't be empty
+	object_id: the object ID of the key, can't be empty
+return sub key array for success, else error
 
