@@ -1575,6 +1575,7 @@ static int load_config_files()
 		set_log_level(log_level.value.str.val);
 	}
 
+	log_init();
 
 	if (zend_get_configuration_directive(ITEM_NAME_LOG_FILENAME, \
 			sizeof(ITEM_NAME_LOG_FILENAME), \
@@ -1582,7 +1583,6 @@ static int load_config_files()
 	{
 		if (log_filename.value.str.len > 0)
 		{
-			log_init();
 			log_set_prefix(g_fdht_base_path, log_filename.value.str.val);
 		}
 	}
