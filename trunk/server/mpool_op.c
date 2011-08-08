@@ -33,7 +33,7 @@ int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 		return errno != 0 ? errno : ENOMEM;
 	}
 
-	if ((result=hash_init_ex(g_hash_array, PJWHash, g_mpool_init_capacity,\
+	if ((result=hash_init_ex(g_hash_array, Time33Hash, g_mpool_init_capacity,\
 		g_mpool_load_factor, nCacheSize, true)) != 0)
 	{
 		return result;
