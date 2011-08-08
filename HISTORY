@@ -1,4 +1,7 @@
 
+Version 1.18  2011-08-08
+ * use hash function: Time33Hash instead of PJWHash
+
 Version 1.17  2011-04-28
  * maintain object's key list
  * add tools: client/fdht_set, client/fdht_get and client/fdht_delete

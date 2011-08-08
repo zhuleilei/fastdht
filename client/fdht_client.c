@@ -298,7 +298,7 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 		return EINVAL; \
 	} \
  \
-	key_hash_code = PJWHash(hash_key, hash_key_len); \
+	key_hash_code = Time33Hash(hash_key, hash_key_len); \
 	if (key_hash_code < 0) \
 	{ \
 		key_hash_code &= 0x7FFFFFFF; \
@@ -335,7 +335,7 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 	memcpy(hash_key + pObjectInfo->namespace_len + 1, \
 		pObjectInfo->szObjectId, pObjectInfo->obj_id_len); \
  \
-	key_hash_code = PJWHash(hash_key, hash_key_len); \
+	key_hash_code = Time33Hash(hash_key, hash_key_len); \
 	if (key_hash_code < 0) \
 	{ \
 		key_hash_code &= 0x7FFFFFFF; \
