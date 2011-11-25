@@ -620,7 +620,8 @@ in_addr_t getIpaddrByName(const char *name, char *buff, const int bufferSize)
 	struct hostent *ent;
 	in_addr_t **addr_list;
 
-	if (inet_pton(AF_INET, name, &ip_addr) == 1)
+	if ((*name >= '0' && *name <= '9') && 
+		inet_pton(AF_INET, name, &ip_addr) == 1)
 	{
 		if (buff != NULL)
 		{
@@ -634,6 +635,7 @@ in_addr_t getIpaddrByName(const char *name, char *buff, const int bufferSize)
 	{
 		return INADDR_NONE;
 	}
+
         addr_list = (in_addr_t **)ent->h_addr_list;
 	if (addr_list[0] == NULL)
 	{
