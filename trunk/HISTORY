@@ -1,4 +1,7 @@
 
+Version 1.19  2011-11-25
+ * md5 function name changed to avoid conflict
+
 Version 1.18  2011-08-08
  * use hash function: Time33Hash instead of PJWHash
 
