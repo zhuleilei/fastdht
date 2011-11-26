@@ -50,6 +50,8 @@
 #define MARK_ITEM_SCAN_ROW_COUNT	"scan_row_count"
 #define MARK_ITEM_SYNC_ROW_COUNT	"sync_row_count"
 
+#define BINLOG_BUFF_SIZE	(1024 * 1024)
+
 int g_binlog_fd = -1;
 int g_binlog_index = 0;
 off_t g_binlog_file_size = 0;
@@ -61,8 +63,8 @@ static pthread_mutex_t sync_thread_lock;
 /* save sync thread ids */
 static pthread_t *sync_tids = NULL;
 
-static char binlog_write_cache_buff[1024 * 1024];
-static char *pbinlog_write_cache_current = binlog_write_cache_buff;
+static char *binlog_write_cache_buff = NULL;
+static char *pbinlog_write_cache_current = NULL;
 
 static int fdht_write_to_mark_file(BinLogReader *pReader);
 static int fdht_binlog_reader_skip(BinLogReader *pReader);
@@ -626,6 +628,19 @@ int fdht_sync_init()
 		return result;
 	}
 
+	binlog_write_cache_buff = (char *)malloc(BINLOG_BUFF_SIZE);
+	if (binlog_write_cache_buff == NULL)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"malloc %d bytes fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, BINLOG_BUFF_SIZE, \
+			errno, STRERROR(errno));
+		fdht_sync_destroy();
+		return errno != 0 ? errno : ENOMEM;
+	}
+	pbinlog_write_cache_current = binlog_write_cache_buff;
+
 	load_local_host_ip_addrs();
 
 	if ((result=load_sync_init_data()) != 0)
@@ -655,6 +670,12 @@ int fdht_sync_destroy()
 		g_binlog_fd = -1;
 	}
 
+	if (binlog_write_cache_buff != NULL)
+	{
+		free(binlog_write_cache_buff);
+		binlog_write_cache_buff = NULL;
+	}
+
 	if ((result=pthread_mutex_destroy(&sync_thread_lock)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -663,7 +684,6 @@ int fdht_sync_destroy()
 			__LINE__, result, STRERROR(result));
 		return result;
 	}
-
 
 	return 0;
 }
@@ -1196,7 +1216,7 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 	}
 
 	record_len = CALC_RECORD_LENGTH(pKeyInfo, value_len);
-	if (record_len >= sizeof(binlog_write_cache_buff))
+	if (record_len >= BINLOG_BUFF_SIZE)
 	{
 		if ((write_ret=fdht_binlog_fsync(false)) == 0)  //sync to disk
 		{
@@ -1217,7 +1237,7 @@ int fdht_binlog_write(const time_t timestamp, const char op_type, \
 	}
 
 	//check if buff full
-	if (sizeof(binlog_write_cache_buff) - (pbinlog_write_cache_current - \
+	if (BINLOG_BUFF_SIZE - (pbinlog_write_cache_current - \
 					binlog_write_cache_buff) < record_len)
 	{
 		write_ret = fdht_binlog_fsync(false);  //sync to disk
@@ -1293,6 +1313,12 @@ int fdht_binlog_read(BinLogReader *pReader, \
 	int total_read_bytes;
 
 	*record_length = 0;
+	if (pReader->binlog_index == g_binlog_index && \
+		pReader->binlog_offset == g_binlog_file_size)
+	{
+		return ENOENT;
+	}
+
 	while (1)
 	{
 		read_bytes = read(pReader->binlog_fd, buff, \
@@ -1319,7 +1345,6 @@ int fdht_binlog_read(BinLogReader *pReader, \
 			}
 
 			return ENOENT;
-
 		}
 
 		if (read_bytes < 0)
