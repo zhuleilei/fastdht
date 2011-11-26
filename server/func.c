@@ -1037,8 +1037,8 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	int *pGroupEnd;
 	int max_group_id;
 	int i;
-	DBType db_type;
-	int page_size;
+	DBType db_type = DB_BTREE;
+	int page_size = 4 * 1024;
 	int64_t nCacheSize;
 	char db_file_prefix[DB_FILE_PREFIX_MAX_SIZE];
 	char db_filename[DB_FILE_PREFIX_MAX_SIZE+8];
@@ -1252,8 +1252,10 @@ int fdht_terminate()
 			pThreadData++)
 		{
 			quit_sock--;
-			write(pThreadData->pipe_fds[1], &quit_sock, \
-					sizeof(quit_sock));
+			if (write(pThreadData->pipe_fds[1], &quit_sock, \
+					sizeof(quit_sock)) != sizeof(quit_sock))
+			{
+			}
 		}
 	}
 
