@@ -1,9 +1,10 @@
 
-Version 1.19  2011-11-26
+Version 1.19  2012-05-13
  * md5 function name changed to avoid conflict
  * sync.c: binlog_write_cache_buff dynamic malloc intead of static char array
  * sync.c: function fdht_binlog_read optimization
  * remove compile warnings
+ * get local ip addresses enhancement
 
 Version 1.18  2011-08-08
  * use hash function: Time33Hash instead of PJWHash
