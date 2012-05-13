@@ -5,6 +5,7 @@ Version 1.19  2012-05-13
  * sync.c: function fdht_binlog_read optimization
  * remove compile warnings
  * get local ip addresses enhancement
+ * php extension compile passed in PHP 5.4.0
 
 Version 1.18  2011-08-08
  * use hash function: Time33Hash instead of PJWHash
