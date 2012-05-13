@@ -35,14 +35,24 @@ typedef struct
 {
 	ScheduleEntry *entries;
 	int count;
-	bool *pcontinue_flag;
 } ScheduleArray;
+
+typedef struct
+{
+	ScheduleArray scheduleArray;
+	ScheduleEntry *head;  //schedule chain head
+        ScheduleEntry *tail;  //schedule chain tail
+	bool *pcontinue_flag;
+} ScheduleContext;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 extern bool g_schedule_flag; //schedule continue running flag
+
+int sched_add_entries(const ScheduleArray *pScheduleArray);
+int sched_del_entry(const int id);
 
 /** execute the schedule thread
  *  parameters:
