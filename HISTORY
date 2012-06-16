@@ -1,6 +1,7 @@
 
 Version 1.20  2012-06-16
  * bug fixed: client/fdht_client.c get_connection set err_no correctly
+ * common/logger.c: function log_init can be called more than once
 
 Version 1.19  2012-05-13
  * md5 function name changed to avoid conflict
