@@ -1,4 +1,7 @@
 
+Version 1.20  2012-06-16
+ * bug fixed: client/fdht_client.c get_connection set err_no correctly
+
 Version 1.19  2012-05-13
  * md5 function name changed to avoid conflict
  * sync.c: binlog_write_cache_buff dynamic malloc intead of static char array

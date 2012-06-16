@@ -27,12 +27,18 @@ cat <<EOF > common/_os_bits.h
 #endif
 EOF
 
-#WITH_LINUX_SERVICE=1
-
 TARGET_PREFIX=/usr/local
+TARGET_CONF_PATH=/etc/fdht
 
-CFLAGS='-O3 -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE'
-#CFLAGS='-g -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D__DEBUG__ -I /home/o/o/happyfish100/libevent/include -L /home/o/o/happyfish100/libevent/lib'
+#WITH_LINUX_SERVICE=1
+DEBUG_FLAG=1
+
+CFLAGS='-Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE'
+if [ "$DEBUG_FLAG" = "1" ]; then
+  CFLAGS="$CFLAGS -g -O -DDEBUG_FLAG"
+else
+  CFLAGS="$CFLAGS -O3"
+fi
 
 LIBS=''
 uname=`uname`
@@ -63,6 +69,7 @@ cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
 perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
 perl -pi -e "s#\\\$\(TARGET_PREFIX\)#$TARGET_PREFIX#g" Makefile
+perl -pi -e "s#\\\$\(TARGET_CONF_PATH\)#$TARGET_CONF_PATH#g" Makefile
 make $1 $2
 
 cd ../tool 
@@ -77,6 +84,7 @@ cp Makefile.in Makefile
 perl -pi -e "s#\\\$\(CFLAGS\)#$CFLAGS#g" Makefile
 perl -pi -e "s#\\\$\(LIBS\)#$LIBS#g" Makefile
 perl -pi -e "s#\\\$\(TARGET_PREFIX\)#$TARGET_PREFIX#g" Makefile
+perl -pi -e "s#\\\$\(TARGET_CONF_PATH\)#$TARGET_CONF_PATH#g" Makefile
 make $1 $2
 
 #cd test
@@ -93,10 +101,13 @@ if [ "$1" = "install" ]; then
 
   if [ "$uname" = "Linux" ]; then
     if [ "$WITH_LINUX_SERVICE" = "1" ]; then
-      mkdir -p /etc/fdht
-      cp -f conf/fdhtd.conf /etc/fdht/
-      cp -f conf/fdht_servers.conf /etc/fdht/
-      cp -f conf/fdht_client.conf /etc/fdht/
+      if [ ! -d /etc/fdht ]; then
+        mkdir -p /etc/fdht
+        cp -f conf/fdhtd.conf /etc/fdht/
+        cp -f conf/fdht_servers.conf /etc/fdht/
+        cp -f conf/fdht_client.conf /etc/fdht/
+      fi
+
       cp -f init.d/fdhtd /etc/rc.d/init.d/
       /sbin/chkconfig --add fdhtd
     fi
