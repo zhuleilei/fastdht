@@ -204,6 +204,7 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 	int server_index;
 	int new_hash_code;
 
+	*err_no = ENOENT;
 	new_hash_code = (hash_code << 16) | (hash_code >> 16);
 	if (new_hash_code < 0)
 	{
@@ -219,8 +220,8 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 			return *ppServer;
 		}
 
-		if (fdht_connect_server_nb(*ppServer, \
-			g_fdht_connect_timeout) == 0)
+		if ((*err_no=fdht_connect_server_nb(*ppServer, \
+			g_fdht_connect_timeout)) == 0)
 		{
 			if (bKeepAlive)
 			{
@@ -238,8 +239,8 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 			return *ppServer;
 		}
 
-		if (fdht_connect_server_nb(*ppServer, \
-			g_fdht_connect_timeout) == 0)
+		if ((*err_no=fdht_connect_server_nb(*ppServer, \
+			g_fdht_connect_timeout)) == 0)
 		{
 			if (bKeepAlive)
 			{
@@ -249,7 +250,6 @@ static FDHTServerInfo *get_connection(ServerArray *pServerArray, \
 		}
 	}
 
-	*err_no = ENOENT;
 	return NULL;
 }
 

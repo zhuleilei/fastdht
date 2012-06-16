@@ -4,6 +4,7 @@ COMPILE = $(CC) $(CFLAGS)
 INC_PATH = -I../common -I/usr/local/include
 LIB_PATH = -L/usr/local/lib $(LIBS)
 TARGET_PATH = $(TARGET_PREFIX)/bin
+CONFIG_PATH = $(TARGET_CONF_PATH)
 TARGET_LIB = $(TARGET_PREFIX)/lib
 TARGET_INC = $(TARGET_PREFIX)/include
 
@@ -60,9 +61,11 @@ libfdhtclient.so.1:
 	$(COMPILE) -c -fPIC -o $@ $<  $(INC_PATH)
 install:
 	mkdir -p $(TARGET_PATH)
+	mkdir -p $(CONFIG_PATH)
 	mkdir -p $(TARGET_LIB)
 	cp -f $(ALL_PRGS) $(TARGET_PATH)
 	cp -f $(ALL_LIBS) $(TARGET_LIB)
+	if [ ! -f $(CONFIG_PATH)/fdht_client.conf ]; then cp -f ../conf/fdht_client.conf ../conf/fdht_servers.conf $(CONFIG_PATH); fi
 
 	mkdir -p $(TARGET_INC)
 	mkdir -p $(TARGET_INC)/fastcommon
