@@ -137,7 +137,7 @@ int fdht_client_init(const char *filename)
 
 		load_log_level(&iniContext);
 
-		logInfo("file: "__FILE__", line: %d, " \
+		logDebug("file: "__FILE__", line: %d, " \
 			"base_path=%s, " \
 			"connect_timeout=%ds, network_timeout=%ds, " \
 			"keep_alive=%d, use_proxy=%d, %s"\
