@@ -1665,7 +1665,7 @@ static int load_config_files()
 		*szProxyPrompt = '\0';
 	}
 
-	logInfo("base_path=%s, connect_timeout=%ds, network_timeout=%ds. " \
+	logDebug("base_path=%s, connect_timeout=%ds, network_timeout=%ds. " \
 		"in the first(default) config file: keep_alive=%d, " \
 		"use_proxy=%d, %s" \
 		"group_count=%d, server_count=%d", \
