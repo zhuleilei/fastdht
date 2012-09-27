@@ -1,6 +1,8 @@
 
 Version 1.21  2012-07-08
  * another method to get local ip addresses
+ * logger support access log
+ * set pipe reading fd with attribute O_NOATIME
 
 Version 1.20  2012-07-01
  * bug fixed: client/fdht_client.c get_connection set err_no correctly
