@@ -11,11 +11,16 @@
 #define LOGGER_H
 
 #include <syslog.h>
+#include <sys/time.h>
 #include "common_define.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define LOG_TIME_PRECISION_SECOND	's'  //second
+#define LOG_TIME_PRECISION_MSECOND	'm'  //millisecond
+#define LOG_TIME_PRECISION_USSECOND	'u'  //microsecond
 
 typedef struct log_context
 {
@@ -38,6 +43,15 @@ typedef struct log_context
 	/* if write to buffer firstly, then sync to disk.
 	   default value is false (no cache) */
 	bool log_to_cache;
+
+	/* if rotate the access log */
+	bool rotate_immediately;
+
+	/* time precision */
+	char time_precision;
+
+	/* save the log filename */
+	char log_filename[MAX_PATH_SIZE];
 } LogContext;
 
 extern LogContext g_log_context;
@@ -91,6 +105,14 @@ int log_set_filename_ex(LogContext *pContext, const char *log_filename);
 */
 void log_set_cache_ex(LogContext *pContext, const bool bLogCache);
 
+/** set time precision
+ *  parameters:
+ *           pContext: the log context
+ *           time_precision: the time precision
+ *  return: none
+*/
+void log_set_time_precision(LogContext *pContext, const int time_precision);
+
 /** destroy function
  *  parameters:
  *           pContext: the log context
@@ -128,6 +150,13 @@ void log_it_ex1(LogContext *pContext, const int priority, \
 */
 int log_sync_func(void *args);
 
+/** set rotate flag to true
+ *  parameters:
+ *           args: should be (LogContext *)
+ *  return: error no, 0 for success, != 0 fail
+*/
+int log_notify_rotate(void *args);
+
 void logEmergEx(LogContext *pContext, const char *format, ...);
 void logCritEx(LogContext *pContext, const char *format, ...);
 void logAlertEx(LogContext *pContext, const char *format, ...);
@@ -136,6 +165,8 @@ void logWarningEx(LogContext *pContext, const char *format, ...);
 void logNoticeEx(LogContext *pContext, const char *format, ...);
 void logInfoEx(LogContext *pContext, const char *format, ...);
 void logDebugEx(LogContext *pContext, const char *format, ...);
+void logAccess(LogContext *pContext, struct timeval *tvStart, \
+		const char *format, ...);
 
 //#define LOG_FORMAT_CHECK
 
