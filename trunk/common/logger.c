@@ -103,6 +103,15 @@ static int log_open(LogContext *pContext)
 		return errno != 0 ? errno : EACCES;
 	}
 
+	pContext->current_size = lseek(pContext->log_fd, 0, SEEK_END);
+	if (pContext->current_size < 0)
+	{
+		fprintf(stderr, "lseek file \"%s\" fail, " \
+			"errno: %d, error info: %s", \
+			pContext->log_filename, errno, STRERROR(errno));
+		return errno != 0 ? errno : EACCES;
+	}
+
 	return 0;
 }
 
@@ -213,22 +222,29 @@ static int log_check_rotate(LogContext *pContext, const bool bNeedLock)
 {
 	int result;
 
+	if (pContext->log_fd == STDERR_FILENO)
+	{
+		if (pContext->current_size > 0)
+		{
+			pContext->current_size = 0;
+		}
+		return ENOENT;
+	}
+	
 	if (bNeedLock)
 	{
 		pthread_mutex_lock(&(pContext->log_thread_lock));
 	}
 
-	result = 0;
-	do
+	if (pContext->rotate_immediately)
 	{
-		if (!pContext->rotate_immediately)
-		{
-			break;
-		}
-
 		result = log_rotate(pContext);
 		pContext->rotate_immediately = false;
-	} while (0);
+	}
+	else
+	{
+		result = 0;
+	}
 
 	if (bNeedLock)
 	{
@@ -264,6 +280,16 @@ static int log_fsync(LogContext *pContext, const bool bNeedLock)
 			"call pthread_mutex_lock fail, " \
 			"errno: %d, error info: %s", \
 			__LINE__, lock_res, STRERROR(lock_res));
+	}
+
+	if (pContext->rotate_size > 0)
+	{
+		pContext->current_size += write_bytes;
+		if (pContext->current_size > pContext->rotate_size)
+		{
+			pContext->rotate_immediately = true;
+			log_check_rotate(pContext, false);
+		}
 	}
 
 	result = 0;
