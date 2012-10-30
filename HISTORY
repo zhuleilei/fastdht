@@ -1,4 +1,7 @@
 
+Version 1.22  2012-10-30
+ * support rotate log by file size
+
 Version 1.21  2012-07-08
  * another method to get local ip addresses
  * logger support access log

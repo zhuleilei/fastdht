@@ -124,11 +124,19 @@ int work_thread_init()
 			break;
 		}
 
+#if defined(OS_LINUX)
 		if ((result=fd_add_flags(pThreadData->pipe_fds[0], \
 				O_NONBLOCK | O_NOATIME)) != 0)
 		{
 			break;
 		}
+#else
+		if ((result=fd_add_flags(pThreadData->pipe_fds[0], \
+				O_NONBLOCK)) != 0)
+		{
+			break;
+		}
+#endif
 
 		if ((result=pthread_create(&tid, &thread_attr, \
 			work_thread_entrance, pThreadData)) != 0)
