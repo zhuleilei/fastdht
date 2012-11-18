@@ -72,7 +72,9 @@ extern int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int kind);
   #define OFF_PRINTF_FORMAT   INT64_PRINTF_FORMAT
 #endif
 
+#ifndef WIN32
 #define USE_SENDFILE
+#endif
 
 #define MAX_PATH_SIZE				256
 #define LOG_FILE_DIR				"logs"
@@ -148,6 +150,8 @@ typedef struct
 typedef void (*FreeDataFunc)(void *ptr);
 typedef int (*CompareFunc)(void *p1, void *p2);
 typedef void* (*MallocFunc)(size_t size);
+
+#define TO_UPPERCASE(c)  (((c) >= 'a' && (c) <= 'z') ? (c) - 32 : c)
 
 #ifdef WIN32
 #define strcasecmp	_stricmp
