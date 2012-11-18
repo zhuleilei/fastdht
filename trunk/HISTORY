@@ -1,6 +1,7 @@
 
-Version 1.22  2012-10-30
+Version 1.22  2012-11-18
  * support rotate log by file size
+ * add common/avl_tree.h and common/avl_tree.c
 
 Version 1.21  2012-07-08
  * another method to get local ip addresses

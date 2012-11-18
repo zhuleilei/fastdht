@@ -10,7 +10,6 @@
 #include "common_define.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <time.h>
@@ -53,8 +52,11 @@
 #include "hash.h"
 #include "sockopt.h"
 
-//#define USE_SELECT
+#ifdef WIN32
+#define USE_SELECT
+#else
 #define USE_POLL
+#endif
 
 #ifdef OS_LINUX
 #ifndef TCP_KEEPIDLE
@@ -621,7 +623,7 @@ char *getHostnameByIp(const char *szIpAddr, char *buff, const int bufferSize)
 
 in_addr_t getIpaddrByName(const char *name, char *buff, const int bufferSize)
 {
-    	struct in_addr ip_addr;
+  struct in_addr ip_addr;
 	struct hostent *ent;
 	in_addr_t **addr_list;
 
