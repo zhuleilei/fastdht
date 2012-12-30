@@ -1,7 +1,8 @@
 
-Version 1.22  2012-11-18
+Version 1.22  2012-12-30
  * support rotate log by file size
  * add common/avl_tree.h and common/avl_tree.c
+ * common/ini_file_reader.c does NOT call chdir
 
 Version 1.21  2012-07-08
  * another method to get local ip addresses
