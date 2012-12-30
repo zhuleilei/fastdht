@@ -318,6 +318,13 @@ bool is_filename_secure(const char *filename, const int len);
 */
 void load_log_level(IniContext *pIniContext);
 
+/** load log_level from config file
+ *  parameters:
+ *  	conf_filename: the config filename
+ *  return: none
+*/
+int load_log_level_ex(const char *conf_filename);
+
 /** set global log level
  *  parameters:
  *  	pLogLevel: log level string value
@@ -457,15 +464,23 @@ int parse_bytes(char *pStr, const int default_unit_bytes, int64_t *bytes);
 */
 int set_rand_seed();
 
-/** parse bytes
+/** set timer wrapper
  *  parameters:
- *  	seconds: remain time for first time, in seconds
- *  	interval: 
+ *  	first_remain_seconds: remain time for first time, in seconds
+ *  	interval: the interval
  *  	sighandler: handler function
  *  return: error no , 0 success, != 0 fail
 */
 int set_timer(const int first_remain_seconds, const int interval, \
 		void (*sighandler)(int));
+
+/** set file access and modified times
+ *  parameters:
+ *  	filename: the file to modify times
+ *  	new_time: the time to set
+ *  return: error no , 0 success, != 0 fail
+*/
+int set_file_utimes(const char *filename, const time_t new_time);
 
 #ifdef __cplusplus
 }

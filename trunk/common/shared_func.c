@@ -1300,6 +1300,24 @@ void load_log_level(IniContext *pIniContext)
 	set_log_level(iniGetStrValue(NULL, "log_level", pIniContext));
 }
 
+int load_log_level_ex(const char *conf_filename)
+{
+	int result;
+	IniContext iniContext;
+
+	if ((result=iniLoadFromFile(conf_filename, &iniContext)) != 0)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"load conf file \"%s\" fail, ret code: %d", \
+			__LINE__, conf_filename, result);
+		return result;
+	}
+
+	load_log_level(&iniContext);
+	iniFreeContext(&iniContext);
+	return 0;
+}
+
 void set_log_level(char *pLogLevel)
 {
 	if (pLogLevel != NULL)
@@ -2005,6 +2023,26 @@ int set_timer(const int first_remain_seconds, const int interval, \
 			"call setitimer fail, errno: %d, error info: %s", \
 			__LINE__, errno, STRERROR(errno));
 		return errno != 0 ? errno : EINVAL;
+	}
+
+	return 0;
+}
+
+int set_file_utimes(const char *filename, const time_t new_time)
+{
+	struct timeval tvs[2];
+
+	tvs[0].tv_sec = new_time;
+	tvs[0].tv_usec = 0;
+	tvs[1].tv_sec = new_time;
+	tvs[1].tv_usec = 0;
+	if (utimes(filename, tvs) != 0)
+	{
+		logWarning("file: "__FILE__", line: %d, " \
+			"call utimes file: %s fail" \
+			", errno: %d, error info: %s", \
+			__LINE__, filename, errno, STRERROR(errno));
+		return errno != 0 ? errno : ENOENT;
 	}
 
 	return 0;
