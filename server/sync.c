@@ -26,6 +26,7 @@
 #include "sockopt.h"
 #include "shared_func.h"
 #include "pthread_func.h"
+#include "sched_thread.h"
 #include "ini_file_reader.h"
 #include "hash.h"
 #include "global.h"
@@ -254,7 +255,7 @@ static int fdht_sync_data(BinLogReader *pReader, \
 	int group_id;
 
 	if (pRecord->expires != FDHT_EXPIRES_NEVER && \
-		pRecord->expires < time(NULL))  //expired
+		pRecord->expires < g_current_time)  //expired
 	{
 		return 0;
 	}
@@ -511,7 +512,7 @@ static int load_sync_init_data()
 	}
 	else
 	{
-		g_server_join_time = time(NULL);
+		g_server_join_time = g_current_time;
 		if ((result=write_to_sync_ini_file()) != 0)
 		{
 			return result;
@@ -1777,7 +1778,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 			continue;
 		}
 
-		last_active_time = time(NULL);
+		last_active_time = g_current_time;
 		sync_result = 0;
 		while (g_continue_flag)
 		{
@@ -1810,7 +1811,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 
 				}
 				
-				if (time(NULL) - last_active_time >= \
+				if (g_current_time - last_active_time >= \
 					g_heart_beat_interval)
 				{
 					if ((result=fdht_client_heart_beat( \
@@ -1819,7 +1820,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 						break;
 					}
 
-					last_active_time = time(NULL);
+					last_active_time = g_current_time;
 				}
 
 				if (reader.last_scan_rows!=reader.scan_row_count)
@@ -1865,7 +1866,7 @@ static void* fdht_sync_thread_entrance(void* arg)
 				break;
 			}
 
-			last_active_time = time(NULL);
+			last_active_time = g_current_time;
 
 			++reader.scan_row_count;
 			reader.binlog_offset += record_len;

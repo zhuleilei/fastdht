@@ -35,7 +35,7 @@ struct thread_data
 	int pipe_fds[2];
 };
 
-extern bool g_continue_flag;
+extern volatile bool g_continue_flag;
 
 extern int g_server_port;
 extern int g_max_connections;

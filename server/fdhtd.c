@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	g_current_time = time(NULL);
 	log_init();
 	conf_filename = argv[1];
 	if ((result=fdht_func_init(conf_filename, bind_addr, \
@@ -468,6 +469,6 @@ static int fdht_init_schedule()
 	}
 
 	return sched_start(&scheduleArray, &schedule_tid, \
-			g_thread_stack_size, &g_continue_flag);
+		g_thread_stack_size, (bool * volatile)&g_continue_flag);
 }
 

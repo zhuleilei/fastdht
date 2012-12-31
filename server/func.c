@@ -16,6 +16,7 @@
 #include "sockopt.h"
 #include "shared_func.h"
 #include "pthread_func.h"
+#include "sched_thread.h"
 #include "ini_file_reader.h"
 #include "fdht_global.h"
 #include "global.h"
@@ -1043,7 +1044,7 @@ int fdht_func_init(const char *filename, char *bind_addr, const int addr_size)
 	char db_file_prefix[DB_FILE_PREFIX_MAX_SIZE];
 	char db_filename[DB_FILE_PREFIX_MAX_SIZE+8];
 
-	g_server_start_time = time(NULL);
+	g_server_start_time = g_current_time;
 
 	result = fdht_load_from_conf_file(filename, bind_addr, \
 		addr_size, &group_ids, &group_count, 

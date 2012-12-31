@@ -6,9 +6,10 @@
 #include <errno.h>
 #include <pthread.h>
 #include "logger.h"
-#include "mpool_op.h"
 #include "global.h"
 #include "shared_func.h"
+#include "sched_thread.h"
+#include "mpool_op.h"
 
 HashArray *g_hash_array = NULL;
 static pthread_rwlock_t mpool_pthread_rwlock;
@@ -373,7 +374,7 @@ int mp_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	{
 		old_expires = buff2int(hash_data->value);
 		if (old_expires != FDHT_EXPIRES_NEVER && \
-			old_expires < time(NULL)) //expired
+			old_expires < g_current_time) //expired
 		{
 			n = inc;
 		}

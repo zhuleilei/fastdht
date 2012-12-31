@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include "logger.h"
 #include "shared_func.h"
+#include "sched_thread.h"
 #include "key_op.h"
 #include "global.h"
 #include "func.h"
@@ -150,7 +151,7 @@ static int key_do_set(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 
 	if (g_write_to_binlog_flag)
 	{
-		return fdht_binlog_write(time(NULL), \
+		return fdht_binlog_write(g_current_time, \
 			op_type, key_hash_code, expire, \
 			pKeyInfo, value + 4, value_len - 4);
 	}
@@ -255,7 +256,7 @@ static int key_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 
 	if (g_write_to_binlog_flag)
 	{
-		return fdht_binlog_write(time(NULL), \
+		return fdht_binlog_write(g_current_time, \
 			FDHT_OP_TYPE_SOURCE_SET, \
 			key_hash_code, expire, &keyInfo2log, \
 			new_key_list + 4, value_len - 4);
@@ -503,7 +504,7 @@ static int key_batch_do_add(StoreHandle *pHandle, FDHTKeyInfo *pKeyInfo, \
 
 	if (g_write_to_binlog_flag)
 	{
-		return fdht_binlog_write(time(NULL), \
+		return fdht_binlog_write(g_current_time, \
 			FDHT_OP_TYPE_SOURCE_SET, \
 			key_hash_code, expire, &keyInfo2log, \
 			new_key_list + 4, value_len - 4);

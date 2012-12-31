@@ -25,6 +25,7 @@
 #include "fdht_define.h"
 #include "shared_func.h"
 #include "pthread_func.h"
+#include "sched_thread.h"
 #include "logger.h"
 #include "fdht_global.h"
 #include "fdht_types.h"
@@ -348,7 +349,7 @@ int work_deal_task(struct task_info *pTask)
 
 	pHeader = (FDHTProtoHeader *)pTask->data;
 	pHeader->status = result;
-	int2buff((int)time(NULL), pHeader->timestamp);
+	int2buff((int)g_current_time, pHeader->timestamp);
 	pHeader->cmd = FDHT_PROTO_CMD_RESP;
 	int2buff(pTask->length - sizeof(FDHTProtoHeader), pHeader->pkg_len);
 
@@ -365,7 +366,7 @@ int work_deal_task(struct task_info *pTask)
 	{ \
 		if (new_expires > 0)  \
 		{ \
-			new_expires = time(NULL) + (new_expires - timestamp); \
+			new_expires = g_current_time + (new_expires - timestamp); \
 		} \
 	} \
 	group_id = ((unsigned int)key_hash_code) % g_group_count; \
@@ -588,7 +589,7 @@ static int deal_cmd_get(struct task_info *pTask)
 	}
 
 	old_expires = buff2int(pValue);
-	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < time(NULL))
+	if (old_expires != FDHT_EXPIRES_NEVER && old_expires < g_current_time)
 	{
 		pTask->length = sizeof(FDHTProtoHeader);
 		return ENOENT;
@@ -697,7 +698,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 	success_count = 0;
 	result = 0;
 
-	timestamp = time(NULL);
+	timestamp = g_current_time;
 	pSrc = pSrcStart = pObjectId + key_info.obj_id_len + 4;
 	pDest = pTask->data + sizeof(FDHTProtoHeader);
 	int2buff(key_count, pDest);
@@ -905,7 +906,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 
 	success_count = 0;
 	result = 0;
-	current_time = time(NULL);
+	current_time = g_current_time;
 
 	memcpy(in_buff, pObjectId + key_info.obj_id_len + 4, \
 		nInBodyLen - common_fileds_len);
@@ -1184,7 +1185,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 		return EINVAL;
 	}
 
-	timestamp = time(NULL);
+	timestamp = g_current_time;
 	success_count = 0;
 	result = 0;
 
@@ -1375,7 +1376,7 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 
 	if (first_sync_req_time == 0)
 	{
-		first_sync_req_time = time(NULL);
+		first_sync_req_time = g_current_time;
 	}
 
 	pFound->sync_old_done = src_sync_old_done;
@@ -1453,7 +1454,7 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 			break;
 		}
 
-		if (time(NULL) - first_sync_req_time < SYNC_REQ_WAIT_SECONDS)
+		if (g_current_time - first_sync_req_time < SYNC_REQ_WAIT_SECONDS)
 		{
 			pTask->length = sizeof(FDHTProtoHeader);
 			return EAGAIN;
@@ -1492,7 +1493,7 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 	{
 		strcpy(g_sync_src_ip_addr, pServer->ip_addr);
 		g_sync_src_port = pServer->port;
-		g_sync_until_timestamp = time(NULL);
+		g_sync_until_timestamp = g_current_time;
 	}
 	else
 	{
@@ -1542,7 +1543,7 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 	}
 
 	g_sync_old_done = true;
-	g_sync_done_timestamp = time(NULL);
+	g_sync_done_timestamp = g_current_time;
 	if ((result=write_to_sync_ini_file()) != 0)
 	{
 		return result;
@@ -1635,7 +1636,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 		{
 			if (op_type == FDHT_OP_TYPE_SOURCE_SET)
 			{
-				timestamp = time(NULL);
+				timestamp = g_current_time;
 			}
 
 			fdht_binlog_write(timestamp, op_type, key_hash_code, \
@@ -1713,7 +1714,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 		{
 			if (op_type == FDHT_OP_TYPE_SOURCE_DEL)
 			{
-				timestamp = time(NULL);
+				timestamp = g_current_time;
 			}
 			fdht_binlog_write(timestamp, op_type, key_hash_code, \
 				FDHT_EXPIRES_NEVER, &key_info, NULL, 0);
@@ -1815,7 +1816,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 		if (g_write_to_binlog_flag)
 		{
 			new_expires = (time_t)buff2int(value);
-			fdht_binlog_write(time(NULL), FDHT_OP_TYPE_SOURCE_SET, \
+			fdht_binlog_write(g_current_time, FDHT_OP_TYPE_SOURCE_SET, \
 				key_hash_code, new_expires, &key_info, \
 				value+4, value_len);
 		}
@@ -1862,7 +1863,7 @@ static int deal_cmd_stat(struct task_info *pTask)
 	}
 
 	p = pTask->data + sizeof(FDHTProtoHeader);
-	current_time = time(NULL);
+	current_time = g_current_time;
 
 	p += sprintf(p, "server=%s:%d\n", g_local_host_ip_addrs+IP_ADDRESS_SIZE
 			 , g_server_port);

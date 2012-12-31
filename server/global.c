@@ -14,7 +14,7 @@
 #include "shared_func.h"
 #include "global.h"
 
-bool g_continue_flag = true;
+volatile bool g_continue_flag = true;
 
 int g_server_port = FDHT_SERVER_DEFAULT_PORT;
 int g_max_connections = DEFAULT_MAX_CONNECTONS;
