@@ -9,6 +9,7 @@
 #ifndef _SCHED_THREAD_H_
 #define _SCHED_THREAD_H_
 
+#include <time.h>
 #include "common_define.h"
 
 typedef int (*TaskFunc) (void *args);
@@ -49,7 +50,11 @@ typedef struct
 extern "C" {
 #endif
 
-extern bool g_schedule_flag; //schedule continue running flag
+extern volatile bool g_schedule_flag; //schedule continue running flag
+extern volatile time_t g_current_time;  //the current time
+
+
+#define get_current_time() (g_schedule_flag ? g_current_time: time(NULL))
 
 int sched_add_entries(const ScheduleArray *pScheduleArray);
 int sched_del_entry(const int id);
@@ -63,7 +68,7 @@ int sched_del_entry(const int id);
  * return: error no, 0 for success, != 0 fail
 */
 int sched_start(ScheduleArray *pScheduleArray, pthread_t *ptid, \
-		const int stack_size, bool *pcontinue_flag);
+		const int stack_size, bool * volatile pcontinue_flag);
 
 #ifdef __cplusplus
 }

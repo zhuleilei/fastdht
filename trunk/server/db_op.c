@@ -9,6 +9,7 @@
 #include <db.h>
 #include "logger.h"
 #include "shared_func.h"
+#include "sched_thread.h"
 #include "db_op.h"
 #include "global.h"
 #include "func.h"
@@ -489,7 +490,7 @@ int db_inc_ex(StoreHandle *pHandle, const char *pKey, const int key_len, \
 	{
 		old_expires = buff2int(pValue);
 		if (old_expires != FDHT_EXPIRES_NEVER && \
-			old_expires < time(NULL)) //expired
+			old_expires < g_current_time) //expired
 		{
 			n = inc;
 		}
