@@ -774,6 +774,9 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 
+
+		g_need_clear_expired_data = iniGetBoolValue(NULL,  \
+				"need_clear_expired_data", &iniContext, true);
 		g_clear_expired_interval = iniGetIntValue(NULL,  \
 				"clear_expired_interval", &iniContext, \
 				DEFAULT_CLEAR_EXPIRED_INVERVAL);
@@ -875,6 +878,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"cache_size=%d MB, %s, " \
 			"sync_wait_msec=%dms, "  \
 			"allow_ip_count=%d, sync_log_buff_interval=%ds, " \
+			"need_clear_expired_data=%d, " \
 			"clear_expired_time_base=%s, " \
 			"clear_expired_interval=%ds, " \
 			"write_to_binlog=%d, sync_binlog_buff_interval=%ds, " \
@@ -895,6 +899,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			(int)(*nCacheSize / (1024 * 1024)), szStoreParams, \
 			g_sync_wait_usec / 1000, \
 			g_allow_ip_count, g_sync_log_buff_interval, \
+			g_need_clear_expired_data, \
 			sz_clear_expired_time_base, g_clear_expired_interval, \
 			g_write_to_binlog_flag, \
 			g_sync_binlog_buff_interval, \

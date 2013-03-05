@@ -175,7 +175,7 @@ static int mp_do_set(StoreHandle *pHandle, const char *pKey, const int key_len,\
 		if (result < 0)
 		{
 			result *= -1;
-			if (result == ENOSPC)
+			if (result == ENOSPC && g_need_clear_expired_data)
 			{
 				int lock_result;
 

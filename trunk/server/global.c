@@ -30,6 +30,7 @@ int g_sync_log_buff_interval = SYNC_LOG_BUFF_DEF_INTERVAL;
 int g_sync_binlog_buff_interval = SYNC_BINLOG_BUFF_DEF_INTERVAL;
 TimeInfo g_sync_db_time_base = {TIME_NONE, TIME_NONE};
 int g_sync_db_interval = DEFAULT_SYNC_DB_INVERVAL;
+bool g_need_clear_expired_data = true;
 TimeInfo g_clear_expired_time_base = {TIME_NONE, TIME_NONE};
 int g_clear_expired_interval = DEFAULT_CLEAR_EXPIRED_INVERVAL;
 int g_db_dead_lock_detect_interval = DEFAULT_DB_DEAD_LOCK_DETECT_INVERVAL;
