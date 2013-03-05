@@ -426,7 +426,7 @@ static int fdht_init_schedule()
 		pScheduleEntry++;
 	}
 
-	if (g_clear_expired_interval > 0)
+	if (g_clear_expired_interval > 0 && g_need_clear_expired_data)
 	{
 		if (g_store_type == FDHT_STORE_TYPE_BDB)
 		{

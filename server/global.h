@@ -51,6 +51,7 @@ extern int g_sync_log_buff_interval;
 extern int g_sync_binlog_buff_interval;
 extern TimeInfo g_sync_db_time_base;
 extern int g_sync_db_interval;
+extern bool g_need_clear_expired_data;
 extern TimeInfo g_clear_expired_time_base;
 extern int g_clear_expired_interval;
 extern int g_db_dead_lock_detect_interval;
