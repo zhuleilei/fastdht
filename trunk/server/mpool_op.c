@@ -177,10 +177,15 @@ static int mp_do_set(StoreHandle *pHandle, const char *pKey, const int key_len,\
 			result *= -1;
 			if (result == ENOSPC)
 			{
+				int lock_result;
+
+				RWLOCK_UNLOCK(lock_result)
 				if (mp_clear_expired_keys(pHandle) > 0)
 				{
+					RWLOCK_WRITE_LOCK(lock_result)
 					continue;
 				}
+				RWLOCK_WRITE_LOCK(lock_result)
 			}
 
 			break;
