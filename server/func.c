@@ -647,7 +647,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		}
 
 		g_accept_threads = iniGetIntValue(NULL, "accept_threads",
-        &iniContext, 1);
+					&iniContext, 1);
 		if (g_accept_threads <= 0)
 		{
 			logError("file: "__FILE__", line: %d, " \
