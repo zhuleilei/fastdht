@@ -40,6 +40,7 @@ extern volatile bool g_continue_flag;
 extern int g_server_port;
 extern int g_max_connections;
 extern int g_max_threads;
+extern int g_accept_threads;
 extern int g_max_pkg_size;
 extern int g_min_buff_size;
 extern int g_heart_beat_interval;

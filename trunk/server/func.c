@@ -641,8 +641,18 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 		{
 			logError("file: "__FILE__", line: %d, " \
 				"item \"max_threads\" is invalid, " \
-				"value: %d <= 0!", __LINE__, \
-				g_max_threads);
+				"value: %d <= 0!", __LINE__, g_max_threads);
+			result = EINVAL;
+			break;
+		}
+
+		g_accept_threads = iniGetIntValue(NULL, "accept_threads",
+        &iniContext, 1);
+		if (g_accept_threads <= 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"item \"accept_threads\" is invalid, " \
+				"value: %d <= 0!", __LINE__, g_accept_threads);
 			result = EINVAL;
 			break;
 		}
@@ -871,6 +881,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			"network_timeout=%d, "\
 			"port=%d, bind_addr=%s, " \
 			"max_connections=%d, "    \
+			"accept_threads=%d, "    \
 			"max_threads=%d, "    \
 			"max_pkg_size=%d KB, " \
 			"min_buff_size=%d KB, " \
@@ -893,7 +904,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_group_server_count, g_fdht_connect_timeout, \
 			g_fdht_network_timeout, \
 			g_server_port, bind_addr, g_max_connections, \
-			g_max_threads, g_max_pkg_size / 1024, \
+			g_accept_threads, g_max_threads, g_max_pkg_size / 1024, \
 			g_min_buff_size / 1024, \
 			g_store_type == FDHT_STORE_TYPE_BDB ? "BDB" : "MPOOL", \
 			(int)(*nCacheSize / (1024 * 1024)), szStoreParams, \

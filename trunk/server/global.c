@@ -18,7 +18,8 @@ volatile bool g_continue_flag = true;
 
 int g_server_port = FDHT_SERVER_DEFAULT_PORT;
 int g_max_connections = DEFAULT_MAX_CONNECTONS;
-int g_max_threads = 5;
+int g_max_threads = 4;
+int g_accept_threads = 1;
 int g_max_pkg_size = FDHT_MAX_PKG_SIZE;
 int g_min_buff_size = FDHT_MIN_BUFF_SIZE;
 int g_heart_beat_interval = DEFAULT_NETWORK_TIMEOUT / 2;
