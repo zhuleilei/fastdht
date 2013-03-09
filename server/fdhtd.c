@@ -339,7 +339,7 @@ static int fdht_init_schedule()
 	{
 		entry_count++;
 	}
-	if (g_compress_binlog_interval > 0)
+	if (g_compress_binlog_interval > 0 && g_need_clear_expired_data)
 	{
 		entry_count++;
 	}
