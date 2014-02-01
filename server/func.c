@@ -522,11 +522,6 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 			g_mpool_load_factor = iniGetDoubleValue(NULL, \
 				"mpool_load_factor", &iniContext, \
 				FDHT_DEFAULT_MPOOL_LOAD_FACTOR);
-			if (g_mpool_load_factor <= 0.0001)
-			{
-				g_mpool_load_factor = \
-					FDHT_DEFAULT_MPOOL_INIT_CAPACITY;
-			}
 
 			g_mpool_clear_min_interval = iniGetIntValue(NULL,  \
 				"mpool_clear_min_interval", &iniContext, \
@@ -550,7 +545,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 				"mpool_init_capacity=%d, " \
 				"mpool_load_factor=%.2f, " \
 				"mpool_clear_min_interval=%ds, " \
-				"mpool_htable_lock_count: %d", \
+				"mpool_htable_lock_count=%d", \
 				g_mpool_init_capacity, g_mpool_load_factor, \
 				g_mpool_clear_min_interval,
 				g_mpool_htable_lock_count);
