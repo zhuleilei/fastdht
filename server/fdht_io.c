@@ -21,28 +21,44 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <event.h>
 #include "shared_func.h"
+#include "sched_thread.h"
 #include "logger.h"
 #include "global.h"
 #include "ini_file_reader.h"
 #include "sockopt.h"
 #include "fdht_global.h"
 #include "fdht_proto.h"
-#include "task_queue.h"
+#include "fast_task_queue.h"
 #include "work_thread.h"
+#include "ioevent_loop.h"
 #include "fdht_io.h"
 
 static void client_sock_read(int sock, short event, void *arg);
 static void client_sock_write(int sock, short event, void *arg);
 
+void task_finish_clean_up(struct fast_task_info *pTask)
+{
+	ioevent_detach(&pTask->thread_data->ev_puller, pTask->event.fd);
+	close(pTask->event.fd);
+	pTask->event.fd = -1;
+
+	if (pTask->event.timer.expires > 0)
+	{
+		fast_timer_remove(&pTask->thread_data->timer,
+			&pTask->event.timer);
+		pTask->event.timer.expires = 0;
+	}
+
+	free_queue_push(pTask);
+}
+
 void recv_notify_read(int sock, short event, void *arg)
 {
 	int bytes;
 	int incomesock;
-	int result;
-	struct thread_data *pThreadData;
-	struct task_info *pTask;
+	struct nio_thread_data *pThreadData;
+	struct fast_task_info *pTask;
 	char szClientIp[IP_ADDRESS_SIZE];
 	in_addr_t client_addr;
 
@@ -67,12 +83,6 @@ void recv_notify_read(int sock, short event, void *arg)
 
 		if (incomesock < 0)
 		{
-			struct timeval tv;
-                        tv.tv_sec = 1;
-                        tv.tv_usec = 0;
-			pThreadData = g_thread_data + (-1 * incomesock - 1) % \
-					g_max_threads;
-			event_base_loopexit(pThreadData->ev_base, &tv);
 			return;
 		}
 
@@ -109,65 +119,49 @@ void recv_notify_read(int sock, short event, void *arg)
 			continue;
 		}
 
-		pThreadData = g_thread_data + incomesock % g_max_threads;
-
 		strcpy(pTask->client_ip, szClientIp);
-		event_set(&pTask->ev_read, incomesock, EV_READ, \
-				client_sock_read, pTask);
-		if (event_base_set(pThreadData->ev_base, &pTask->ev_read) != 0)
+
+		pThreadData = g_thread_data + incomesock % g_max_threads;
+		if (ioevent_set(pTask, pThreadData, incomesock, IOEVENT_READ,
+			client_sock_read, g_fdht_network_timeout) != 0)
 		{
-			free_queue_push(pTask);
-			close(incomesock);
-
-			logError("file: "__FILE__", line: %d, " \
-				"event_base_set fail.", __LINE__);
-			continue;
-		}
-
-		event_set(&pTask->ev_write, incomesock, EV_WRITE, \
-				client_sock_write, pTask);
-		if ((result=event_base_set(pThreadData->ev_base, \
-				&pTask->ev_write)) != 0)
-		{
-			free_queue_push(pTask);
-			close(incomesock);
-
-			logError("file: "__FILE__", line: %d, " \
-					"event_base_set fail.", __LINE__);
-			continue;
-		}
-
-		if (event_add(&pTask->ev_read, &g_network_tv) != 0)
-		{
-			free_queue_push(pTask);
-			close(incomesock);
-
-			logError("file: "__FILE__", line: %d, " \
-				"event_add fail.", __LINE__);
+			task_finish_clean_up(pTask);
 			continue;
 		}
 	}
 }
 
-int send_add_event(struct task_info *pTask)
+static int set_send_event(struct fast_task_info *pTask)
+{
+	int result;
+
+	if (pTask->event.callback == client_sock_write)
+	{
+		return 0;
+	}
+
+	pTask->event.callback = client_sock_write;
+	if (ioevent_modify(&pTask->thread_data->ev_puller,
+		pTask->event.fd, IOEVENT_WRITE, pTask) != 0)
+	{
+		result = errno != 0 ? errno : ENOENT;
+		task_finish_clean_up(pTask);
+
+		logError("file: "__FILE__", line: %d, "\
+			"ioevent_modify fail, " \
+			"errno: %d, error info: %s", \
+			__LINE__, result, STRERROR(result));
+		return result;
+	}
+	return 0;
+}
+
+int send_add_event(struct fast_task_info *pTask)
 {
 	pTask->offset = 0;
 
 	/* direct send */
-	client_sock_write(pTask->ev_write.ev_fd, EV_WRITE, pTask);
-
-	/*
-	if ((result=event_add(&pTask->ev_write, &g_network_tv)) != 0)
-	{
-		close(pTask->ev_write.ev_fd);
-		free_queue_push(pTask);
-
-		logError("file: "__FILE__", line: %d, " \
-				"event_add fail.", __LINE__);
-		return result;
-	}
-	*/
-
+	client_sock_write(pTask->event.fd, IOEVENT_WRITE, pTask);
 	return 0;
 }
 
@@ -175,23 +169,19 @@ static void client_sock_read(int sock, short event, void *arg)
 {
 	int bytes;
 	int recv_bytes;
-	struct task_info *pTask;
+	struct fast_task_info *pTask;
 
-	pTask = (struct task_info *)arg;
+	pTask = (struct fast_task_info *)arg;
 
-	if (event == EV_TIMEOUT)
+	if (event & IOEVENT_TIMEOUT)
 	{
 		if (pTask->offset == 0 && \
 			((FDHTProtoHeader *)pTask->data)->keep_alive)
 		{
-			if (event_add(&pTask->ev_read, &g_network_tv) != 0)
-			{
-				close(pTask->ev_read.ev_fd);
-				free_queue_push(pTask);
-
-				logError("file: "__FILE__", line: %d, " \
-						"event_add fail.", __LINE__);
-			}
+			pTask->event.timer.expires = g_current_time +
+				g_fdht_network_timeout;
+			fast_timer_add(&pTask->thread_data->timer,
+				&pTask->event.timer);
 		}
 		else
 		{
@@ -201,15 +191,27 @@ static void client_sock_read(int sock, short event, void *arg)
 				__LINE__, pTask->client_ip, \
 				pTask->offset, pTask->length);
 
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
+			task_finish_clean_up(pTask);
 		}
 
 		return;
 	}
 
+	if (event & IOEVENT_ERROR)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, recv error event: %d, "
+			"close connection", __LINE__, pTask->client_ip, event);
+
+		task_finish_clean_up(pTask);
+		return;
+	}
+
 	while (1)
 	{
+		fast_timer_modify(&pTask->thread_data->timer,
+			&pTask->event.timer, g_current_time +
+			g_fdht_network_timeout);
 		if (pTask->length == 0) //recv header
 		{
 			recv_bytes = sizeof(FDHTProtoHeader) - pTask->offset;
@@ -235,8 +237,7 @@ static void client_sock_read(int sock, short event, void *arg)
 
 				pTask->data = pTemp;  //restore old data
 
-				close(pTask->ev_read.ev_fd);
-				free_queue_push(pTask);
+				task_finish_clean_up(pTask);
 				return;
 			}
 
@@ -248,14 +249,6 @@ static void client_sock_read(int sock, short event, void *arg)
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-				if(event_add(&pTask->ev_read, &g_network_tv)!=0)
-				{
-					close(pTask->ev_read.ev_fd);
-					free_queue_push(pTask);
-
-					logError("file: "__FILE__", line: %d, "\
-						"event_add fail.", __LINE__);
-				}
 			}
 			else
 			{
@@ -264,9 +257,7 @@ static void client_sock_read(int sock, short event, void *arg)
 					"errno: %d, error info: %s", \
 					__LINE__, pTask->client_ip, \
 					errno, STRERROR(errno));
-
-				close(pTask->ev_read.ev_fd);
-				free_queue_push(pTask);
+				task_finish_clean_up(pTask);
 			}
 
 			return;
@@ -277,9 +268,7 @@ static void client_sock_read(int sock, short event, void *arg)
 				"client ip: %s, recv failed, " \
 				"connection disconnected.", \
 				__LINE__, pTask->client_ip);
-
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
+			task_finish_clean_up(pTask);
 			return;
 		}
 
@@ -287,15 +276,6 @@ static void client_sock_read(int sock, short event, void *arg)
 		{
 			if (pTask->offset + bytes < sizeof(FDHTProtoHeader))
 			{
-				if (event_add(&pTask->ev_read, &g_network_tv)!=0)
-				{
-					close(pTask->ev_read.ev_fd);
-					free_queue_push(pTask);
-
-					logError("file: "__FILE__", line: %d, "\
-						"event_add fail.", __LINE__);
-				}
-
 				pTask->offset += bytes;
 				return;
 			}
@@ -308,9 +288,7 @@ static void client_sock_read(int sock, short event, void *arg)
 					"client ip: %s, pkg length: %d < 0", \
 					__LINE__, pTask->client_ip, \
 					pTask->length);
-
-				close(pTask->ev_read.ev_fd);
-				free_queue_push(pTask);
+				task_finish_clean_up(pTask);
 				return;
 			}
 
@@ -322,9 +300,7 @@ static void client_sock_read(int sock, short event, void *arg)
 					"max pkg size: %d", __LINE__, \
 					pTask->client_ip, pTask->length, \
 					g_max_pkg_size);
-
-				close(pTask->ev_read.ev_fd);
-				free_queue_push(pTask);
+				task_finish_clean_up(pTask);
 				return;
 			}
 		}
@@ -344,22 +320,33 @@ static void client_sock_write(int sock, short event, void *arg)
 {
 	int bytes;
 	int result;
-	struct task_info *pTask;
+	struct fast_task_info *pTask;
 
-	pTask = (struct task_info *)arg;
-	if (event == EV_TIMEOUT)
+	pTask = (struct fast_task_info *)arg;
+	if (event & IOEVENT_TIMEOUT)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"send timeout", __LINE__);
 
-		close(pTask->ev_write.ev_fd);
-		free_queue_push(pTask);
+		task_finish_clean_up(pTask);
+		return;
+	}
 
+	if (event & IOEVENT_ERROR)
+	{
+		logError("file: "__FILE__", line: %d, " \
+			"client ip: %s, recv error event: %d, "
+			"close connection", __LINE__, pTask->client_ip, event);
+
+		task_finish_clean_up(pTask);
 		return;
 	}
 
 	while (1)
 	{
+		fast_timer_modify(&pTask->thread_data->timer,
+			&pTask->event.timer, g_current_time +
+			g_fdht_network_timeout);
 		bytes = send(sock, pTask->data + pTask->offset, \
 				pTask->length - pTask->offset,  0);
 		//printf("%08X sended %d bytes\n", (int)pTask, bytes);
@@ -367,14 +354,7 @@ static void client_sock_write(int sock, short event, void *arg)
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-				if (event_add(&pTask->ev_write, &g_network_tv) != 0)
-				{
-					close(pTask->ev_write.ev_fd);
-					free_queue_push(pTask);
-
-					logError("file: "__FILE__", line: %d, " \
-						"event_add fail.", __LINE__);
-				}
+				set_send_event(pTask);
 			}
 			else
 			{
@@ -384,8 +364,7 @@ static void client_sock_write(int sock, short event, void *arg)
 					__LINE__, pTask->client_ip, \
 					errno, STRERROR(errno));
 
-				close(pTask->ev_write.ev_fd);
-				free_queue_push(pTask);
+				task_finish_clean_up(pTask);
 			}
 
 			return;
@@ -396,8 +375,7 @@ static void client_sock_write(int sock, short event, void *arg)
 				"send failed, connection disconnected.", \
 				__LINE__);
 
-			close(pTask->ev_write.ev_fd);
-			free_queue_push(pTask);
+			task_finish_clean_up(pTask);
 			return;
 		}
 
@@ -409,21 +387,23 @@ static void client_sock_write(int sock, short event, void *arg)
 				pTask->offset = 0;
 				pTask->length  = 0;
 
-				if ((result=event_add(&pTask->ev_read, \
-						&g_network_tv)) != 0)
+				pTask->event.callback = client_sock_read;
+				if (ioevent_modify(&pTask->thread_data->ev_puller,
+					pTask->event.fd, IOEVENT_READ, pTask) != 0)
 				{
-					close(pTask->ev_read.ev_fd);
-					free_queue_push(pTask);
+					result = errno != 0 ? errno : ENOENT;
+					task_finish_clean_up(pTask);
 
 					logError("file: "__FILE__", line: %d, "\
-						"event_add fail.", __LINE__);
+						"ioevent_modify fail, " \
+						"errno: %d, error info: %s", \
+						__LINE__, result, STRERROR(result));
 					return;
 				}
 			}
 			else
 			{
-				close(pTask->ev_write.ev_fd);
-				free_queue_push(pTask);
+				task_finish_clean_up(pTask);
 			}
 
 			return;

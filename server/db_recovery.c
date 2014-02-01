@@ -19,7 +19,7 @@
 #include "fdht_global.h"
 #include "global.h"
 #include "fdht_func.h"
-#include "task_queue.h"
+#include "fast_task_queue.h"
 #include "sync.h"
 #include "func.h"
 #include "db_recovery.h"

@@ -15,12 +15,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <event.h>
 #include <pthread.h>
 #include "fdht_define.h"
 #include "fdht_global.h"
 #include "fdht_types.h"
 #include "local_ip_func.h"
+#include "ioevent.h"
+#include "fast_timer.h"
+#include "fast_task_queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,12 +30,6 @@ extern "C" {
 
 #define FDHT_MAX_LOCAL_IP_ADDRS     4
 #define FDHT_IF_ALIAS_PREFIX_MAX_SIZE 32
-
-struct thread_data
-{
-	struct event_base *ev_base;
-	int pipe_fds[2];
-};
 
 extern volatile bool g_continue_flag;
 
@@ -84,7 +80,7 @@ extern int g_store_type;
 extern int g_mpool_init_capacity;
 extern double g_mpool_load_factor;
 extern int g_mpool_clear_min_interval;
-extern struct thread_data *g_thread_data;
+extern struct nio_thread_data *g_thread_data;
 
 extern int g_thread_stack_size;
 

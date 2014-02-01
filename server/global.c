@@ -64,6 +64,6 @@ int g_mpool_init_capacity = FDHT_DEFAULT_MPOOL_INIT_CAPACITY;
 double g_mpool_load_factor = FDHT_DEFAULT_MPOOL_LOAD_FACTOR;
 int g_mpool_clear_min_interval = FDHT_DEFAULT_MPOOL_CLEAR_MIN_INTEVAL;
 
-struct thread_data *g_thread_data = NULL;
+struct nio_thread_data *g_thread_data = NULL;
 int g_thread_stack_size = 1 * 1024 * 1024;
 
