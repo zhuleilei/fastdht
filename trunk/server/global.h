@@ -28,7 +28,6 @@
 extern "C" {
 #endif
 
-#define FDHT_MAX_LOCAL_IP_ADDRS     4
 #define FDHT_IF_ALIAS_PREFIX_MAX_SIZE 32
 
 extern volatile bool g_continue_flag;
