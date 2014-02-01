@@ -21,7 +21,7 @@
 #include "fdht_global.h"
 #include "global.h"
 #include "fdht_func.h"
-#include "task_queue.h"
+#include "fast_task_queue.h"
 #include "sync.h"
 #include "func.h"
 #include "store.h"
@@ -1250,8 +1250,8 @@ int fdht_write_to_stat_file()
 
 int fdht_terminate()
 {
-	struct thread_data *pThreadData;
-	struct thread_data *pDataEnd;
+	struct nio_thread_data *pThreadData;
+	struct nio_thread_data *pDataEnd;
 	int quit_sock;
 
 	g_continue_flag = false;

@@ -22,7 +22,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <event.h>
 #include "shared_func.h"
 #include "logger.h"
 #include "fdht_global.h"
@@ -30,7 +29,6 @@
 #include "ini_file_reader.h"
 #include "sockopt.h"
 #include "sched_thread.h"
-#include "task_queue.h"
 #include "fdht_io.h"
 #include "work_thread.h"
 #include "func.h"
@@ -188,14 +186,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if ((result=task_queue_init()) != 0)
-	{
-		g_continue_flag = false;
-		fdht_func_destroy();
-		log_destroy();
-		return result;
-	}
-
 	if ((result=work_thread_init()) != 0)
 	{
 		g_continue_flag = false;
@@ -218,8 +208,6 @@ int main(int argc, char *argv[])
 	fdht_accept_loop(sock);
 
 	work_thread_destroy();
-
-	task_queue_destroy();
 
 	close(sock);
 

@@ -14,9 +14,10 @@ SHARED_OBJS = ../common/hash.o  ../common/chain.o \
               ../common/http_func.o ../common/pthread_func.o \
               ../common/local_ip_func.o ../common/fdht_global.o \
               ../common/fdht_func.o ../common/fdht_proto.o \
-              global.o task_queue.o fdht_io.o \
-              db_op.o func.o work_thread.o sync.o db_recovery.o \
-              store.o mpool_op.o key_op.o
+              ../common/ioevent.o ../common/fast_timer.o  \
+              ../common/fast_task_queue.o ../common/ioevent_loop.o \
+              global.o fdht_io.o db_op.o func.o work_thread.o sync.o \
+              db_recovery.o store.o mpool_op.o key_op.o
 
 ALL_OBJS = $(SHARED_OBJS)
 

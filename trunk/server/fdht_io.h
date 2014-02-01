@@ -14,16 +14,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <event.h>
 #include "fdht_define.h"
-#include "task_queue.h"
+#include "fast_task_queue.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void recv_notify_read(int sock, short event, void *arg);
-int send_add_event(struct task_info *pTask);
+int send_add_event(struct fast_task_info *pTask);
+void task_finish_clean_up(struct fast_task_info *pTask);
 
 #ifdef __cplusplus
 }

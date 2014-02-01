@@ -14,9 +14,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <event.h>
 #include "fdht_define.h"
-#include "task_queue.h"
+#include "fast_task_queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,7 +24,7 @@ extern "C" {
 int work_thread_init();
 void fdht_accept_loop(int server_sock);
 void work_thread_destroy();
-int work_deal_task(struct task_info *pTask);
+int work_deal_task(struct fast_task_info *pTask);
 
 #ifdef __cplusplus
 }

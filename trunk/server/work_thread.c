@@ -21,7 +21,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <event.h>
 #include "fdht_define.h"
 #include "shared_func.h"
 #include "pthread_func.h"
@@ -33,13 +32,15 @@
 #include "global.h"
 #include "ini_file_reader.h"
 #include "sockopt.h"
-#include "task_queue.h"
+#include "fast_task_queue.h"
 #include "fdht_io.h"
 #include "func.h"
 #include "store.h"
 #include "key_op.h"
 #include "sync.h"
 #include "mpool_op.h"
+#include "ioevent_loop.h"
+#include "work_thread.h"
 
 #define SYNC_REQ_WAIT_SECONDS	60
 
@@ -50,23 +51,23 @@ static time_t first_sync_req_time = 0;
 static void *work_thread_entrance(void* arg);
 static void wait_for_work_threads_exit();
 
-static int deal_cmd_get(struct task_info *pTask);
-static int deal_cmd_set(struct task_info *pTask, byte op_type);
-static int deal_cmd_del(struct task_info *pTask, byte op_type);
-static int deal_cmd_inc(struct task_info *pTask);
-static int deal_cmd_sync_req(struct task_info *pTask);
-static int deal_cmd_sync_done(struct task_info *pTask);
-static int deal_cmd_batch_get(struct task_info *pTask);
-static int deal_cmd_batch_set(struct task_info *pTask);
-static int deal_cmd_batch_del(struct task_info *pTask);
-static int deal_cmd_stat(struct task_info *pTask);
-static int deal_cmd_get_sub_keys(struct task_info *pTask);
+static int deal_cmd_get(struct fast_task_info *pTask);
+static int deal_cmd_set(struct fast_task_info *pTask, byte op_type);
+static int deal_cmd_del(struct fast_task_info *pTask, byte op_type);
+static int deal_cmd_inc(struct fast_task_info *pTask);
+static int deal_cmd_sync_req(struct fast_task_info *pTask);
+static int deal_cmd_sync_done(struct fast_task_info *pTask);
+static int deal_cmd_batch_get(struct fast_task_info *pTask);
+static int deal_cmd_batch_set(struct fast_task_info *pTask);
+static int deal_cmd_batch_del(struct fast_task_info *pTask);
+static int deal_cmd_stat(struct fast_task_info *pTask);
+static int deal_cmd_get_sub_keys(struct fast_task_info *pTask);
 
 int work_thread_init()
 {
 	int result;
-	struct thread_data *pThreadData;
-	struct thread_data *pDataEnd;
+	struct nio_thread_data *pThreadData;
+	struct nio_thread_data *pDataEnd;
 	pthread_t tid;
 	pthread_attr_t thread_attr;
 
@@ -91,13 +92,19 @@ int work_thread_init()
 		return result;
 	}
 
-	g_thread_data = (struct thread_data *)malloc(sizeof( \
-				struct thread_data) * g_max_threads);
+	if ((result=free_queue_init(g_max_connections, g_min_buff_size,
+                g_max_pkg_size, 0)) != 0)
+	{
+		return result;
+	}
+
+	g_thread_data = (struct nio_thread_data *)malloc(sizeof( \
+				struct nio_thread_data) * g_max_threads);
 	if (g_thread_data == NULL)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"malloc %d bytes fail, errno: %d, error info: %s", \
-			__LINE__, (int)sizeof(struct thread_data) * \
+			__LINE__, (int)sizeof(struct nio_thread_data) * \
 			g_max_threads, errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOMEM;
 	}
@@ -106,12 +113,25 @@ int work_thread_init()
 	pDataEnd = g_thread_data + g_max_threads;
 	for (pThreadData=g_thread_data; pThreadData<pDataEnd; pThreadData++)
 	{
-		pThreadData->ev_base = event_base_new();
-		if (pThreadData->ev_base == NULL)
+		if (ioevent_init(&pThreadData->ev_puller,
+			g_max_connections + 2, 1000, 0) != 0)
 		{
-			result = errno != 0 ? errno : ENOMEM;
+			result  = errno != 0 ? errno : ENOMEM;
 			logError("file: "__FILE__", line: %d, " \
-				"event_base_new fail.", __LINE__);
+				"ioevent_init fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, result, STRERROR(result));
+			return result;
+		}
+
+		result = fast_timer_init(&pThreadData->timer,
+				2 * g_fdht_network_timeout, g_current_time);
+		if (result != 0)
+		{
+			logError("file: "__FILE__", line: %d, " \
+				"fast_timer_init fail, " \
+				"errno: %d, error info: %s", \
+				__LINE__, result, STRERROR(result));
 			return result;
 		}
 
@@ -180,7 +200,7 @@ static void *accept_thread_entrance(void* arg)
 	int incomesock;
 	struct sockaddr_in inaddr;
 	unsigned int sockaddr_len;
-	struct thread_data *pThreadData;
+	struct nio_thread_data *pThreadData;
 
 	server_sock = (long)arg;
 	while (g_continue_flag)
@@ -256,34 +276,12 @@ void fdht_accept_loop(int server_sock)
 static void *work_thread_entrance(void* arg)
 {
 	int result;
-	struct thread_data *pThreadData;
-	struct event ev_notify;
+	struct nio_thread_data *pThreadData;
 
-	pThreadData = (struct thread_data *)arg;
-	do
-	{
-		event_set(&ev_notify, pThreadData->pipe_fds[0], \
-			EV_READ | EV_PERSIST, recv_notify_read, NULL);
-		if ((result=event_base_set(pThreadData->ev_base, &ev_notify)) != 0)
-		{
-			logCrit("file: "__FILE__", line: %d, " \
-				"event_base_set fail.", __LINE__);
-			break;
-		}
-		if ((result=event_add(&ev_notify, NULL)) != 0)
-		{
-			logCrit("file: "__FILE__", line: %d, " \
-				"event_add fail.", __LINE__);
-			break;
-		}
-
-		while (g_continue_flag)
-		{
-			event_base_loop(pThreadData->ev_base, 0);
-		}
-	} while (0);
-
-	event_base_free(pThreadData->ev_base);
+	pThreadData = (struct nio_nio_thread_data *)arg;
+	ioevent_loop(pThreadData, recv_notify_read, task_finish_clean_up,
+		&g_continue_flag);
+	ioevent_destroy(&pThreadData->ev_puller);
 
 	if ((result=pthread_mutex_lock(&work_thread_mutex)) != 0)
 	{
@@ -320,7 +318,7 @@ static void wait_for_work_threads_exit()
 	}
 }
 
-int work_deal_task(struct task_info *pTask)
+int work_deal_task(struct fast_task_info *pTask)
 {
 	FDHTProtoHeader *pHeader;
 	int result;
@@ -354,8 +352,7 @@ int work_deal_task(struct task_info *pTask)
 			result = 0;
 			break;
 		case FDHT_PROTO_CMD_QUIT:
-			close(pTask->ev_read.ev_fd);
-			free_queue_push(pTask);
+			task_finish_clean_up(pTask);
 			return 0;
 		case FDHT_PROTO_CMD_BATCH_GET:
 			result = deal_cmd_batch_get(pTask);
@@ -545,7 +542,7 @@ int work_deal_task(struct task_info *pTask)
 *       value_len:  4 bytes big endian integer
 *       value:      value buff
 */
-static int deal_cmd_get(struct task_info *pTask)
+static int deal_cmd_get(struct fast_task_info *pTask)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -695,7 +692,7 @@ static int compare_sub_key(const void *p1, const void *p2)
 *       key*:      key_len bytes key name
 *       status*:     1 byte key status
 */
-static int deal_cmd_batch_set(struct task_info *pTask)
+static int deal_cmd_batch_set(struct fast_task_info *pTask)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -877,7 +874,7 @@ static int deal_cmd_batch_set(struct task_info *pTask)
 *       value_len*:  4 bytes big endian integer (when status == 0)
 *       value*:      value_len bytes value buff (when status == 0)
 */
-static int deal_cmd_batch_get(struct task_info *pTask)
+static int deal_cmd_batch_get(struct fast_task_info *pTask)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -1108,7 +1105,7 @@ static int deal_cmd_batch_get(struct task_info *pTask)
 * response body format:
 *       sub key list: FDHT_FULL_KEY_SEPERATOR split sub keys
 */
-static int deal_cmd_get_sub_keys(struct task_info *pTask)
+static int deal_cmd_get_sub_keys(struct fast_task_info *pTask)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -1175,7 +1172,7 @@ static int deal_cmd_get_sub_keys(struct task_info *pTask)
 *       key*:      key_len bytes key name
 *       status*:     1 byte key status
 */
-static int deal_cmd_batch_del(struct task_info *pTask)
+static int deal_cmd_batch_del(struct fast_task_info *pTask)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -1356,7 +1353,7 @@ static int deal_cmd_batch_del(struct task_info *pTask)
 *      sync_src_port:  4 bytes
 *      sync_until_timestamp: 4 bytes
 */
-static int deal_cmd_sync_req(struct task_info *pTask)
+static int deal_cmd_sync_req(struct fast_task_info *pTask)
 {
 	int result;
 	int nInBodyLen;
@@ -1552,7 +1549,7 @@ static int deal_cmd_sync_req(struct task_info *pTask)
 	return 0;
 }
 
-static int deal_cmd_sync_done(struct task_info *pTask)
+static int deal_cmd_sync_done(struct fast_task_info *pTask)
 {
 	int result;
 	int nInBodyLen;
@@ -1607,7 +1604,7 @@ static int deal_cmd_sync_done(struct task_info *pTask)
 * response body format:
 *      none
 */
-static int deal_cmd_set(struct task_info *pTask, byte op_type)
+static int deal_cmd_set(struct fast_task_info *pTask, byte op_type)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -1705,7 +1702,7 @@ static int deal_cmd_set(struct task_info *pTask, byte op_type)
 * response body format:
 *      none
 */
-static int deal_cmd_del(struct task_info *pTask, byte op_type)
+static int deal_cmd_del(struct fast_task_info *pTask, byte op_type)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -1784,7 +1781,7 @@ static int deal_cmd_del(struct task_info *pTask, byte op_type)
 *      value_len: 4 bytes big endian integer
 *      value :  value_len bytes
 */
-static int deal_cmd_inc(struct task_info *pTask)
+static int deal_cmd_inc(struct fast_task_info *pTask)
 {
 	int nInBodyLen;
 	FDHTKeyInfo key_info;
@@ -1887,7 +1884,7 @@ static int deal_cmd_inc(struct task_info *pTask)
 * response body format:
 *      key value pair: key=value, row seperate by new line (\n)
 */
-static int deal_cmd_stat(struct task_info *pTask)
+static int deal_cmd_stat(struct fast_task_info *pTask)
 {
 	int nInBodyLen;
 	time_t current_time;
