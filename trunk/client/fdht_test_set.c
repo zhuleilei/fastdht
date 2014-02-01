@@ -89,8 +89,7 @@ int main(int argc, char *argv[])
 		szValue[i] = (char)rand();
 	}
 
-	//g_keep_alive = true;
-	/*
+	g_keep_alive = true;
 	if (g_keep_alive)
 	{
 		if ((result=fdht_connect_all_servers(&g_group_array, true, \
@@ -102,7 +101,6 @@ int main(int argc, char *argv[])
 			return result;
 		}
 	}
-	*/
 
 	printf("g_keep_alive=%d\n", g_keep_alive);
 	success_count = 0;

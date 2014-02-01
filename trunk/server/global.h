@@ -79,6 +79,7 @@ extern int g_store_type;
 extern int g_mpool_init_capacity;
 extern double g_mpool_load_factor;
 extern int g_mpool_clear_min_interval;
+extern int g_mpool_htable_lock_count;
 extern struct nio_thread_data *g_thread_data;
 
 extern int g_thread_stack_size;
