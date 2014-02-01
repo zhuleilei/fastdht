@@ -379,7 +379,7 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 	char sz_sync_db_time_base[16];
 	char sz_clear_expired_time_base[16];
 	char sz_compress_binlog_time_base[16];
-	char szStoreParams[160];
+	char szStoreParams[256];
 
 	if ((result=iniLoadFromFile(filename, &iniContext)) != 0)
 	{
@@ -537,12 +537,23 @@ static int fdht_load_from_conf_file(const char *filename, char *bind_addr, \
 					FDHT_DEFAULT_MPOOL_CLEAR_MIN_INTEVAL;
 			}
 
+			g_mpool_htable_lock_count = iniGetIntValue(NULL,  \
+				"mpool_htable_lock_count", &iniContext, \
+				FDHT_DEFAULT_MPOOL_HTABLE_LOCK_COUNT);
+			if (g_mpool_htable_lock_count <= 0)
+			{
+				g_mpool_htable_lock_count = \
+					FDHT_DEFAULT_MPOOL_HTABLE_LOCK_COUNT;
+			}
+
 			snprintf(szStoreParams, sizeof(szStoreParams), \
 				"mpool_init_capacity=%d, " \
 				"mpool_load_factor=%.2f, " \
-				"mpool_clear_min_interval=%ds", \
+				"mpool_clear_min_interval=%ds, " \
+				"mpool_htable_lock_count: %d", \
 				g_mpool_init_capacity, g_mpool_load_factor, \
-				g_mpool_clear_min_interval);
+				g_mpool_clear_min_interval,
+				g_mpool_htable_lock_count);
 		}
 		else
 		{
