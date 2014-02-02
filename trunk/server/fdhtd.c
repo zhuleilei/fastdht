@@ -106,12 +106,6 @@ int main(int argc, char *argv[])
 	daemon_init(true);
 	umask(0);
 	
-	if ((result=write_to_pid_file(pidFilename)) != 0)
-	{
-		log_destroy();
-		return result;
-	}
-
 	if (dup2(g_log_context.log_fd, STDOUT_FILENO) < 0 || \
 		dup2(g_log_context.log_fd, STDERR_FILENO) < 0)
 	{
@@ -134,6 +128,12 @@ int main(int argc, char *argv[])
 	if ((result=tcpsetserveropt(sock, g_fdht_network_timeout)) != 0)
 	{
 		fdht_func_destroy();
+		log_destroy();
+		return result;
+	}
+
+	if ((result=write_to_pid_file(pidFilename)) != 0)
+	{
 		log_destroy();
 		return result;
 	}
