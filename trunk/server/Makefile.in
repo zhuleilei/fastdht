@@ -16,6 +16,7 @@ SHARED_OBJS = ../common/hash.o  ../common/chain.o \
               ../common/fdht_func.o ../common/fdht_proto.o \
               ../common/ioevent.o ../common/fast_timer.o  \
               ../common/fast_task_queue.o ../common/ioevent_loop.o \
+              ../common/process_ctrl.o \
               global.o fdht_io.o db_op.o func.o work_thread.o sync.o \
               db_recovery.o store.o mpool_op.o key_op.o
 

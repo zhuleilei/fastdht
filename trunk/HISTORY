@@ -1,7 +1,8 @@
 
-Version 2.00  2014-02-01
+Version 2.00  2014-02-02
  * discard libevent, use epoll in Linux, kqueue in FreeBSD, port in SunOS directly
  * mpool use hash table's multi locks
+ * fdhtd support start, stop and restart command
 
 Version 1.23  2013-03-20
  * bug fixed: mp_do_set unlock before call mp_clear_expired_keys
