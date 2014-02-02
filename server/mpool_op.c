@@ -42,8 +42,6 @@ int mp_init(StoreHandle **ppHandle, const u_int64_t nCacheSize)
 	}
 	hash_set_locks(g_hash_array, g_mpool_htable_lock_count);
 	have_htable_lock = g_hash_array->lock_count > 0;
-	logInfo("have_htable_lock: %d", have_htable_lock);
-
 	*ppHandle = g_hash_array;
 
 	if ((result=pthread_rwlock_init(&mpool_pthread_rwlock, NULL)) != 0)

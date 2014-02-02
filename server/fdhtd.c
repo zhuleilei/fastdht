@@ -23,6 +23,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include "shared_func.h"
+#include "process_ctrl.h"
 #include "logger.h"
 #include "fdht_global.h"
 #include "global.h"
@@ -45,25 +46,56 @@ static void sigHupHandler(int sig);
 static void sigUsrHandler(int sig);
 static void sigChildHandler(int sig);
 
+static void usage(const char *program)
+{
+	fprintf(stderr, "Usage: %s <config_file> [start | stop | restart]\n",
+		program);
+}
+
 int main(int argc, char *argv[])
 {
 	char *conf_filename;
 	char bind_addr[IP_ADDRESS_SIZE];
-	
 	int result;
 	int sock;
 	struct sigaction act;
-
+	char pidFilename[MAX_PATH_SIZE];
+	bool stop;
+ 
 	memset(bind_addr, 0, sizeof(bind_addr));
 	if (argc < 2)
 	{
-		fprintf(stderr, "Usage: %s <config_file>\n", argv[0]);
+		usage(argv[0]);
 		return 1;
 	}
 
 	g_current_time = time(NULL);
 	log_init();
 	conf_filename = argv[1];
+
+	if ((result=get_base_path_from_conf_file(conf_filename,
+		g_fdht_base_path, sizeof(g_fdht_base_path))) != 0)
+	{
+		log_destroy();
+		return result;
+	}
+	snprintf(pidFilename, sizeof(pidFilename),
+		"%s/data/fdhtd.pid", g_fdht_base_path);
+	if ((result=process_action(pidFilename, argv[2], &stop)) != 0)
+	{
+		if (result == EINVAL)
+		{
+			usage(argv[0]);
+		}
+		log_destroy();
+		return result;
+	}
+	if (stop)
+	{
+		log_destroy();
+		return 0;
+	}
+
 	if ((result=fdht_func_init(conf_filename, bind_addr, \
 		sizeof(bind_addr))) != 0)
 	{
@@ -74,6 +106,12 @@ int main(int argc, char *argv[])
 	daemon_init(true);
 	umask(0);
 	
+	if ((result=write_to_pid_file(pidFilename)) != 0)
+	{
+		log_destroy();
+		return result;
+	}
+
 	if (dup2(g_log_context.log_fd, STDOUT_FILENO) < 0 || \
 		dup2(g_log_context.log_fd, STDERR_FILENO) < 0)
 	{
@@ -227,6 +265,8 @@ int main(int argc, char *argv[])
 
 	logInfo("exit nomally.\n");
 	log_destroy();
+
+	delete_pid_file(pidFilename);
 	
 	return 0;
 }
